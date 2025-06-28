@@ -1,0 +1,1 @@
+<span class="h6 subtitle__icon__two d-block wow fadeInUp">@@title</span>

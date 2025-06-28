@@ -1,0 +1,113 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Enums\BookingStatus;
+use App\Enums\PaymentStatus;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+final class Booking extends Model
+{
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'chalet_id',
+        'user_id',
+        'booking_reference',
+        'start_date',
+        'end_date',
+        'extra_hours',
+        'adults_count',
+        'children_count',
+        'total_guests',
+        'base_slot_price',
+        'seasonal_adjustment',
+        'extra_hours_amount',
+        'platform_commission',
+        'total_amount',
+        'status',
+        'payment_status',
+        'special_requests',
+        'internal_notes',
+        'cancellation_reason',
+        'cancelled_at',
+        'auto_completed_at',
+    ];
+
+    /**
+     * Get the user that owns the booking.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the payment for the booking.
+     */
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
+    }
+
+    /**
+     * Get the review for the booking.
+     */
+    public function review()
+    {
+        return $this->hasOne(Review::class);
+    }
+
+    public function chalet(): BelongsTo
+    {
+        return $this->belongsTo(Chalet::class);
+    }
+
+    /**
+     * Get the chalet's owner.
+     */
+    public function chaletOwner()
+    {
+        return $this->hasOneThrough(
+            User::class,
+            Chalet::class,
+            'id', // Local key on the chalets table.
+            'id', // Local key on the users table.
+            'chalet_id', // Foreign key on the bookings table.
+            'owner_id'  // Foreign key on the chalets table.
+        );
+    }
+
+    public function timeSlots()
+    {
+        return $this->belongsToMany(ChaletTimeSlot::class, 'booking_time_slot');
+    }
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'start_date' => 'datetime',
+            'end_date' => 'datetime',
+            'base_slot_price' => 'decimal:2',
+            'seasonal_adjustment' => 'decimal:2',
+            'extra_hours_amount' => 'decimal:2',
+            'platform_commission' => 'decimal:2',
+            'total_amount' => 'decimal:2',
+            'cancelled_at' => 'timestamp',
+            'auto_completed_at' => 'timestamp',
+            'status' => BookingStatus::class,
+            'payment_status' => PaymentStatus::class,
+        ];
+    }
+}
