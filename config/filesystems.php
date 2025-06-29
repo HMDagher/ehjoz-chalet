@@ -32,6 +32,15 @@ return [
 
     'disks' => [
 
+        'assets' => [ 
+            'driver' => 'local',
+            'root' => public_path('images'),
+            'url' => env('APP_URL').'/images',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
