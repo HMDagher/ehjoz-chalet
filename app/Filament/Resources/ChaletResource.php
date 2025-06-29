@@ -104,9 +104,7 @@ final class ChaletResource extends Resource
                     Forms\Components\Tabs\Tab::make('Media')
                         ->schema([
                             SpatieMediaLibraryFileUpload::make('media')
-                                ->multiple()
-                                ->reorderable()
-                                ->panelLayout('grid'),
+                                ->multiple(),
                         ]),
                 ])->columnSpanFull(),
         ]);
