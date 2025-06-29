@@ -13,6 +13,7 @@
         "joaopaulolndev/filament-general-settings": "^1.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "league/flysystem-aws-s3-v3": "^3.0",
         "mokhosh/filament-rating": "^1.4",
         "spatie/laravel-permission": "^6.20",
         "ysfkaya/filament-phone-input": "^3.1",
