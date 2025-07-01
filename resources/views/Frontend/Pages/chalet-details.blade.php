@@ -4,10 +4,9 @@
 @section('content')
     @include('Frontend.Header.header')
     
-    @php 
-        $media = $chalet->getMedia();
-        $headerImage = $media->first();
-        $galleryImages = $media->slice(1);
+        @php 
+        $headerImage = $chalet->getFirstMedia('featured_image');
+        $galleryImages = $chalet->getMedia('default');
         $title = $chalet->name;
         $desc = $chalet->description;
     @endphp
