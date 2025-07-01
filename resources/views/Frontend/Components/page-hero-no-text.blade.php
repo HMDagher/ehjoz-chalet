@@ -1,5 +1,5 @@
     <!-- page header -->
-    <div class="rts__section page__hero__height page__hero__bg no__shadow" style="background-image: url({{asset('assets/images/pages/header__bg.webp')}});">
+    <div class="rts__section page__hero__height page__hero__bg no__shadow" style="background-image: url({{ $headerImage ?? asset('assets/images/pages/header__bg.webp') }});">
         <div class="container">
             <div class="row align-items-center justify-content-center">
                 <div class="col-lg-12">
