@@ -25,8 +25,7 @@ class ChaletPanelProvider extends PanelProvider
         return $panel
             ->id('chalet')
             ->path('chalet')
-            ->login()
-            ->emailVerification()
+            // ->emailVerification()
             ->profile(isSimple: false)
             ->unsavedChangesAlerts()
             ->databaseTransactions()

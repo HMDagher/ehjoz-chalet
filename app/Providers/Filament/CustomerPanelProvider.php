@@ -25,8 +25,7 @@ class CustomerPanelProvider extends PanelProvider
         return $panel
             ->id('customer')
             ->path('customer')
-            ->login()
-            ->emailVerification()
+            // ->emailVerification()
             ->profile(isSimple: false)
             ->unsavedChangesAlerts()
             ->databaseTransactions()

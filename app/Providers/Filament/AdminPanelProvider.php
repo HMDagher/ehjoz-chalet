@@ -29,7 +29,6 @@ final class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
             ->profile(isSimple: false)
             ->unsavedChangesAlerts()
             ->databaseTransactions()
