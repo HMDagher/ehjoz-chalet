@@ -67,7 +67,7 @@ final class ChaletSeeder extends Seeder
                 'allows_extra_hours' => true,
                 'extra_hour_price' => 50,
                 'max_extra_hours' => 2,
-                'available_days' => [1,2,3,4,5,6,7],
+                'available_days' => ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'],
                 'is_active' => true,
             ],
             [
@@ -81,7 +81,7 @@ final class ChaletSeeder extends Seeder
                 'allows_extra_hours' => true,
                 'extra_hour_price' => 60,
                 'max_extra_hours' => 2,
-                'available_days' => [5,6,7],
+                'available_days' => ['friday','saturday','sunday'],
                 'is_active' => true,
             ],
             [
@@ -95,7 +95,7 @@ final class ChaletSeeder extends Seeder
                 'allows_extra_hours' => false,
                 'extra_hour_price' => null,
                 'max_extra_hours' => null,
-                'available_days' => [1,2,3,4,5,6,7],
+                'available_days' => ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'],
                 'is_active' => true,
             ],
         ];

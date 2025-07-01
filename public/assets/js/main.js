@@ -8,11 +8,12 @@
 06. backToTopInit()
 07. cookiePopup()
 08. datePicker()
-09. magnificPopup()
-10. mobileMenu()
-11. desktopMenu()
-12. stickySidebar()
-13. Preloader()
+09. bookingTypeHandler()
+10. magnificPopup()
+11. mobileMenu()
+12. desktopMenu()
+13. stickySidebar()
+14. Preloader()
 
 
 ==================================================*/
@@ -39,6 +40,7 @@
         rtsJs.backToTopInit();
         rtsJs.cookiePopup();
         rtsJs.datePicker();
+        rtsJs.bookingTypeHandler();
         rtsJs.magnificPopup();
         rtsJs.mobileMenu();
         rtsJs.desktopMenu();
@@ -458,6 +460,31 @@
           });
       });
       },
+      
+      bookingTypeHandler: function (e) {
+        $(function() {
+          // Function to toggle checkout field visibility based on booking type
+          function toggleCheckoutField() {
+            var bookingType = $("#booking_type").val();
+            if (bookingType === "day-use") {
+              $(".checkout-field").hide();
+              $("#check__out").prop("required", false);
+            } else {
+              $(".checkout-field").show();
+              $("#check__out").prop("required", true);
+            }
+          }
+          
+          // Initial call to set correct state on page load
+          toggleCheckoutField();
+          
+          // Event listener for booking type change
+          $("#booking_type").on("change", function() {
+            toggleCheckoutField();
+          });
+        });
+      },
+      
       magnificPopup: function (e) {
         $('.gallery').each(function() { 
           $(this).magnificPopup({

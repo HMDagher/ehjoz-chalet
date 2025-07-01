@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\ChaletAvailabilityService;
 use App\Services\ChaletSearchService;
 use Carbon\Carbon;
+use App\Services\ChaletAvailabilityChecker;
 
 class pageController extends baseController
 {
@@ -25,26 +26,82 @@ class pageController extends baseController
                 $query->whereNull('featured_until')
                       ->orWhere('featured_until', '>=', now());
             })
+            ->with('timeSlots')
             ->get();
 
-        $today = Carbon::create(2025, 6, 25);
-        $featuredChaletsWithSlots = $featuredChalets->map(function ($chalet) use ($today) {
-            $availability = new ChaletAvailabilityService($chalet);
-            $slots = $chalet->timeSlots()->where('is_active', true)->get()->map(function ($slot) use ($availability, $today) {
-                return [
-                    'id' => $slot->id,
-                    'name' => $slot->name,
-                    'start_time' => $slot->start_time,
-                    'end_time' => $slot->end_time,
-                    'duration_hours' => $slot->duration_hours,
-                    'price' => $availability->getPrice($today->format('Y-m-d'), $slot->id),
+        // Debug: Log featured chalets and their slots
+        \Log::info('Featured chalets raw', [
+            'count' => $featuredChalets->count(),
+            'ids' => $featuredChalets->pluck('id')->toArray(),
+            'slots_count' => $featuredChalets->mapWithKeys(fn($c) => [$c->id => $c->timeSlots->count()])->toArray(),
+        ]);
+
+        $today = Carbon::today()->format('Y-m-d');
+        $featuredChaletsWithSlots = [];
+
+        foreach ($featuredChalets as $chalet) {
+            $availabilityChecker = new ChaletAvailabilityChecker($chalet);
+            
+            // Get both day-use and overnight slots
+            $dayUseSlots = $chalet->timeSlots
+                ->where('is_active', true)
+                ->where('is_overnight', false)
+                ->filter(function($slot) use ($availabilityChecker, $today) {
+                    return $availabilityChecker->isDayUseSlotAvailable($today, $slot->id);
+                })
+                ->map(function ($slot) use ($availabilityChecker, $today) {
+                    return [
+                        'id' => $slot->id,
+                        'name' => $slot->name,
+                        'start_time' => $slot->start_time,
+                        'end_time' => $slot->end_time,
+                        'duration_hours' => $slot->duration_hours,
+                        'price' => $availabilityChecker->calculateDayUsePrice($today, $slot->id),
+                    ];
+                })->values()->toArray();
+                
+            $tomorrow = Carbon::tomorrow()->format('Y-m-d');
+            $overnightSlots = $chalet->timeSlots
+                ->where('is_active', true)
+                ->where('is_overnight', true)
+                ->filter(function($slot) use ($availabilityChecker, $today, $tomorrow) {
+                    return $availabilityChecker->isOvernightSlotAvailable($today, $tomorrow, $slot->id);
+                })
+                ->map(function ($slot) use ($availabilityChecker, $today, $tomorrow) {
+                    $priceData = $availabilityChecker->calculateOvernightPrice($today, $tomorrow, $slot->id);
+                    return [
+                        'id' => $slot->id,
+                        'name' => $slot->name,
+                        'start_time' => $slot->start_time,
+                        'end_time' => $slot->end_time,
+                        'duration_hours' => $slot->duration_hours,
+                        'price' => $priceData['price_per_night'],
+                    ];
+                })->values()->toArray();
+                
+            $allSlots = array_merge($dayUseSlots, $overnightSlots);
+            
+            // Debug: Log available slots for each featured chalet
+            \Log::info('Featured chalet available slots', [
+                'chalet_id' => $chalet->id,
+                'day_use_slots' => $dayUseSlots,
+                'overnight_slots' => $overnightSlots,
+                'all_slots_count' => count($allSlots),
+            ]);
+            
+            if (!empty($allSlots)) {
+                $featuredChaletsWithSlots[] = [
+                    'chalet' => $chalet,
+                    'slots' => $allSlots,
                 ];
-            });
-            return [
-                'chalet' => $chalet,
-                'slots' => $slots,
-            ];
-        });
+            }
+        }
+
+        // Debug: Log after filtering for available slots
+        \Log::info('Featured chalets with available slots', [
+            'count' => count($featuredChaletsWithSlots),
+            'ids' => array_map(fn($c) => $c['chalet']->id, $featuredChaletsWithSlots),
+        ]);
 
         return $this->view('index', [
             'chaletCount'    => $chaletCount,
@@ -54,61 +111,121 @@ class pageController extends baseController
         ]);
     }
     // room three page
-    public function chalets(Request $request, ChaletSearchService $chaletSearchService)
+    public function chalets(Request $request)
     {
         $results = [];
         $is_search = false;
 
+        // Get search parameters
         $checkin = $request->input('check__in');
         $checkout = $request->input('check__out');
+        $bookingType = $request->input('booking_type', 'overnight');
 
-        if ($request->filled('check__in') && $request->filled('check__out')) {
+        // Convert date format from d-m-Y to Y-m-d if present
+        if ($checkin) {
+            try {
+                $checkin = \Carbon\Carbon::createFromFormat('d-m-Y', $checkin)->format('Y-m-d');
+            } catch (\Exception $e) {
+                \Log::error('Invalid checkin date format', ['input' => $checkin]);
+            }
+        }
+        if ($checkout) {
+            try {
+                $checkout = \Carbon\Carbon::createFromFormat('d-m-Y', $checkout)->format('Y-m-d');
+            } catch (\Exception $e) {
+                \Log::error('Invalid checkout date format', ['input' => $checkout]);
+            }
+        }
+
+        $chaletSearchService = new ChaletSearchService();
+
+        if ($request->filled('check__in')) {
             $is_search = true;
             try {
-                $startDate = Carbon::parse($checkin)->format('Y-m-d');
-                $endDate = Carbon::parse($checkout)->format('Y-m-d');
-
-                if (Carbon::parse($startDate)->gt(Carbon::parse($endDate))) {
-                    return redirect()->back()->with('error', 'Check-out date must be after check-in date.');
-                }
-
-                $searchResults = $chaletSearchService->search($startDate, $endDate);
-
-                if (!empty($searchResults)) {
-                    $chaletIds = collect($searchResults)->pluck('chalet.id');
-                    $chalets = \App\Models\Chalet::with('media')->findMany($chaletIds)->keyBy('id');
-
-                    $results = array_map(function($result) use ($chalets) {
-                        if (isset($result['chalet']['id']) && isset($chalets[$result['chalet']['id']])) {
-                            $result['chalet'] = $chalets[$result['chalet']['id']];
+                // Debug information
+                \Log::info('Search parameters', [
+                    'checkin' => $checkin,
+                    'checkout' => $checkout,
+                    'bookingType' => $bookingType
+                ]);
+                
+                // If it's a day-use booking, end date is not needed
+                if ($bookingType === 'day-use') {
+                    $results = $chaletSearchService->searchChalets(
+                        $checkin,
+                        null,
+                        'day-use'
+                    );
+                } else {
+                    // For overnight bookings, ensure checkout date is valid
+                    if ($request->filled('check__out')) {
+                        $startDate = Carbon::parse($checkin);
+                        $endDate = Carbon::parse($checkout);
+                        
+                        if ($startDate->gt($endDate)) {
+                            return redirect()->back()->with('error', 'Check-out date must be after check-in date.');
                         }
-                        return $result;
-                    }, $searchResults);
+                        
+                        $results = $chaletSearchService->searchChalets(
+                            $checkin,
+                            $checkout,
+                            'overnight'
+                        );
+                    } else {
+                        // No checkout date provided, use default (next day)
+                        $results = $chaletSearchService->searchChalets(
+                            $checkin,
+                            null,
+                            'overnight'
+                        );
+                    }
                 }
+                
+                // Debug: Log raw search results
+                \Log::info('Raw search results', [
+                    'count' => count($results),
+                    'ids' => array_map(fn($r) => $r['chalet']['id'] ?? null, $results),
+                ]);
+
+                // For search results, we need to get the full chalet models with media
+                if (!empty($results)) {
+                    $chaletIds = collect($results)->pluck('chalet.id');
+                    $chalets = \App\Models\Chalet::with('media')->findMany($chaletIds)->keyBy('id');
+                    
+                    foreach ($results as &$result) {
+                        if (isset($result['chalet']['id']) && isset($chalets[$result['chalet']['id']])) {
+                            // Keep the slots and price data while replacing the chalet model
+                            $slots = $result['slots'] ?? [];
+                            $minPrice = $result['min_price'] ?? 0;
+                            $minTotalPrice = $result['min_total_price'] ?? 0;
+                            $nights = $result['nights'] ?? 1;
+                            $bookingType = $result['booking_type'] ?? 'overnight';
+                            
+                            $result['chalet'] = $chalets[$result['chalet']['id']];
+                            $result['slots'] = $slots;
+                            $result['min_price'] = $minPrice;
+                            $result['min_total_price'] = $minTotalPrice;
+                            $result['nights'] = $nights;
+                            $result['booking_type'] = $bookingType;
+                        }
+                    }
+                }
+
+                // Debug: Log filtered search results
+                \Log::info('Filtered search results', [
+                    'count' => count($results),
+                    'ids' => array_map(fn($r) => $r['chalet'] instanceof \App\Models\Chalet ? $r['chalet']->id : null, $results),
+                ]);
 
             } catch (\Exception $e) {
-                
-                return redirect()->back()->with('error', 'Invalid date format provided. Please use a valid date.');
+                // Log the error for debugging
+                \Log::error('Search error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+                return redirect()->back()->with('error', 'Error in search: ' . $e->getMessage());
             }
         } else {
-            $allChalets = \App\Models\Chalet::where('status', \App\Enums\ChaletStatus::Active)->with(['media', 'timeSlots'])->latest()->get();
-            $today = Carbon::today();
-            $results = $allChalets->map(function ($chalet) use ($today) {
-                $availability = new ChaletAvailabilityService($chalet);
-                $slots = $chalet->timeSlots->where('is_active', true)->map(function ($slot) use ($availability, $today) {
-                    return [
-                        'name' => $slot->name,
-                        'start_time' => $slot->start_time,
-                        'end_time' => $slot->end_time,
-                        'duration_hours' => $slot->duration_hours,
-                        'price' => $availability->getPrice($today->format('Y-m-d'), $slot->id),
-                    ];
-                });
-                return [
-                    'chalet' => $chalet,
-                    'slots' => $slots,
-                ];
-            });
+            // No search parameters - show all chalets with available slots
+            $results = $chaletSearchService->getAllChalets();
+            \Log::info('All chalets count', ['count' => count($results)]);
         }
 
         return $this->view('chalets', [
@@ -116,6 +233,7 @@ class pageController extends baseController
             'is_search' => $is_search,
             'checkin' => $request->input('check__in'),
             'checkout' => $request->input('check__out'),
+            'bookingType' => $bookingType,
         ]);
     }
 

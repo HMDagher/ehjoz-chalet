@@ -7,8 +7,9 @@
     @php 
         $title = "Deluxe Room";
         $desc = "A step up from the standard room, often with better views, more space, and additional amenities.";
+        $bookingType = $bookingType ?? request('booking_type', 'overnight');
     @endphp
-    @include('Frontend.Components.page-hero-with-search',compact('title','desc','checkin','checkout'))
+    @include('Frontend.Components.page-hero-with-search',compact('title','desc','checkin','checkout','bookingType'))
 
     <!-- single rooms -->
     <div class="rts__section section__padding">
@@ -26,21 +27,33 @@
                         $desc = \Illuminate\Support\Str::limit(strip_tags($chaletModel->description), 150);
                         $chalet_slug = $chaletModel->slug;
                         $slots = $result['slots'] ?? [];
-
-                        $price = 'Starting from $';
-                        if (isset($result['min_price'])) {
-                            $price = 'Starting from $' . number_format($result['min_price']);
-                        } elseif (isset($result['min_total_price'])) {
-                            $price = 'Total $' . number_format($result['min_total_price']);
+                        
+                        // Pass price values to the component
+                        $min_price = $result['min_price'] ?? null;
+                        $min_total_price = $result['min_total_price'] ?? null;
+                        
+                        // Format display price - this is just for display in the header of the card
+                        $price_display = '';
+                        if (isset($result['booking_type']) && $result['booking_type'] === 'overnight' && isset($min_price)) {
+                            $price_display = 'From $' . number_format($min_price) . ' / night';
+                        } elseif (isset($result['booking_type']) && $result['booking_type'] === 'day-use' && isset($min_price)) {
+                            $price_display = 'From $' . number_format($min_price);
+                        } elseif (isset($min_price)) {
+                            $price_display = 'From $' . number_format($min_price);
+                        } elseif (isset($min_total_price)) {
+                            $price_display = 'Total $' . number_format($min_total_price);
                         } elseif ($chaletModel->base_price) {
-                            $price = 'Starts from $' . number_format($chaletModel->base_price);
+                            $price_display = 'From $' . number_format($chaletModel->base_price);
+                        } else {
+                            $price_display = 'Price on request';
                         }
-
                     @endphp
                     <div class="col-lg-6">
                         @include('Frontend.Components.room-card-three', [
                             'thumb' => $thumb,
-                            'price' => $price,
+                            'price' => $price_display,
+                            'min_price' => $min_price,
+                            'min_total_price' => $min_total_price,
                             'title' => $title,
                             'desc' => $desc,
                             'chalet_slug' => $chalet_slug,

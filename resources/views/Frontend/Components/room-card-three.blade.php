@@ -6,7 +6,17 @@
             </a>
         </div>
         <div class="room__price__tag">
-            <span class="h6 d-block">{{$price ?? ''}}</span>
+            <span class="h6 d-block">
+                @if(isset($price))
+                    {{$price}}
+                @elseif(isset($min_price))
+                    Starting from ${{ number_format($min_price) }}
+                @elseif(isset($min_total_price))
+                    Total ${{ number_format($min_total_price) }}
+                @else
+                    Price on request
+                @endif
+            </span>
         </div>
     </div>
     <div class="room__card__meta">
@@ -26,14 +36,26 @@
             @foreach($slots as $slot)
                 <li class="py-2 px-3 rounded bg-light d-flex align-items-center border mb-2">
                     <div class="text-dark">
-                        <p class="mb-0 fw-bold small">{{ $slot['name'] }} 
+                        <p class="mb-0 fw-bold small">{{ $slot['name'] ?? 'Time Slot' }} 
                             @if(isset($slot['start_time']))
                             <span class="small">({{ \Carbon\Carbon::parse($slot['start_time'])->format('g:i A') }} - {{ \Carbon\Carbon::parse($slot['end_time'])->format('g:i A') }}, {{ $slot['duration_hours'] }} hrs)</span>
+                            @endif
+                            
+                            @if(isset($slot['nights']))
+                            <span class="small">({{ $slot['nights'] }} {{ Str::plural('night', $slot['nights']) }})</span>
                             @endif
                         </p>
                     </div>
                     <span class="ms-auto small mb-0 text-dark fw-bold">
-                        {{ number_format($slot['price']) }}$
+                        @if(isset($slot['price']))
+                            {{ number_format($slot['price']) }}$
+                        @elseif(isset($slot['price_per_night']))
+                            {{ number_format($slot['price_per_night']) }}$ / night
+                        @elseif(isset($slot['total_price']))
+                            {{ number_format($slot['total_price']) }}$ total
+                        @else
+                            Price not available
+                        @endif
                     </span>
                 </li>
             @endforeach
