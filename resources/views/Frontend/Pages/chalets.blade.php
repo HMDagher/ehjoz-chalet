@@ -23,7 +23,7 @@
 
                         $thumb = $chaletModel->getFirstMediaUrl('default') ?: asset('assets/images/room/4.webp');
                         $title = $chaletModel->name;
-                        $desc = $chaletModel->description;
+                        $desc = \Illuminate\Support\Str::limit(strip_tags($chaletModel->description), 150);
                         $chalet_slug = $chaletModel->slug;
                         $slots = $result['slots'] ?? [];
 
