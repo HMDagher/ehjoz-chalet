@@ -5,7 +5,7 @@
     @include('Frontend.Header.header')
     
         @php 
-        $headerImage = $chalet->getFirstMedia('featured_image');
+        $headerImage = $chalet->getFirstMediaUrl('featured_image');
         $galleryImages = $chalet->getMedia('default');
         $title = $chalet->name;
         $desc = $chalet->description;
@@ -13,7 +13,7 @@
     @include('Frontend.Components.page-hero-no-text', [
         'title' => $title,
         'desc' => $desc,
-        'headerImage' => $headerImage ? $headerImage->getUrl() : null
+        'headerImage' => $headerImage ? $headerImage : null
     ])
 
     <!-- room details area -->
