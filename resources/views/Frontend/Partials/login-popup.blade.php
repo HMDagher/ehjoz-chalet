@@ -32,7 +32,7 @@
                             Remember me
                         </label>
                     </div>
-                    <a href="#" class="forgot__password text-para" data-bs-toggle="modal" data-bs-target="#forgotModal" >Forgot Password?</a>
+                    <!-- <a href="#" class="forgot__password text-para" data-bs-toggle="modal" data-bs-target="#forgotModal" >Forgot Password?</a> -->
                 </div>
                 <div class="form-group my-3">
                     <button class="theme-btn btn-style sm-btn fill w-100"><span>Login</span></button>
@@ -118,7 +118,7 @@
                 <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close">
                 </button>
             </div>
-            <form action="{{ route('password.email') }}" method="POST" class="d-flex flex-column gap-3">
+            <form action="{{ route('index') }}" method="POST" class="d-flex flex-column gap-3">
                 @csrf
                 <div class="form-group">
                     <label for="fmail" class=" text-dark mb-3">Your Email</label>
