@@ -12,6 +12,6 @@
 <meta name="twitter:title" content="{{ optional($settings)->seo_title ?? 'Hotel and Resort' }}">
 <meta name="twitter:description" content="{{ optional($settings)->site_description ?? 'Moonlit - Hotel and Resort HTML Template' }}">
 <!-- favicon -->
-<link rel="icon" href="{{ asset(optional($settings)->site_favicon ?? 'assets/images/logo/favicon.png') }}" type="image/x-icon">
+<link rel="icon" href="{{ asset(optional($settings)->site_favicon ?? 'assets/images/logo/favicon.ico') }}" type="image/x-icon">
 <!-- title -->
 <title>{{ optional($settings)->site_name ?? 'Moonlit' }} - @yield('page_title')</title>

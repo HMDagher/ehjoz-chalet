@@ -97,16 +97,14 @@
                             <span class="h4 d-block mb-30">Facilities</span>
                             <div class="room__feature mb-30">
                                 <div class="group__row">
-                                    <ul class="list__item">
                                         @foreach($chalet->facilities as $facility)
-                                            <li class="single__item">
+                                            <div class="single__item">
                                                 @if($facility->hasMedia())
                                                     <img src="{{ $facility->getFirstMediaUrl() }}" alt="{{ $facility->name }}" style="width: 24px; height: 24px; margin-right: 8px; vertical-align: middle;">
                                                 @endif
                                                 <span>{{ $facility->name }}</span>
-                                            </li>
+                                            </div>
                                         @endforeach
-                                    </ul>
                                 </div>
                             </div>
                         @endif
