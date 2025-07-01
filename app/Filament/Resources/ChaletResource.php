@@ -18,6 +18,7 @@ use Ysfkaya\FilamentPhoneInput\Forms\PhoneInput;
 use Ysfkaya\FilamentPhoneInput\PhoneInputNumberType;
 use Ysfkaya\FilamentPhoneInput\Tables\PhoneColumn;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 
 final class ChaletResource extends Resource
 {
@@ -103,6 +104,10 @@ final class ChaletResource extends Resource
 
                     Forms\Components\Tabs\Tab::make('Media')
                         ->schema([
+                            SpatieMediaLibraryFileUpload::make('featured_image')
+                                ->image()
+                                ->collection('featured_image')
+                                ->required(),
                             SpatieMediaLibraryFileUpload::make('media')
                                 ->multiple()
                                 ->reorderable(),
@@ -115,6 +120,8 @@ final class ChaletResource extends Resource
     {
         return $table
             ->columns([
+                SpatieMediaLibraryImageColumn::make('image')
+                    ->collection('featured_image'),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
