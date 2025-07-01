@@ -68,10 +68,12 @@
 
                         @if($galleryImages->isNotEmpty())
                             <span class="h4 d-block mb-30">Gallery</span>
-                            <div class="room__image__group row row-cols-md-2 row-cols-sm-1 mt-30 mb-50 gap-4 gap-md-0">
+                            <div class="room__image__group gallery row row-cols-md-2 row-cols-sm-1 mt-30 mb-50 gap-4 gap-md-0">
                                 @foreach($galleryImages as $media)
                                     <div class="room__image__item">
-                                        <img class="rounded-2" src="{{ $media->getUrl() }}" alt="{{ $chalet->name }}">
+                                        <a href="{{ $media->getUrl() }}" title="{{ $chalet->name }}">
+                                            <img class="rounded-2" src="{{ $media->getUrl() }}" alt="{{ $chalet->name }}">
+                                        </a>
                                     </div>
                                 @endforeach
                             </div>
@@ -82,7 +84,7 @@
                             <div class="room__amenity mb-50">
                                 <div class="group__row">
                                     @foreach($chalet->amenities as $amenity)
-                                        <div class="single__item">
+                                        <div class="single__item" style="padding: 5px 0;">
                                             @if($amenity->hasMedia())
                                                 <img src="{{ $amenity->getFirstMediaUrl() }}" alt="{{ $amenity->name }}" style="width: 24px; height: 24px; margin-right: 8px; vertical-align: middle;">
                                             @endif
@@ -95,16 +97,16 @@
 
                         @if($chalet->facilities->isNotEmpty())
                             <span class="h4 d-block mb-30">Facilities</span>
-                            <div class="room__feature mb-30">
+                            <div class="room__amenity mb-30">
                                 <div class="group__row">
-                                        @foreach($chalet->facilities as $facility)
-                                            <div class="single__item">
-                                                @if($facility->hasMedia())
-                                                    <img src="{{ $facility->getFirstMediaUrl() }}" alt="{{ $facility->name }}" style="width: 24px; height: 24px; margin-right: 8px; vertical-align: middle;">
-                                                @endif
-                                                <span>{{ $facility->name }}</span>
-                                            </div>
-                                        @endforeach
+                                    @foreach($chalet->facilities as $facility)
+                                        <div class="single__item" style="padding: 5px 0;">
+                                            @if($facility->hasMedia())
+                                                <img src="{{ $facility->getFirstMediaUrl() }}" alt="{{ $facility->name }}" style="width: 24px; height: 24px; margin-right: 8px; vertical-align: middle;">
+                                            @endif
+                                            <span>{{ $facility->name }}</span>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
                         @endif
