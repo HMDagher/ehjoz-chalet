@@ -23,73 +23,98 @@
             <div class="row g-5 sticky-wrap">
                 <div class="col-xxl-8 col-xl-7">
                     <div class="room__details">
-                        <span class="h4 price">{{ $chalet->timeSlots->first()?->price ?? 'N/A' }}$</span>
                         <h2 class="room__title">{{ $chalet->name }}</h2>
                         <div class="room__meta">
                             <span><i class="flaticon-construction"></i>{{ $chalet->bedrooms_count ?? '-' }} Bedrooms, {{ $chalet->bathrooms_count ?? '-' }} Bathrooms</span>
                             <span><i class="flaticon-user"></i>{{ $chalet->max_adults + $chalet->max_children }} Person</span>
                         </div>
-                        <div class="mb-2"><strong>Address:</strong> {{ $chalet->address }}, {{ $chalet->city }}</div>
-                        <div class="mb-2"><strong>Owner:</strong> {{ $chalet->owner?->name ?? '-' }}</div>
-                        <div class="mb-2"><strong>Check-in Instructions:</strong> {{ $chalet->check_in_instructions }}</div>
-                        <div class="mb-2"><strong>House Rules:</strong> {{ $chalet->house_rules }}</div>
-                        <div class="mb-2"><strong>Cancellation Policy:</strong> {{ $chalet->cancellation_policy }}</div>
-                        <div class="mb-2"><strong>Status:</strong> {{ $chalet->status->value ?? '-' }}</div>
-                        <div class="mb-2"><strong>Average Rating:</strong> {{ $chalet->average_rating ?? '-' }} ({{ $chalet->total_reviews ?? 0 }} reviews)</div>
-                        <div class="mb-2"><strong>Social:</strong>
-                            @if($chalet->facebook_url)
-                                <a href="{{ $chalet->facebook_url }}" target="_blank">Facebook</a>
-                            @endif
-                            @if($chalet->instagram_url)
-                                <a href="{{ $chalet->instagram_url }}" target="_blank">Instagram</a>
-                            @endif
-                            @if($chalet->website_url)
-                                <a href="{{ $chalet->website_url }}" target="_blank">Website</a>
-                            @endif
-                            @if($chalet->whatsapp_number)
-                                <a href="https://wa.me/{{ $chalet->whatsapp_number }}" target="_blank">WhatsApp</a>
-                            @endif
-                        </div>
-                        <p class="mt-3">{{ $chalet->description }}</p>
-                        <span class="h4 d-block mb-30">Gallery</span>
-                        <div class="room__image__group row row-cols-md-2 row-cols-sm-1 mt-30 mb-50 gap-4 gap-md-0">
-                            @foreach($galleryImages as $media)
-                                <div class="room__image__item">
-                                    <img class="rounded-2" src="{{ $media->getUrl() }}" alt="{{ $chalet->name }}">
-                                </div>
-                            @endforeach
-                        </div>
-                        <span class="h4 d-block mb-30">Amenities</span>
-                        <div class="room__amenity mb-50">
-                            <div class="group__row">
-                                @foreach($chalet->amenities as $amenity)
-                                    <div class="single__item">
-                                        <span>{{ $amenity->name }}</span>
+
+                        @if($chalet->address || $chalet->city)
+                            <div class="mb-2"><strong>Address:</strong> {{ $chalet->address }}, {{ $chalet->city }}</div>
+                        @endif
+
+                        @if($chalet->check_in_instructions)
+                            <div class="mb-2"><strong>Check-in Instructions:</strong> {{ $chalet->check_in_instructions }}</div>
+                        @endif
+
+                        @if($chalet->house_rules)
+                            <div class="mb-2"><strong>House Rules:</strong> {{ $chalet->house_rules }}</div>
+                        @endif
+
+                        @if($chalet->cancellation_policy)
+                            <div class="mb-2"><strong>Cancellation Policy:</strong> {{ $chalet->cancellation_policy }}</div>
+                        @endif
+
+                        @if($chalet->facebook_url || $chalet->instagram_url || $chalet->website_url || $chalet->whatsapp_number)
+                            <div class="mb-2"><strong>Social:</strong>
+                                @if($chalet->facebook_url)
+                                    <a href="{{ $chalet->facebook_url }}" target="_blank" class="me-2">Facebook</a>
+                                @endif
+                                @if($chalet->instagram_url)
+                                    <a href="{{ $chalet->instagram_url }}" target="_blank" class="me-2">Instagram</a>
+                                @endif
+                                @if($chalet->website_url)
+                                    <a href="{{ $chalet->website_url }}" target="_blank" class="me-2">Website</a>
+                                @endif
+                                @if($chalet->whatsapp_number)
+                                    <a href="https://wa.me/{{ $chalet->whatsapp_number }}" target="_blank">WhatsApp</a>
+                                @endif
+                            </div>
+                        @endif
+
+                        @if($chalet->description)
+                            <div class="mt-3">{!! $chalet->description !!}</div>
+                        @endif
+
+                        @if($galleryImages->isNotEmpty())
+                            <span class="h4 d-block mb-30">Gallery</span>
+                            <div class="room__image__group row row-cols-md-2 row-cols-sm-1 mt-30 mb-50 gap-4 gap-md-0">
+                                @foreach($galleryImages as $media)
+                                    <div class="room__image__item">
+                                        <img class="rounded-2" src="{{ $media->getUrl() }}" alt="{{ $chalet->name }}">
                                     </div>
                                 @endforeach
                             </div>
-                        </div>
-                        <span class="h4 d-block mb-30">Facilities</span>
-                        <div class="room__feature mb-30">
-                            <div class="group__row">
-                                <ul class="list__item">
-                                    @foreach($chalet->facilities as $facility)
-                                        <li>{{ $facility->name }}</li>
+                        @endif
+
+                        @if($chalet->amenities->isNotEmpty())
+                            <span class="h4 d-block mb-30">Amenities</span>
+                            <div class="room__amenity mb-50">
+                                <div class="group__row">
+                                    @foreach($chalet->amenities as $amenity)
+                                        <div class="single__item">
+                                            @if($amenity->hasMedia())
+                                                <img src="{{ $amenity->getFirstMediaUrl() }}" alt="{{ $amenity->name }}" style="width: 24px; height: 24px; margin-right: 8px; vertical-align: middle;">
+                                            @endif
+                                            <span>{{ $amenity->name }}</span>
+                                        </div>
                                     @endforeach
-                                </ul>
-                            </div>
-                        </div>
-                        <span class="h4 d-block mb-30">Available Time Slots</span>
-                        <div class="mb-4">
-                            @forelse($chalet->timeSlots as $slot)
-                                <div>
-                                    <strong>{{ $slot->name }}</strong>: {{ $slot->start_time }} - {{ $slot->end_time }} ({{ $slot->duration_hours }}h) | Price: {{ $slot->price }}$
                                 </div>
-                            @empty
-                                <div>No time slots available.</div>
-                            @endforelse
-                        </div>
+                            </div>
+                        @endif
+
+                        @if($chalet->facilities->isNotEmpty())
+                            <span class="h4 d-block mb-30">Facilities</span>
+                            <div class="room__feature mb-30">
+                                <div class="group__row">
+                                    <ul class="list__item">
+                                        @foreach($chalet->facilities as $facility)
+                                            <li class="single__item">
+                                                @if($facility->hasMedia())
+                                                    <img src="{{ $facility->getFirstMediaUrl() }}" alt="{{ $facility->name }}" style="width: 24px; height: 24px; margin-right: 8px; vertical-align: middle;">
+                                                @endif
+                                                <span>{{ $facility->name }}</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            </div>
+                        @endif
+
                         <span class="h4 d-block mb-30">Reviews</span>
+                        @if($chalet->reviews->isNotEmpty())
+                            <span class="mb-2"><strong>Average Rating:</strong> {{ $chalet->average_rating ?? '-' }} ({{ $chalet->total_reviews ?? 0 }} reviews)</span>
+                        @endif
                         <div class="mb-4">
                             @forelse($chalet->reviews as $review)
                                 <div class="mb-2">

@@ -124,8 +124,8 @@ class pageController extends baseController
     {
         $chalet = \App\Models\Chalet::where('slug', $slug)
             ->with([
-                'amenities',
-                'facilities',
+                'amenities.media',
+                'facilities.media',
                 'media',
                 'timeSlots',
                 'owner',

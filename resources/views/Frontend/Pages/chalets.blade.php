@@ -23,7 +23,7 @@
 
                         $thumb = $chaletModel->getFirstMediaUrl('default') ?: asset('assets/images/room/4.webp');
                         $title = $chaletModel->name;
-                        $desc = Str::limit($chaletModel->description, 120);
+                        $desc = $chaletModel->description;
                         $chalet_slug = $chaletModel->slug;
                         $slots = $result['slots'] ?? [];
 
@@ -45,7 +45,9 @@
                             'desc' => $desc,
                             'chalet_slug' => $chalet_slug,
                             'slots' => $slots,
-                            'chalet_url' => url($chalet_slug)
+                            'chalet_url' => url($chalet_slug),
+                            'max_adults' => $chaletModel->max_adults,
+                            'max_children' => $chaletModel->max_children
                         ])
                     </div>
                 @empty

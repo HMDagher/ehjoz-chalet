@@ -19,7 +19,6 @@ final class Facility extends Model implements HasMedia
      */
     protected $fillable = [
         'name',
-        'icon',
         'is_active',
     ];
 

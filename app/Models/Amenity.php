@@ -19,7 +19,6 @@ final class Amenity extends Model implements HasMedia
      */
     protected $fillable = [
         'name',
-        'icon',
         'is_active',
     ];
 
@@ -39,7 +38,6 @@ final class Amenity extends Model implements HasMedia
     protected function casts(): array
     {
         return [
-            'icon' => 'string',
             'is_active' => 'boolean',
         ];
     }

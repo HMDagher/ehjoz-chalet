@@ -7,7 +7,7 @@
                     <div class="offcanvase__top">
                         <div class="offcanvase__logo">
                             <a href="{{route('index')}}">
-                                <img src="{{ asset(optional($settings)->site_logo_2 ?? 'assets/images/logo/logo__two.svg') }}" alt="logo">
+                                <img src="{{ asset(optional($settings)->site_logo ?? 'assets/images/logo/logo.png') }}" alt="logo" style="width: 170px; height: 40px; object-fit: contain;">
                             </a>
                         </div>
                         <p class="description">
@@ -28,11 +28,6 @@
                                 <span class="h6">Email</span>
                                 <a href="mailto:{{ optional($settings)->support_email ?? 'info@hostie.com' }}"><i class="flaticon-envelope"></i>{{ optional($settings)->support_email ?? 'info@hostie.com' }}</a>
                             </div>
-                            <div class="item">
-                                <span class="h6">Address</span>
-                                <a href="#"><i class="flaticon-marker"></i> {{ optional($settings)->address ?? '280 Augusta Avenue, M5T 2L9 Toronto, Canada' }}</a>
-                            </div>
-
                         </div>
                     </div>
                 </div>

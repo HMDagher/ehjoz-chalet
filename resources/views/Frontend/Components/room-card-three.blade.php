@@ -12,10 +12,14 @@
     <div class="room__card__meta">
         <a href="{{route('chalet-details', $chalet_slug)}}" class="room__card__title h4">{{$title ?? ''}}</a>
         <div class="room__card__meta__info">
-            <span><i class="flaticon-construction"></i>35 sqm</span>
-            <span><i class="flaticon-user"></i>5 Person</span>
+            @if(isset($max_adults) && $max_adults > 0)
+            <span><i class="flaticon-user"></i>{{ $max_adults }} {{ Str::plural('Adult', $max_adults) }}</span>
+            @endif
+            @if(isset($max_children) && $max_children > 0)
+            <span><i class="flaticon-user"></i>{{ $max_children }} {{ Str::plural('Child', $max_children) }}</span>
+            @endif
         </div>
-        <p class="font-sm">{{$desc ?? ''}}</p>
+        <div class="font-sm">{!! $desc ?? '' !!}</div>
 
         @if(!empty($slots))
         <ul class="list-unstyled mb-0 mt-3">

@@ -12,6 +12,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
+
 final class Chalet extends Model implements HasMedia
 {
     use InteractsWithMedia;
@@ -133,6 +134,7 @@ final class Chalet extends Model implements HasMedia
     {
         return $this->belongsTo(User::class);
     }
+
 
     /**
      * Get the attributes that should be cast.

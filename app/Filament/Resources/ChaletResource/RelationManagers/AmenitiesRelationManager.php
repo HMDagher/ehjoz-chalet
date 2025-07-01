@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 
 final class AmenitiesRelationManager extends RelationManager
 {
@@ -20,8 +21,6 @@ final class AmenitiesRelationManager extends RelationManager
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
-                    ->maxLength(100),
-                Forms\Components\TextInput::make('icon')
                     ->maxLength(100),
                 Forms\Components\Toggle::make('is_active')
                     ->required()
@@ -35,7 +34,8 @@ final class AmenitiesRelationManager extends RelationManager
             ->recordTitleAttribute('name')
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable(),
-                Tables\Columns\TextColumn::make('icon')->searchable(),
+                SpatieMediaLibraryImageColumn::make('icon')
+                    ->circular(),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
             ])
             ->filters([

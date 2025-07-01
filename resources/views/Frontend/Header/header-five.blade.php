@@ -1,4 +1,4 @@
-  <!-- header area -->
+<!-- header area -->
   <div class="header__absolute">
         <div class="header__top is__home__video">
             <div class="container">
@@ -7,11 +7,6 @@
                         <div class="social__links">
                             <a class="link__item gap-10" href="tel:{{ optional($settings)->support_phone ?? '+12505550199' }}"><i class="flaticon-phone-flip"></i> {{ optional($settings)->support_phone ?? '+12505550199' }}</a>
                             <a class="link__item gap-10" href="mailto:{{ optional($settings)->support_email ?? 'moonlit@gmail.com' }}"><i class="flaticon-envelope"></i> {{ optional($settings)->support_email ?? 'moonlit@gmail.com' }}</a>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 col-md-6">
-                        <div class="location">
-                            <a class="link__item gap-10" href="#"><i class="flaticon-marker"></i>{{ optional($settings)->address ?? '280 Augusta Avenue, M5T 2L9 Toronto, Canada' }}</a>
                         </div>
                     </div>
                 </div>
@@ -25,7 +20,7 @@
                             @include('Frontend.Header.nav')
                         </div>
                         <div class="main__logo">
-                            <a href="{{route('index')}}"><img class="logo__class" src="{{ asset(optional($settings)->site_logo_2 ?? 'assets/images/logo/logo__two.svg') }}" alt="{{ optional($settings)->site_name ?? 'moonlit' }}"></a>
+                            <a href="{{route('index')}}"><img class="logo__class" src="{{ asset(optional($settings)->site_logo ?? 'assets/images/logo/logo.png') }}" alt="{{ optional($settings)->site_name ?? 'moonlit' }}" style="width: 170px; height: 40px; object-fit: contain;"></a>
                         </div>
                         <div class="main__right">
                             <a href="#" class="theme-btn btn-style sm-btn border d-none d-lg-block" aria-label="Login Button" data-bs-toggle="modal" data-bs-target="#loginModal"><span>Sign In</span></a>
