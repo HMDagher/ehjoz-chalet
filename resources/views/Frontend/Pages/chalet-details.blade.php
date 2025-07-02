@@ -117,6 +117,22 @@
                             </div>
                         @endif
 
+                        @if($chalet->latitude && $chalet->longitude)
+                        <div class="col-lg-12">
+                            <div class="contact__map mb-4">
+                                <iframe
+                                    class="w-100"
+                                    height="350"
+                                    style="border:0;"
+                                    loading="lazy"
+                                    allowfullscreen
+                                    referrerpolicy="no-referrer-when-downgrade"
+                                    src="https://maps.google.com/maps?q={{ $chalet->latitude }},{{ $chalet->longitude }}&amp;z=15&amp;output=embed">
+                                </iframe>
+                            </div>
+                        </div>
+                        @endif
+
                         <span class="h4 d-block mb-30">Reviews</span>
                         @if($chalet->reviews->isNotEmpty())
                             <span class="mb-2"><strong>Average Rating:</strong> {{ $chalet->average_rating ?? '-' }} ({{ $chalet->total_reviews ?? 0 }} reviews)</span>
