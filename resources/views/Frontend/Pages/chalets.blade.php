@@ -27,7 +27,7 @@
                         $desc = \Illuminate\Support\Str::limit(strip_tags($chaletModel->description), 150);
                         $chalet_slug = $chaletModel->slug;
                         $slots = $result['slots'] ?? [];
-                        
+
                         // Pass price values to the component
                         $min_price = $result['min_price'] ?? null;
                         $min_total_price = $result['min_total_price'] ?? null;
@@ -58,7 +58,11 @@
                             'desc' => $desc,
                             'chalet_slug' => $chalet_slug,
                             'slots' => $slots,
-                            'chalet_url' => url($chalet_slug),
+                            'chalet_url' => url($chalet_slug) . ($is_search ? '?' . http_build_query([
+                                'booking_type' => request('booking_type'),
+                                'checkin' => request('check__in'),
+                                'checkout' => request('check__out')
+                            ]) : ''),
                             'max_adults' => $chaletModel->max_adults,
                             'max_children' => $chaletModel->max_children
                         ])

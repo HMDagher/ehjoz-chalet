@@ -11,11 +11,20 @@ use Illuminate\Support\Facades\Hash;
 Route::controller(pageController::class)->group(function () {
     Route::get('/', 'index')->name('index');
     Route::get('chalets', 'chalets')->name('chalets');
-    Route::get('/{slug}', 'roomDetailSOne')->name('chalet-details');
     Route::get('contact', 'contact')->name('contact');
+    Route::get('booking/confirmation/{bookingReference}', 'bookingConfirmation')->name('booking-confirmation');
+    Route::get('/{slug}', 'roomDetailSOne')->name('chalet-details');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::post('/signin', [AuthController::class, 'signin'])->name('signin');
 Route::post('/signup', [AuthController::class, 'signup'])->name('signup');
 Route::get('/login', [pageController::class, 'index'])->name('login');
+
+// API routes for chalet booking
+Route::prefix('api')->group(function () {
+    Route::get('/chalet/{slug}/availability', [App\Http\Controllers\Api\ChaletApiController::class, 'getAvailability']);
+    Route::post('/chalet/{slug}/calculate-price', [App\Http\Controllers\Api\ChaletApiController::class, 'calculatePrice']);
+    Route::post('/bookings', [App\Http\Controllers\Api\BookingApiController::class, 'store']);
+    Route::get('/user/check-auth', [App\Http\Controllers\Api\BookingApiController::class, 'checkAuth']);
+});

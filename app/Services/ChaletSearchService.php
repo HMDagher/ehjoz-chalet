@@ -44,9 +44,9 @@ final class ChaletSearchService
             'count' => $chalets->count(),
             'ids' => $chalets->pluck('id')->toArray(),
         ]);
-        
+
         $results = [];
-        
+
         foreach ($chalets as $chalet) {
             // Skip chalets with no active time slots of the requested type
             if ($chalet->timeSlots->isEmpty()) {
@@ -66,7 +66,7 @@ final class ChaletSearchService
                     'slot_count' => $slotData->count(),
                     'slots' => $slotData->toArray(),
                 ]);
-                
+
                 if ($slotData->isNotEmpty()) {
                     $availableSlots = $slotData->toArray();
                     $minPrice = min(array_column($availableSlots, 'price'));
@@ -91,7 +91,7 @@ final class ChaletSearchService
                     'slot_count' => $slotData->count(),
                     'slots' => $slotData->toArray(),
                 ]);
-                
+
                 if ($slotData->isNotEmpty()) {
                     $availableSlots = $slotData->toArray();
                     $minPerNightPrice = min(array_column($availableSlots, 'price_per_night'));
@@ -111,20 +111,20 @@ final class ChaletSearchService
                 }
             }
         }
-        
+
         // Sort by min_price (ascending)
         if (!empty($results)) {
-            usort($results, fn($a, $b) => $a['min_price'] <=> $b['min_price']);
+        usort($results, fn($a, $b) => $a['min_price'] <=> $b['min_price']);
         }
         
         \Log::info('SearchService: final results', [
             'count' => count($results),
             'ids' => array_map(fn($r) => $r['chalet']['id'] ?? null, $results),
         ]);
-        
+
         return $results;
     }
-    
+
     /**
      * Get all available chalets without search filters
      * Used for initial page load to show all chalets
@@ -141,9 +141,9 @@ final class ChaletSearchService
                 $query->where('is_active', true);
             }])
             ->get();
-            
+
         $results = [];
-        
+
         foreach ($chalets as $chalet) {
             if ($chalet->timeSlots->isEmpty()) {
                 continue;
@@ -160,11 +160,11 @@ final class ChaletSearchService
                     return $availabilityChecker->isDayUseSlotAvailable($today, $slot->id);
                 })
                 ->map(function($slot) use ($availabilityChecker, $today) {
-                    return [
-                        'id' => $slot->id,
-                        'name' => $slot->name,
-                        'start_time' => $slot->start_time,
-                        'end_time' => $slot->end_time,
+                        return [
+                            'id' => $slot->id,
+                            'name' => $slot->name,
+                            'start_time' => $slot->start_time,
+                            'end_time' => $slot->end_time,
                         'duration_hours' => $slot->duration_hours,
                         'price' => $availabilityChecker->calculateDayUsePrice($today, $slot->id),
                         'booking_type' => 'day-use'
@@ -213,15 +213,15 @@ final class ChaletSearchService
                 ];
             }
         }
-        
+
         // Sort by min_price
         if (!empty($results)) {
             usort($results, fn($a, $b) => $a['min_price'] <=> $b['min_price']);
         }
-        
+
         return $results;
     }
-    
+
     /**
      * Format chalet data for API response
      */

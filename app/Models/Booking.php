@@ -22,6 +22,7 @@ final class Booking extends Model
         'booking_reference',
         'start_date',
         'end_date',
+        'booking_type',
         'extra_hours',
         'adults_count',
         'children_count',

@@ -37,7 +37,7 @@
                         </div>
                         <!-- single input end -->
     
-                        <!-- single input -->
+                         <!-- single input -->
                         <div class="query__input checkout-field">
                             <label for="check__out" class="query__label">Check Out</label>
                             <input type="text" id="check__out" name="check__out" value="{{ $checkout ?? request()->check__out }}" placeholder="{{ now()->addDay()->format('d M Y') }}">

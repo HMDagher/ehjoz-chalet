@@ -50,12 +50,12 @@ class pageController extends baseController
                     return $availabilityChecker->isDayUseSlotAvailable($today, $slot->id);
                 })
                 ->map(function ($slot) use ($availabilityChecker, $today) {
-                    return [
-                        'id' => $slot->id,
-                        'name' => $slot->name,
-                        'start_time' => $slot->start_time,
-                        'end_time' => $slot->end_time,
-                        'duration_hours' => $slot->duration_hours,
+                return [
+                    'id' => $slot->id,
+                    'name' => $slot->name,
+                    'start_time' => $slot->start_time,
+                    'end_time' => $slot->end_time,
+                    'duration_hours' => $slot->duration_hours,
                         'price' => $availabilityChecker->calculateDayUsePrice($today, $slot->id),
                     ];
                 })->values()->toArray();
@@ -69,7 +69,7 @@ class pageController extends baseController
                 })
                 ->map(function ($slot) use ($availabilityChecker, $today, $tomorrow) {
                     $priceData = $availabilityChecker->calculateOvernightPrice($today, $tomorrow, $slot->id);
-                    return [
+            return [
                         'id' => $slot->id,
                         'name' => $slot->name,
                         'start_time' => $slot->start_time,
@@ -91,9 +91,9 @@ class pageController extends baseController
             
             if (!empty($allSlots)) {
                 $featuredChaletsWithSlots[] = [
-                    'chalet' => $chalet,
+                'chalet' => $chalet,
                     'slots' => $allSlots,
-                ];
+            ];
             }
         }
 
@@ -163,9 +163,9 @@ class pageController extends baseController
                         $endDate = Carbon::parse($checkout);
                         
                         if ($startDate->gt($endDate)) {
-                            return redirect()->back()->with('error', 'Check-out date must be after check-in date.');
-                        }
-                        
+                    return redirect()->back()->with('error', 'Check-out date must be after check-in date.');
+                }
+
                         $results = $chaletSearchService->searchChalets(
                             $checkin,
                             $checkout,
@@ -191,7 +191,7 @@ class pageController extends baseController
                 if (!empty($results)) {
                     $chaletIds = collect($results)->pluck('chalet.id');
                     $chalets = \App\Models\Chalet::with('media')->findMany($chaletIds)->keyBy('id');
-                    
+
                     foreach ($results as &$result) {
                         if (isset($result['chalet']['id']) && isset($chalets[$result['chalet']['id']])) {
                             // Keep the slots and price data while replacing the chalet model
@@ -257,5 +257,28 @@ class pageController extends baseController
     public function contact()
     {
         return $this->view('contact');
+    }
+
+    /**
+     * Show booking confirmation page
+     */
+    public function bookingConfirmation($bookingReference)
+    {
+        $booking = \App\Models\Booking::where('booking_reference', $bookingReference)
+            ->with(['chalet', 'timeSlots'])
+            ->first();
+
+        if (!$booking) {
+            return redirect()->route('index')->with('error', 'Booking not found.');
+        }
+
+        // Check if user is authorized to view this booking
+        if (Auth::check() && $booking->user_id !== Auth::id()) {
+            return redirect()->route('index')->with('error', 'You are not authorized to view this booking.');
+        }
+
+        return $this->view('booking-confirmation', [
+            'booking' => $booking
+        ]);
     }
 }

@@ -453,12 +453,37 @@
       },
       datePicker: function (e) {
         $(function () {
-          $("#check__in, #check__out").datepicker({
+          // Check-in: only today or future
+          $("#check__in").datepicker({
               dateFormat: "dd-mm-yy",
               duration: "fast",
               minDate: 0
           });
-      });
+          // Checkout: minDate will be set dynamically
+          $("#check__out").datepicker({
+              dateFormat: "dd-mm-yy",
+              duration: "fast"
+          });
+
+          // When check-in changes, update checkout's minDate
+          $('#check__in').on('change', function() {
+            var checkInDate = $(this).datepicker('getDate');
+            if (checkInDate) {
+              // Add one day to check-in for minDate
+              var minCheckout = new Date(checkInDate.getTime());
+              minCheckout.setDate(minCheckout.getDate() + 1);
+              $('#check__out').datepicker('option', 'minDate', minCheckout);
+              // If checkout is before or same as check-in, clear it
+              var checkOutDate = $('#check__out').datepicker('getDate');
+              if (!checkOutDate || checkOutDate <= checkInDate) {
+                $('#check__out').val('');
+              }
+            } else {
+              // If no check-in, allow any checkout
+              $('#check__out').datepicker('option', 'minDate', null);
+            }
+          });
+        });
       },
       
       bookingTypeHandler: function (e) {

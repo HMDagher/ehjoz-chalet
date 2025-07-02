@@ -19,6 +19,26 @@ final class ChaletAvailabilityChecker
     }
 
     /**
+     * Helper: Check if two time ranges overlap
+     */
+    private function timeRangesOverlap($start1, $end1, $start2, $end2): bool
+    {
+        // Handles overnight slots (end < start)
+        $toMinutes = function($time) {
+            [$h, $m, $s] = array_pad(explode(':', $time), 3, 0);
+            return ((int)$h) * 60 + (int)$m;
+        };
+        $s1 = $toMinutes($start1);
+        $e1 = $toMinutes($end1);
+        $s2 = $toMinutes($start2);
+        $e2 = $toMinutes($end2);
+        // Normalize overnight
+        if ($e1 <= $s1) $e1 += 24 * 60;
+        if ($e2 <= $s2) $e2 += 24 * 60;
+        return ($s1 < $e2 && $s2 < $e1);
+    }
+
+    /**
      * Check if a day-use time slot is available on a specific date
      */
     public function isDayUseSlotAvailable(string $date, int $timeSlotId): bool
@@ -66,6 +86,24 @@ final class ChaletAvailabilityChecker
             \Log::info('Checker: Slot already booked', ['slot_id' => $timeSlotId, 'date' => $date]);
             return false;
         }
+        // Prevent overlap: check for overnight bookings that overlap this slot's time
+        $overnightSlots = $this->chalet->timeSlots()->where('is_overnight', true)->get();
+        foreach ($overnightSlots as $overnightSlot) {
+            $overnightBooking = $this->chalet->bookings()
+                ->where(function ($query) use ($date) {
+                    $query->whereDate('start_date', '<=', $date)
+                          ->whereDate('end_date', '>', $date);
+                })
+                ->whereHas('timeSlots', function ($query) use ($overnightSlot) {
+                    $query->where('chalet_time_slots.id', $overnightSlot->id);
+                })
+                ->whereIn('status', ['confirmed', 'pending'])
+                ->exists();
+            if ($overnightBooking && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time)) {
+                \Log::info('Checker: Overlap with overnight booking', ['slot_id' => $timeSlotId, 'overnight_slot_id' => $overnightSlot->id, 'date' => $date]);
+                return false;
+            }
+        }
         \Log::info('Checker: Slot is available', ['slot_id' => $timeSlotId, 'date' => $date]);
         return true;
     }
@@ -75,18 +113,46 @@ final class ChaletAvailabilityChecker
      */
     public function areConsecutiveSlotsAvailable(string $date, array $slotIds): bool
     {
+        \Log::info('Checker: areConsecutiveSlotsAvailable', ['date' => $date, 'slot_ids' => $slotIds]);
+        
         // Check if slots are consecutive
         if (!$this->areDayUseSlotIdsConsecutive($slotIds)) {
+            \Log::info('Checker: Slots are not consecutive', ['slot_ids' => $slotIds]);
             return false;
         }
         
         // Check availability of each slot
         foreach ($slotIds as $slotId) {
-            if (!$this->isDayUseSlotAvailable($date, $slotId)) {
+            // Convert slot ID to integer to handle string inputs from frontend
+            $slotIdInt = (int) $slotId;
+            if (!$this->isDayUseSlotAvailable($date, $slotIdInt)) {
+                \Log::info('Checker: Slot not available', ['slot_id' => $slotIdInt, 'date' => $date]);
                 return false;
             }
         }
         
+        \Log::info('Checker: Consecutive slots are available', ['slot_ids' => $slotIds, 'date' => $date]);
+        return true;
+    }
+
+    /**
+     * Check if multiple day-use slots are available (allows gaps between slots)
+     */
+    public function areMultipleSlotsAvailable(string $date, array $slotIds): bool
+    {
+        \Log::info('Checker: areMultipleSlotsAvailable', ['date' => $date, 'slot_ids' => $slotIds]);
+        
+        // Check availability of each slot individually (allows gaps between slots)
+        foreach ($slotIds as $slotId) {
+            // Convert slot ID to integer to handle string inputs from frontend
+            $slotIdInt = (int) $slotId;
+            if (!$this->isDayUseSlotAvailable($date, $slotIdInt)) {
+                \Log::info('Checker: Slot not available for day-use booking', ['slot_id' => $slotIdInt, 'date' => $date]);
+                return false;
+            }
+        }
+        
+        \Log::info('Checker: Multiple slots are available (with gaps allowed)', ['slot_ids' => $slotIds, 'date' => $date]);
         return true;
     }
 
@@ -142,6 +208,24 @@ final class ChaletAvailabilityChecker
                 \Log::info('Checker: Overnight slot day is blocked', ['slot_id' => $timeSlotId, 'date' => $currentDate->format('Y-m-d')]);
                 return false;
             }
+            // Prevent overlap: check for day-use bookings that overlap this overnight slot's time
+            $dayUseSlots = $this->chalet->timeSlots()->where('is_overnight', false)->get();
+            foreach ($dayUseSlots as $daySlot) {
+                $dayUseBooking = $this->chalet->bookings()
+                    ->where(function ($query) use ($currentDate) {
+                        $query->whereDate('start_date', '=', $currentDate->format('Y-m-d'))
+                              ->whereDate('end_date', '=', $currentDate->format('Y-m-d'));
+                    })
+                    ->whereHas('timeSlots', function ($query) use ($daySlot) {
+                        $query->where('chalet_time_slots.id', $daySlot->id);
+                    })
+                    ->whereIn('status', ['confirmed', 'pending'])
+                    ->exists();
+                if ($dayUseBooking && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $daySlot->start_time, $daySlot->end_time)) {
+                    \Log::info('Checker: Overlap with day-use booking', ['overnight_slot_id' => $slot->id, 'day_slot_id' => $daySlot->id, 'date' => $currentDate->format('Y-m-d')]);
+                    return false;
+                }
+            }
             $currentDate->addDay();
         }
         \Log::info('Checker: Overnight slot is available', ['slot_id' => $timeSlotId, 'start' => $startDate, 'end' => $endDate]);
@@ -181,7 +265,9 @@ final class ChaletAvailabilityChecker
     {
         $total = 0;
         foreach ($slotIds as $slotId) {
-            $total += $this->calculateDayUsePrice($date, $slotId);
+            // Convert slot ID to integer to handle string inputs from frontend
+            $slotIdInt = (int) $slotId;
+            $total += $this->calculateDayUsePrice($date, $slotIdInt);
         }
         return $total;
     }
@@ -336,6 +422,7 @@ final class ChaletAvailabilityChecker
             ->get();
 
         if ($slots->count() !== count($slotIds)) {
+            \Log::info('Checker: Some slots not found', ['requested_slots' => $slotIds, 'found_slots' => $slots->pluck('id')->toArray()]);
             return false; // Some slots don't exist or are overnight
         }
 
@@ -343,6 +430,12 @@ final class ChaletAvailabilityChecker
         for ($i = 0; $i < $slots->count() - 1; $i++) {
             $currentSlot = $slots[$i];
             $nextSlot = $slots[$i + 1];
+            
+            \Log::info('Checker: Checking consecutive slots', [
+                'current_slot' => ['id' => $currentSlot->id, 'name' => $currentSlot->name, 'end_time' => $currentSlot->end_time],
+                'next_slot' => ['id' => $nextSlot->id, 'name' => $nextSlot->name, 'start_time' => $nextSlot->start_time],
+                'consecutive' => $currentSlot->end_time === $nextSlot->start_time
+            ]);
             
             if ($currentSlot->end_time !== $nextSlot->start_time) {
                 return false;

@@ -105,27 +105,6 @@
                                             <span><i class="flaticon-user"></i> {{ $chalet->max_adults + $chalet->max_children }} Guests</span>
                                             <span><i class="flaticon-tag"></i> {{ $priceDisplay }}</span>
                                         </div>
-                                        <ul class="list-unstyled mb-0 mt-15">
-                                            @forelse($chaletData['slots'] as $slot)
-                                                <li class="py-0 px-1 rounded bg-dark bg-opacity-75 d-flex align-items-center border border-secondary">
-                                                    <div class="text-white">
-                                                        <p class="mb-0 fw-bold small">{{ $slot['name'] }} <span class="small">({{ \Carbon\Carbon::parse($slot['start_time'])->format('g:i A') }} - {{ \Carbon\Carbon::parse($slot['end_time'])->format('g:i A') }}, {{ $slot['duration_hours'] }} hrs)</span></p>
-                                                    </div>
-                                                    <span class="ms-auto small mb-0 text-white fw-bold">
-                                                        {{ number_format($slot['price']) }}$
-                                                    </span>
-                                                </li>
-                                            @empty
-                                                <li class="py-0 px-1 rounded bg-dark bg-opacity-75 d-flex align-items-center border border-secondary">
-                                                    <div class="text-white">
-                                                        <p class="mb-0 fw-bold small">No timeslots available</p>
-                                                    </div>
-                                                    <span class="ms-auto small mb-0 text-white fw-bold">
-                                                        N/A
-                                                    </span>
-                                                </li>
-                                            @endforelse
-                                        </ul>
                                     </div>
                                 </div>
                             </div>

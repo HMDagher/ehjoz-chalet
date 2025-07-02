@@ -48,7 +48,7 @@
                     </div>
                     <span class="ms-auto small mb-0 text-dark fw-bold">
                         @if(isset($slot['price']))
-                            {{ number_format($slot['price']) }}$
+                        {{ number_format($slot['price']) }}$
                         @elseif(isset($slot['price_per_night']))
                             {{ number_format($slot['price_per_night']) }}$ / night
                         @elseif(isset($slot['total_price']))
