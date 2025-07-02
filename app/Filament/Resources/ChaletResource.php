@@ -121,9 +121,10 @@ final class ChaletResource extends Resource
                             Forms\Components\TextInput::make('city')->maxLength(100),
                             Map::make('location')
                                 ->columnSpanFull()
-                                ->autocomplete()
-                                ->placesDataField('address', 'formatted_address')
-                                ->placesDataField('city', 'locality'),
+                                ->reverseGeocode([
+                                    'address' => '%n %S, %L, %A1, %z',
+                                    'city' => '%L',
+                                ]),
                         ]),
                         ])->columnSpanFull(),
                     ]);
