@@ -117,17 +117,24 @@ final class ChaletResource extends Resource
                         ]),
                     Forms\Components\Tabs\Tab::make('Location')
                         ->schema([
-                            Forms\Components\Textarea::make('address'),
+                            Forms\Components\TextInput::make('address'),
                             Forms\Components\TextInput::make('city')->maxLength(100),
                             Map::make('location')
-                                ->columnSpanFull()
+                                ->geolocate()
+                                ->autocomplete(
+                                    fieldName: 'address',
+                                    types: ['establishment'],
+                                    placeField: 'name',
+                                    countries: ['LB'],
+                                )
                                 ->reverseGeocode([
                                     'address' => '%n %S, %L, %A1, %z',
                                     'city' => '%L',
-                                ]),
-                        ]),
-                        ])->columnSpanFull(),
-                    ]);
+                                ])
+                                ->columnSpanFull(),
+                        ])->columns(2),
+                    ])->columnSpanFull(),
+            ]);
     }
 
     public static function table(Table $table): Table
