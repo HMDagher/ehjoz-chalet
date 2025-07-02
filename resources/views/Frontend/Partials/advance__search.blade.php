@@ -36,6 +36,18 @@
                     </div>
                     <!-- single input end -->
 
+                    <!-- Add slot combinations UI for day-use search -->
+                    <div id="search-available-slots-container" style="display: none;">
+                        <label class="query__label">Available Time Slot Combinations</label>
+                        <div id="search-available-slot-combinations-list" class="mb-3">
+                            <!-- Slot combinations will be populated here -->
+                        </div>
+                        <div id="search-selected-combo-summary" class="mb-3" style="display: none;">
+                            <strong>Selected:</strong> <span id="search-selected-combo-text"></span>
+                            <strong>Total:</strong> $<span id="search-combo-total-price">0</span>
+                        </div>
+                    </div>
+
                     <!-- submit button -->
                     <button class="theme-btn btn-style fill no-border search__btn">
                         <span>Check Now</span>

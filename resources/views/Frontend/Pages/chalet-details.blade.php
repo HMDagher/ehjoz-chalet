@@ -190,19 +190,19 @@
 
                                 <!-- Available slots container for day-use -->
                                 <div id="available-slots-container" class="wow fadeInUp" data-wow-delay=".4s" style="display: none;">
-                                    <label class="query__label">Available Time Slots</label>
-                                    <div id="available-slots-list" class="mb-3">
-                                        <!-- Slots will be populated here -->
+                                    <label class="query__label">Available Time Slot Combinations</label>
+                                    <div id="available-slot-combinations-list" class="mb-3">
+                                        <!-- Slot combinations will be populated here -->
                                     </div>
-                                    <div id="selected-slots-summary" class="mb-3" style="display: none;">
-                                        <strong>Selected:</strong> <span id="selected-slots-text"></span>
-                                        <div id="day-original-price-container" style="display: none;">
-                                            <span class="text-decoration-line-through">Original price: $<span id="day-original-price">0</span></span>
+                                    <div id="selected-combo-summary" class="mb-3" style="display: none;">
+                                        <strong>Selected:</strong> <span id="selected-combo-text"></span>
+                                        <div id="combo-original-price-container" style="display: none;">
+                                            <span class="text-decoration-line-through">Original price: $<span id="combo-original-price">0</span></span>
                                         </div>
-                                        <div id="day-discount-container" style="display: none;" class="text-success">
-                                            <i class="fas fa-tags me-1"></i> <span id="day-discount-text">15% Launch Promotion</span>: -$<span id="day-discount-amount">0</span>
+                                        <div id="combo-discount-container" style="display: none;" class="text-success">
+                                            <i class="fas fa-tags me-1"></i> <span id="combo-discount-text">15% Launch Promotion</span>: -$<span id="combo-discount-amount">0</span>
                                         </div>
-                                        <strong>Total:</strong> $<span id="total-price">0</span>
+                                        <strong>Total:</strong> $<span id="combo-total-price">0</span>
                                     </div>
                                 </div>
 
@@ -405,42 +405,6 @@
                 });
             }
 
-            function displayDayUseSlots(data) {
-                const container = $("#available-slots-list");
-                container.empty();
-
-                if (data.slots.length === 0) {
-                    container.html('<p class="text-danger">No available slots for selected date</p>');
-                    return;
-                }
-
-                data.slots.forEach(slot => {
-                    let priceDisplay = `$${slot.price}`;
-                    let additionalAttributes = '';
-                    
-                    // Check if slot has discount
-                    if (slot.has_discount) {
-                        priceDisplay = `<span class="text-decoration-line-through">$${slot.original_price}</span> <span class="text-success">$${slot.price}</span>`;
-                        additionalAttributes = `data-original-price="${slot.original_price}" data-has-discount="1" data-discount-percentage="${slot.discount_percentage}"`;
-                    }
-                    
-                    const slotHtml = `
-                        <div class="form-check mb-2">
-                            <input class="form-check-input slot-checkbox" type="checkbox" 
-                                   value="${slot.id}" id="slot_${slot.id}" 
-                                   data-price="${slot.price}" data-name="${slot.name}" ${additionalAttributes}>
-                            <label class="form-check-label" for="slot_${slot.id}">
-                                <strong>${slot.name}</strong> (${slot.start_time} - ${slot.end_time}, ${slot.duration_hours} hrs) - ${priceDisplay}
-                                ${slot.has_discount ? '<span class="badge bg-success ms-1">15% OFF</span>' : ''}
-                            </label>
-                        </div>
-                    `;
-                    container.append(slotHtml);
-                });
-
-                $("#available-slots-container").show();
-            }
-
             function displayOvernightSlots(data) {
                 console.log('displayOvernightSlots called with data:', data);
                 
@@ -632,25 +596,23 @@
                 });
 
                 if (selectedSlots.length > 0) {
-                    $("#selected-slots-text").text(selectedNames.join(", "));
-                    $("#total-price").text(totalPrice.toFixed(2));
+                    $("#selected-combo-text").text(selectedNames.join(", "));
+                    $("#combo-original-price").text(originalPrice.toFixed(2));
+                    $("#combo-discount-amount").text((originalPrice - totalPrice).toFixed(2));
+                    $("#combo-discount-text").text(`${discountPercentage}% Launch Promotion`);
+                    $("#combo-total-price").text(totalPrice.toFixed(2));
                     
                     if (hasDiscount) {
-                        const discountAmount = originalPrice - totalPrice;
-                        $("#day-original-price").text(originalPrice.toFixed(2));
-                        $("#day-discount-amount").text(discountAmount.toFixed(2));
-                        $("#day-discount-text").text(`${discountPercentage}% Launch Promotion`);
-                        
-                        $("#day-original-price-container").show();
-                        $("#day-discount-container").show();
+                        $("#combo-original-price-container").show();
+                        $("#combo-discount-container").show();
                     } else {
-                        $("#day-original-price-container").hide();
-                        $("#day-discount-container").hide();
+                        $("#combo-original-price-container").hide();
+                        $("#combo-discount-container").hide();
                     }
                     
-                    $("#selected-slots-summary").show();
+                    $("#selected-combo-summary").show();
                 } else {
-                    $("#selected-slots-summary").hide();
+                    $("#selected-combo-summary").hide();
                 }
             }
 

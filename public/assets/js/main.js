@@ -566,3 +566,215 @@
   
   })(jQuery, window)  
 
+// Add this function to fetch valid slot combinations
+function fetchValidSlotCombinations(chaletId, date) {
+    return $.ajax({
+        url: '/bookings/consecutive-slot-combinations',
+        method: 'GET',
+        data: { chalet_id: chaletId, date: date }
+    });
+}
+
+// Update checkAvailability for day-use to use valid combinations
+function checkAvailability() {
+    const bookingType = $("#booking_type").val();
+    const startDate = $("#check__in").val();
+    const endDate = $("#check__out").val();
+
+    if (!startDate) {
+        return;
+    }
+
+    const formattedStartDate = convertDateFormat(startDate);
+    const formattedEndDate = endDate ? convertDateFormat(endDate) : null;
+
+    $("#book-button").prop("disabled", true).text("Checking...");
+
+    if (bookingType === 'day-use') {
+        // Use the same AJAX pattern as overnight
+        $.ajax({
+            url: `/api/chalet/${chaletSlug}/availability`,
+            method: 'GET',
+            data: {
+                booking_type: bookingType,
+                start_date: formattedStartDate,
+                end_date: formattedEndDate
+            },
+            success: function(response) {
+                if (response.success && response.data.slots.length > 0) {
+                    displayDayUseSlots(response.data);
+                    $("#book-button").prop("disabled", false).text("Book Now");
+                } else {
+                    $("#available-slots-container").hide();
+                    showError("No available slots for selected date");
+                    $("#book-button").prop("disabled", true).text("Check Availability");
+                }
+            },
+            error: function(xhr) {
+                $("#available-slots-container").hide();
+                const error = xhr.responseJSON?.error || "Error checking availability";
+                showError(error);
+                $("#book-button").prop("disabled", true).text("Check Availability");
+            }
+        });
+    } else {
+        // ... existing overnight logic ...
+    }
+}
+
+function displayDayUseSlots(data) {
+    const container = $("#available-slot-combinations-list");
+    container.empty();
+    if (!data.slots || data.slots.length === 0) {
+        container.html('<p class="text-danger">No available slots for selected date</p>');
+        $("#available-slots-container").hide();
+        return;
+    }
+    data.slots.forEach(slot => {
+        let priceDisplay = `$${slot.price}`;
+        let additionalAttributes = '';
+        if (slot.has_discount) {
+            priceDisplay = `<span class="text-decoration-line-through">$${slot.original_price}</span> <span class="text-success">$${slot.price}</span>`;
+            additionalAttributes = `data-original-price="${slot.original_price}" data-has-discount="1" data-discount-percentage="${slot.discount_percentage}"`;
+        }
+        const slotHtml = `
+            <div class="form-check mb-2">
+                <input class="form-check-input slot-checkbox" type="checkbox" 
+                       value="${slot.id}" id="slot_${slot.id}" 
+                       data-price="${slot.price}" data-name="${slot.name}" ${additionalAttributes}>
+                <label class="form-check-label" for="slot_${slot.id}">
+                    <strong>${slot.name}</strong> (${slot.start_time} - ${slot.end_time}, ${slot.duration_hours} hrs) - ${priceDisplay}
+                    ${slot.has_discount ? '<span class="badge bg-success ms-1">15% OFF</span>' : ''}
+                </label>
+            </div>
+        `;
+        container.append(slotHtml);
+    });
+    $("#available-slots-container").show();
+}
+
+// Update submitBooking for day-use to use selected combo
+function submitBooking() {
+    const bookingType = $("#booking_type").val();
+    const startDate = convertDateFormat($("#check__in").val());
+    let endDate = null;
+    let slotIds = [];
+    if (bookingType === 'day-use') {
+        const selected = $(".slot-combo-radio:checked");
+        if (selected.length === 0) {
+            showError("Please select a valid slot combination");
+            return;
+        }
+        slotIds = selected.val().split(",");
+        endDate = startDate;
+    } else {
+        // ... existing overnight logic ...
+    }
+    // ... existing bookingData logic ...
+}
+
+// Update error handling to show API error messages
+function submitBookingWithData(bookingData) {
+    $.ajax({
+        url: '/api/bookings',
+        method: 'POST',
+        data: bookingData,
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function(response) {
+            if (response.success) {
+                showSuccess("Booking created successfully! Redirecting to confirmation page...");
+                setTimeout(() => {
+                    window.location.href = response.data.confirmation_url;
+                }, 2000);
+            } else {
+                showError(response.error || "Error creating booking");
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || "Error creating booking";
+            showError(error);
+            $("#book-button").prop("disabled", false).text("Book Now");
+        }
+    });
+}
+
+// --- Search Form Slot Combination Logic ---
+$(function() {
+    // Only run if the search form is present
+    if ($('form.advance__search').length > 0) {
+        let searchChaletId = null; // You may need to set this dynamically if searching by chalet
+        // Listen for booking type or date change
+        $('#booking_type, #check__in').on('change', function() {
+            const bookingType = $('#booking_type').val();
+            const startDate = $('#check__in').val();
+            // You may need to get the selected chalet ID if your search supports it
+            // For now, assume a global or default chaletId, or skip if not available
+            if (!searchChaletId) return;
+            if (bookingType === 'day-use' && startDate) {
+                const formattedStartDate = convertDateFormat(startDate);
+                fetchValidSlotCombinations(searchChaletId, formattedStartDate)
+                    .done(function(response) {
+                        if (response.success && response.data.length > 0) {
+                            displaySearchDayUseSlotCombinations(response.data);
+                            $('#search-available-slots-container').show();
+                        } else {
+                            $('#search-available-slots-container').hide();
+                            showError("No available slot combinations for selected date");
+                        }
+                    })
+                    .fail(function() {
+                        $('#search-available-slots-container').hide();
+                        showError("Error fetching slot combinations");
+                    });
+            } else {
+                $('#search-available-slots-container').hide();
+            }
+        });
+    }
+});
+
+function displaySearchDayUseSlotCombinations(combinations) {
+    const container = $('#search-available-slot-combinations-list');
+    container.empty();
+    if (combinations.length === 0) {
+        container.html('<p class="text-danger">No available slot combinations for selected date</p>');
+        return;
+    }
+    combinations.forEach((combo, idx) => {
+        const slotNames = combo.slots.map(s => s.name).join(", ");
+        const slotIds = combo.slots.map(s => s.id).join(",");
+        const price = combo.total_price.toFixed(2);
+        const checked = idx === 0 ? 'checked' : '';
+        const html = `
+            <div class="form-check mb-2">
+                <input class="form-check-input search-slot-combo-radio" type="radio" name="search_slot_combo" value="${slotIds}" id="search_combo_${idx}" data-price="${price}" data-names="${slotNames}" ${checked}>
+                <label class="form-check-label" for="search_combo_${idx}">
+                    <strong>${slotNames}</strong> (${combo.start_time} - ${combo.end_time}, ${combo.total_duration} hrs) - $${price}
+                </label>
+            </div>
+        `;
+        container.append(html);
+    });
+    // Trigger summary update for first combo
+    updateSearchSelectedCombo();
+}
+
+$(document).on('change', '.search-slot-combo-radio', function() {
+    updateSearchSelectedCombo();
+});
+
+function updateSearchSelectedCombo() {
+    const selected = $('.search-slot-combo-radio:checked');
+    if (selected.length === 0) {
+        $('#search-selected-combo-summary').hide();
+        return;
+    }
+    const names = selected.data('names');
+    const price = parseFloat(selected.data('price'));
+    $('#search-selected-combo-text').text(names);
+    $('#search-combo-total-price').text(price.toFixed(2));
+    $('#search-selected-combo-summary').show();
+}
+

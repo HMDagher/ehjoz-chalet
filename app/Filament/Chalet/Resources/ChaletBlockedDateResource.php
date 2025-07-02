@@ -35,13 +35,10 @@ class ChaletBlockedDateResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('chalet_name')
-                    ->label('Chalet Name')
+                Forms\Components\Hidden::make('chalet.id')
                     ->default(function () {
-                        return auth()->user()?->chalet?->name;
-                    })
-                    ->readOnly()
-                    ->columnSpanFull(),
+                        return auth()->user()?->chalet?->id;
+                    }),
                 Forms\Components\DatePicker::make('date')
                     ->required()
                     ->live(),
