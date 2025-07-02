@@ -16,12 +16,20 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\BlockReason;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class ChaletBlockedDateResource extends Resource
 {
     protected static ?string $model = ChaletBlockedDate::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->whereHas('chalet', function (Builder $query) {
+            $query->where('owner_id', Auth::id());
+        });
+    }
 
     public static function form(Form $form): Form
     {
