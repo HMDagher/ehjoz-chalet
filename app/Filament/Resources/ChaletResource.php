@@ -121,6 +121,7 @@ final class ChaletResource extends Resource
                             Forms\Components\TextInput::make('city')->maxLength(100),
                             Map::make('location')
                                 ->geolocate()
+                                ->clickable(true)
                                 ->autocomplete(
                                     fieldName: 'address',
                                     types: ['establishment'],
