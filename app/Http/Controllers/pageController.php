@@ -281,4 +281,28 @@ class pageController extends baseController
             'booking' => $booking
         ]);
     }
+
+    /**
+     * Handle contact form submission and send email
+     */
+    public function sendContact(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'msg' => 'required|string',
+        ]);
+
+        \Mail::raw($validated['msg'], function ($message) use ($validated) {
+            $message->to('hadi.d.enG@gmail.com')
+                ->subject('Moonlit Contact Form ' . $validated['name'])
+                ->from($validated['email'], $validated['name']);
+        });
+
+        if ($request->ajax()) {
+            return response()->json(['success' => 'Thank You! Your message has been sent.']);
+        }
+
+        return back()->with('success', 'Thank You! Your message has been sent.');
+    }
 }

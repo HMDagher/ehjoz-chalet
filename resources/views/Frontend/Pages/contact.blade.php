@@ -18,7 +18,22 @@
                     <div class="rts__contact">
                         <span class="h4 d-block mb-30 text-center">Love to hear from you
                             Get in touch!</span>
-                        <form action="mailer.php" method="post" class="rts__contact__form" id="contact-form">
+                        @if(session('success'))
+                            <div class="alert alert-success">
+                                {{ session('success') }}
+                            </div>
+                        @endif
+                        @if($errors->any())
+                            <div class="alert alert-danger">
+                                <ul class="mb-0">
+                                    @foreach($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+                        <form action="{{ route('contact.send') }}" method="post" class="rts__contact__form" id="contact-form">
+                            @csrf
                             <div class="form-input">
                                 <label for="name">Your Name</label>
                                 <div class="pr">
@@ -48,39 +63,6 @@
                 <div class="col-lg-6">
                     <div class="contact__image">
                         <img class="rounded-2 w-100 img-fluid" src="{{asset('assets/images/pages/contact.webp')}}" width="645" height="560" alt="contact__image">
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="container pt-120">
-            <div class="row g-30 align-items-center">
-                <div class="col-lg-6">
-                    <div class="contact__map">
-                        <!-- <iframe class="w-100" height="560"  src="https://maps.google.com/maps?width=100%25&amp;height=600&amp;hl=en&amp;q=phuket+(My%20Business%20Name)&amp;t=&amp;z=14&amp;ie=UTF8&amp;iwloc=B&amp;output=embed"></iframe> -->
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="contact__info">
-
-                        <div class="contact__info__item">
-                            <h4>Hotel Info Center</h4>
-                            <p>
-                                Open Hours: Monday – Sunday <br>
-                                Telephone: +12505550199 <br>
-                                Fax: +12505550199 <br>
-                                Email: info@moonlit.com
-                            </p>
-                        </div>
-                        <div class="contact__info__item">
-                            <h4>Hotel location</h4>
-                            <p>
-                                Address: The Ritz-Carlton (California, USA) <br>
-                                Telephone: +12505550199 <br>
-                                Fax: +12505550199 <br>
-                                Email: info@moonlit.com
-                            </p>
-                        </div>
-
                     </div>
                 </div>
             </div>

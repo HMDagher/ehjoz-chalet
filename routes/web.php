@@ -12,6 +12,7 @@ Route::controller(pageController::class)->group(function () {
     Route::get('/', 'index')->name('index');
     Route::get('chalets', 'chalets')->name('chalets');
     Route::get('contact', 'contact')->name('contact');
+    Route::post('contact', 'sendContact')->name('contact.send');
     Route::get('booking/confirmation/{bookingReference}', 'bookingConfirmation')->name('booking-confirmation');
     Route::get('/{slug}', 'roomDetailSOne')->name('chalet-details');
 });

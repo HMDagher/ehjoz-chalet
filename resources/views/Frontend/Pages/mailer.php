@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Set the recipient email address.
     // FIXME: Update this to your desired email address.
-    $recipient = 'support@reactheme.com';
+    $recipient = 'hadi.d.enG@gmail.com';
 
     // Set the email subject.
     $subject = "Moonlit Contact Form $name";
