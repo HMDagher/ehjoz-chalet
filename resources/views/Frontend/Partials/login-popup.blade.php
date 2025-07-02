@@ -11,18 +11,31 @@
             </div>
             <form action="{{ route('signin') }}" method="post" class="d-flex flex-column gap-3">
                 @csrf
+                @if ($errors->any() && !old('name'))
+                    <div class="alert alert-danger py-2">
+                        <ul class="mb-0">
+                            @foreach ($errors->all() as $error)
+                                <li style="font-size: 14px;">{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <div class="form-group">
                     <label for="email-popup" class="text-dark mb-3">Your Email</label>
                     <div class="position-relative">
-                        <input type="email" name="email" id="email-popup" placeholder="Enter your email" required>
-
+                        <input type="email" name="email" id="email-popup" placeholder="Enter your email" required value="{{ old('email') }}">
+                        @if ($errors->has('email'))
+                            <span class="text-danger" style="font-size: 13px;">{{ $errors->first('email') }}</span>
+                        @endif
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="password" class="text-dark mb-3">Password</label>
                     <div class="position-relative">
                         <input type="password" name="password" id="password" placeholder="Enter your password" required>
-
+                        @if ($errors->has('password'))
+                            <span class="text-danger" style="font-size: 13px;">{{ $errors->first('password') }}</span>
+                        @endif
                     </div>
                 </div>
                 <div class="d-flex flex-wrap justify-content-between align-items-center ">
@@ -66,19 +79,34 @@
 
             <form action="{{ route('signup') }}" method="post" class="d-flex flex-column gap-3">
                 @csrf
+                @if ($errors->any() && old('name'))
+                    <div class="alert alert-danger py-2">
+                        <ul class="mb-0">
+                            @foreach ($errors->all() as $error)
+                                <li style="font-size: 14px;">{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <div class="form-group">
                     <label for="sname" class=" text-dark mb-3">Your Name</label>
                     <div class="position-relative">
-                        <input type="text" name="name" id="sname" placeholder="Candidate" required>
+                        <input type="text" name="name" id="sname" placeholder="Candidate" required value="{{ old('name') }}">
                         <i class="fa-light fa-user icon"></i>
+                        @if ($errors->has('name'))
+                            <span class="text-danger" style="font-size: 13px;">{{ $errors->first('name') }}</span>
+                        @endif
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="signemail" class=" text-dark mb-3">Your Email</label>
                     <div class="position-relative">
-                        <input type="email" name="email" id="signemail" placeholder="Enter your email" required>
+                        <input type="email" name="email" id="signemail" placeholder="Enter your email" required value="{{ old('email') }}">
                         <i class="fa-sharp fa-light fa-envelope icon"></i>
+                        @if ($errors->has('email'))
+                            <span class="text-danger" style="font-size: 13px;">{{ $errors->first('email') }}</span>
+                        @endif
                     </div>
                 </div>
                 <div class="form-group">
@@ -86,6 +114,9 @@
                     <div class="position-relative">
                         <input type="password" name="password" id="spassword" placeholder="Enter your password" required>
                         <i class="fa-light fa-lock icon"></i>
+                        @if ($errors->has('password'))
+                            <span class="text-danger" style="font-size: 13px;">{{ $errors->first('password') }}</span>
+                        @endif
                     </div>
                 </div>
                 
@@ -138,4 +169,21 @@
       </div>
     </div>
 </div>
+
+@if ($errors->any() && !old('name'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+        });
+    </script>
+@endif
+@if ($errors->any() && old('name'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var signupModal = new bootstrap.Modal(document.getElementById('signupModal'));
+            signupModal.show();
+        });
+    </script>
+@endif
   
