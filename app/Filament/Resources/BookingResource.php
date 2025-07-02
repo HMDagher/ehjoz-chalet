@@ -102,6 +102,41 @@ final class BookingResource extends Resource
                         Forms\Components\DateTimePicker::make('cancelled_at'),
                         Forms\Components\DateTimePicker::make('auto_completed_at'),
                     ]),
+                Section::make('Payment Information')
+                    ->schema([
+                        Forms\Components\Placeholder::make('payment_reference')
+                            ->label('Payment Reference')
+                            ->content(fn ($record) => $record->payment?->payment_reference ?? 'No payment recorded'),
+                        Forms\Components\Placeholder::make('payment_amount')
+                            ->label('Payment Amount')
+                            ->content(fn ($record) => $record->payment ? '$' . number_format($record->payment->amount, 2) : 'No payment recorded'),
+                        Forms\Components\Placeholder::make('payment_method')
+                            ->label('Payment Method')
+                            ->content(fn ($record) => $record->payment?->payment_method?->getLabel() ?? 'No payment recorded'),
+                        Forms\Components\Placeholder::make('payment_status')
+                            ->label('Payment Status')
+                            ->content(fn ($record) => $record->payment?->status?->getLabel() ?? 'No payment recorded'),
+                        Forms\Components\Placeholder::make('paid_at')
+                            ->label('Paid At')
+                            ->content(function ($record) {
+                                if (!$record->payment || !$record->payment->paid_at) {
+                                    return 'No payment recorded';
+                                }
+                                
+                                $paidAt = $record->payment->paid_at;
+                                if (is_numeric($paidAt)) {
+                                    return \Carbon\Carbon::createFromTimestamp($paidAt)->format('M d, Y H:i');
+                                }
+                                
+                                return $paidAt->format('M d, Y H:i');
+                            }),
+                        Forms\Components\Placeholder::make('payment_notes')
+                            ->label('Payment Notes')
+                            ->content(fn ($record) => $record->payment?->notes ?? 'No notes'),
+                    ])
+                    ->columns(2)
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 
@@ -144,6 +179,50 @@ final class BookingResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('addPayment')
+                    ->label('Add Payment')
+                    ->icon('heroicon-o-banknotes')
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('payment_reference')->required(),
+                        \Filament\Forms\Components\TextInput::make('amount')->numeric()->required(),
+                        \Filament\Forms\Components\Select::make('payment_method')
+                            ->options(\App\Enums\PaymentMethod::class)
+                            ->required(),
+                        \Filament\Forms\Components\DateTimePicker::make('paid_at')->required(),
+                        \Filament\Forms\Components\Select::make('status')
+                            ->options(\App\Enums\PaymentStatus::class)
+                            ->required(),
+                        \Filament\Forms\Components\Textarea::make('notes'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $payment = $record->payment()->create([
+                            'payment_reference' => $data['payment_reference'],
+                            'amount' => $data['amount'],
+                            'payment_method' => $data['payment_method'],
+                            'paid_at' => $data['paid_at'],
+                            'status' => $data['status'],
+                            'notes' => $data['notes'] ?? null,
+                        ]);
+                        
+                        // Update booking status/payment_status
+                        if (in_array($data['status'], ['paid', 'partial'])) {
+                            $record->update([
+                                'status' => 'confirmed',
+                                'payment_status' => $data['status'],
+                            ]);
+                        } else {
+                            $record->update([
+                                'payment_status' => $data['status'],
+                            ]);
+                        }
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Payment added successfully!')
+                            ->success()
+                            ->send();
+                    })
+                    ->modalHeading('Add Payment')
+                    ->modalButton('Add Payment'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
