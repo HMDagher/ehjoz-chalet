@@ -53,6 +53,7 @@ final class DatabaseSeeder extends Seeder
             FacilitySeeder::class,
             ChaletSeeder::class,
             BookingSeeder::class,
+            GeneralSettingsSeeder::class,
         ]);
     }
 }

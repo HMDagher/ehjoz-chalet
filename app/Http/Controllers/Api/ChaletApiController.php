@@ -155,11 +155,13 @@ class ChaletApiController extends Controller
                 ->first();
             
             $adjustment = $customPricing ? $customPricing->custom_adjustment : 0;
+            $customPricingName = $customPricing ? $customPricing->name : null;
             $finalPrice = $basePrice + $adjustment;
             
             \Log::info('Night price details', [
                 'basePrice' => $basePrice,
                 'hasCustomPricing' => $customPricing ? true : false,
+                'customPricingName' => $customPricingName,
                 'adjustment' => $adjustment,
                 'finalPrice' => $finalPrice
             ]);
@@ -169,6 +171,7 @@ class ChaletApiController extends Controller
                 'is_weekend' => $isWeekend,
                 'base_price' => (float)$basePrice,
                 'custom_adjustment' => (float)$adjustment,
+                'custom_pricing_name' => $customPricingName,
                 'final_price' => (float)$finalPrice
             ];
             

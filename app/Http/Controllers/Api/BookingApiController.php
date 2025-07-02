@@ -96,8 +96,8 @@ class BookingApiController extends Controller
                 'seasonal_adjustment' => 0, // Will be calculated based on custom pricing
                 'extra_hours' => 0,
                 'extra_hours_amount' => 0,
-                'platform_commission' => $totalPrice * 0.1, // 10% commission
-                'total_amount' => $totalPrice + ($totalPrice * 0.1),
+                'platform_commission' => $totalPrice * 0.1, // 10% commission (stored for settlement calculations)
+                'total_amount' => $totalPrice, // Total amount is the same as base price (commission is included)
                 'status' => 'pending',
                 'payment_status' => 'pending',
             ]);

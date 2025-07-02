@@ -457,6 +457,7 @@
                         const adjustment = parseFloat(night.custom_adjustment || 0);
                         const nightPrice = parseFloat(night.final_price);
                         const nightDate = new Date(night.date);
+                        const customPricingName = night.custom_pricing_name || null;
                         
                         if (adjustment !== 0) {
                             hasCustomPricing = true;
@@ -467,6 +468,7 @@
                             dateObj: nightDate,
                             basePrice: basePrice,
                             adjustment: adjustment,
+                            customPricingName: customPricingName,
                             finalPrice: nightPrice
                         };
                         
@@ -486,6 +488,17 @@
                         const weekdayBasePrice = weekdayNights[0].basePrice;
                         const hasWeekdayCustom = weekdayNights.some(n => n.adjustment !== 0);
                         
+                        // Get unique custom pricing names for weekday nights
+                        const customPricingNames = [...new Set(
+                            weekdayNights
+                                .filter(n => n.adjustment !== 0 && n.customPricingName)
+                                .map(n => n.customPricingName)
+                        )];
+                        
+                        const customPricingText = customPricingNames.length > 0 
+                            ? `<div class="text-info small mb-1">${customPricingNames.join(', ')}</div>` 
+                            : '';
+                        
                         const weekdayHtml = `
                             <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
                                 <div>
@@ -495,7 +508,7 @@
                                     </small>
                                 </div>
                                 <div class="text-end">
-                                    ${hasWeekdayCustom ? '<div class="text-info small mb-1">Custom pricing applied</div>' : ''}
+                                    ${customPricingText}
                                     <strong>$${weekdayTotal.toFixed(2)}</strong>
                                 </div>
                             </div>
@@ -508,6 +521,17 @@
                         const weekendBasePrice = weekendNights[0].basePrice;
                         const hasWeekendCustom = weekendNights.some(n => n.adjustment !== 0);
                         
+                        // Get unique custom pricing names for weekend nights
+                        const customPricingNames = [...new Set(
+                            weekendNights
+                                .filter(n => n.adjustment !== 0 && n.customPricingName)
+                                .map(n => n.customPricingName)
+                        )];
+                        
+                        const customPricingText = customPricingNames.length > 0 
+                            ? `<div class="text-info small mb-1">${customPricingNames.join(', ')}</div>` 
+                            : '';
+                        
                         const weekendHtml = `
                             <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
                                 <div>
@@ -517,7 +541,7 @@
                                     </small>
                                 </div>
                                 <div class="text-end">
-                                    ${hasWeekendCustom ? '<div class="text-info small mb-1">Custom pricing applied</div>' : ''}
+                                    ${customPricingText}
                                     <strong>$${weekendTotal.toFixed(2)}</strong>
                                 </div>
                             </div>
@@ -525,15 +549,7 @@
                         nightlyBreakdown.append(weekendHtml);
                     }
                     
-                    // Add note about custom pricing if applicable
-                    if (hasCustomPricing) {
-                        nightlyBreakdown.append(`
-                            <div class="text-info small mt-2">
-                                <i class="fas fa-info-circle"></i> 
-                                Special pricing applies during your selected dates.
-                            </div>
-                        `);
-                    }
+                    // We no longer need the generic custom pricing note since we're showing specific names
                 } else {
                     // Fallback if nightly breakdown not provided
                     console.log('No nightly breakdown, using fallback');

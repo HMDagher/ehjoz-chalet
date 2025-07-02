@@ -102,7 +102,7 @@
                                             <div class="text-muted small">
                                                 {{ $isWeekend ? 'Weekend' : 'Weekday' }}: ${{ number_format($basePrice, 2) }}
                                                 @if($adjustment != 0)
-                                                    <br><span class="text-info">Custom: ${{ number_format($adjustment, 2) }}</span>
+                                                    <br><span class="text-info">{{ $customPricing ? $customPricing->name : 'Custom' }}: ${{ number_format($adjustment, 2) }}</span>
                                                 @endif
                                             </div>
                                             <strong>${{ number_format($finalPrice, 2) }}</strong>
@@ -154,7 +154,7 @@
                                             <div class="text-muted small">
                                                 {{ $isWeekend ? 'Weekend' : 'Weekday' }}: ${{ number_format($basePrice, 2) }}
                                                 @if($adjustment != 0)
-                                                    <br><span class="text-info">Custom: ${{ number_format($adjustment, 2) }}</span>
+                                                    <br><span class="text-info">{{ $customPricing ? $customPricing->name : 'Custom' }}: ${{ number_format($adjustment, 2) }}</span>
                                                 @endif
                                             </div>
                                             <strong>${{ number_format($nightPrice, 2) }}</strong>
@@ -188,7 +188,6 @@
                                 <p class="h5"><strong>Total Amount:</strong><br>
                                     <span class="text-success fw-bold">${{ number_format($booking->total_amount, 2) }}</span>
                                 </p>
-                                <small class="text-muted">* Includes 10% platform commission</small>
                             </div>
                         </div>
                     </div>
@@ -203,6 +202,7 @@
                         <div class="alert alert-info">
                             <h6><i class="fas fa-info-circle me-2"></i>Important Payment Information</h6>
                             <p class="mb-2">To secure your booking, please complete the payment within <strong>30 minutes</strong>. Your booking will be automatically deleted if payment is not received within this timeframe.</p>
+                            <p class="mb-0"><strong>Total Amount Due: ${{ number_format($booking->total_amount, 2) }}</strong></p>
                         </div>
 
                         <h6>Payment Methods:</h6>
@@ -212,7 +212,10 @@
                                     <img src="/assets/images/whish.jpg" alt="Whish Money" style="height:40px;width:auto;object-fit:contain;" class="me-3">
                                     <div>
                                         <h6 class="mb-1">Whish Money</h6>
-                                        <small class="text-muted">Pay via Whish Money</small>
+                                        <p class="mb-0 small">
+                                            Send payment to: <strong>{{ $settings->support_phone ?? '+961 70 123456' }}</strong><br>
+                                            Include booking reference <strong>{{ $booking->booking_reference }}</strong> in the note
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -221,10 +224,18 @@
                                     <img src="/assets/images/omt.png" alt="OMT" style="height:40px;width:auto;object-fit:contain;" class="me-3">
                                     <div>
                                         <h6 class="mb-1">OMT</h6>
-                                        <small class="text-muted">Pay via OMT</small>
+                                        <p class="mb-0 small">
+                                            Send payment to: <strong>{{ $settings->support_phone ?? '+961 70 123456' }}</strong><br>
+                                            Include booking reference <strong>{{ $booking->booking_reference }}</strong> in the note
+                                        </p>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <div class="alert alert-warning mt-3">
+                            <h6 class="mb-1"><i class="fas fa-exclamation-triangle me-2"></i>Important</h6>
+                            <p class="mb-0">After sending payment, please take a screenshot of the payment confirmation and send it to <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $settings->support_phone ?? '+96170123456') }}" target="_blank">WhatsApp</a> or email to <a href="mailto:{{ $settings->support_email ?? 'info@ehjozchalet.com' }}">{{ $settings->support_email ?? 'info@ehjozchalet.com' }}</a> with your booking reference.</p>
                         </div>
 
                         <!-- Online Payment (hidden for now) -->
@@ -248,7 +259,7 @@
                             <li class="mb-2">Complete the payment using one of the methods above within 30 minutes</li>
                             <li class="mb-2">You will receive a payment confirmation email immediately</li>
                             <li class="mb-2">Your booking will be confirmed instantly upon payment</li>
-                            <li class="mb-0">For any questions, contact us at <a href="mailto:info@ehjozchalet.com">info@ehjozchalet.com</a></li>
+                            <li class="mb-0">For any questions, contact us at <a href="mailto:{{ $settings->support_email ?? 'info@ehjozchalet.com' }}">{{ $settings->support_email ?? 'info@ehjozchalet.com' }}</a></li>
                         </ol>
                     </div>
                 </div>
