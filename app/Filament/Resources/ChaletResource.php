@@ -21,6 +21,7 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Forms\Set;
 use Illuminate\Support\Str;
+use Cheesegrits\FilamentGoogleMaps\Fields\Map;
 
 final class ChaletResource extends Resource
 {
@@ -46,8 +47,6 @@ final class ChaletResource extends Resource
                                     Forms\Components\Select::make('owner_id')->relationship('owner', 'name')->searchable()->required(),
                                     Forms\Components\Select::make('status')->options(ChaletStatus::class)->native(false)->required(),
                                     Forms\Components\RichEditor::make('description')->columnSpanFull(),
-                                    Forms\Components\Textarea::make('address'),
-                                    Forms\Components\TextInput::make('city')->maxLength(100),
                                     Forms\Components\ToggleButtons::make('is_featured')->boolean()->inline()->required(),
                                     Forms\Components\DateTimePicker::make('featured_until'),
                                 ])->columns(2),
@@ -116,8 +115,18 @@ final class ChaletResource extends Resource
                                 ->multiple()
                                 ->reorderable(),
                         ]),
-                ])->columnSpanFull(),
-        ]);
+                    Forms\Components\Tabs\Tab::make('Location')
+                        ->schema([
+                            Forms\Components\Textarea::make('address'),
+                            Forms\Components\TextInput::make('city')->maxLength(100),
+                            Map::make('location')
+                                ->columnSpanFull()
+                                ->autocomplete()
+                                ->placesDataField('address', 'formatted_address')
+                                ->placesDataField('city', 'locality'),
+                        ]),
+                        ])->columnSpanFull(),
+                    ]);
     }
 
     public static function table(Table $table): Table
