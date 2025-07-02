@@ -32,7 +32,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended('/customer');
+        return redirect()->intended('/');
     }
 
     public function signin(Request $request)
@@ -53,10 +53,6 @@ class AuthController extends Controller
 
             if ($user->hasRole('owner')) {
                 return redirect()->intended('/chalet');
-            }
-
-            if ($user->hasRole('customer')) {
-                return redirect()->intended('/customer');
             }
 
             return redirect()->intended('/');
