@@ -22,8 +22,22 @@
                         <a href="{{route('index')}}"><img class="logo__class" src="{{ asset(optional($settings)->site_logo ?? 'assets/images/logo/logo.png') }}" alt="{{ optional($settings)->site_name ?? 'Moonlit' }}" style="width: 170px; height: 40px; object-fit: contain;"></a>
                     </div>
                     <div class="main__right">
-                        <a href="#" class="theme-btn btn-style sm-btn border d-none d-lg-block" aria-label="Login Button" data-bs-toggle="modal" data-bs-target="#loginModal"><span>Sign In</span></a>
-                        <a href="#" class="theme-btn btn-style sm-btn border d-none d-lg-block" aria-label="Sign Up Button" data-bs-toggle="modal" data-bs-target="#signupModal"><span>Sign Up</span></a>
+                        @auth
+                            @php
+                                $dashboardUrl = '/';
+                                if(auth()->user()->hasRole('admin')) {
+                                    $dashboardUrl = '/admin';
+                                } elseif(auth()->user()->hasRole('owner')) {
+                                    $dashboardUrl = '/chalet';
+                                } elseif(auth()->user()->hasRole('customer')) {
+                                    $dashboardUrl = '/customer';
+                                }
+                            @endphp
+                            <a href="{{ $dashboardUrl }}" class="theme-btn btn-style sm-btn border d-none d-lg-block" aria-label="Dashboard Button"><span>Dashboard</span></a>
+                        @else
+                            <a href="#" class="theme-btn btn-style sm-btn border d-none d-lg-block" aria-label="Login Button" data-bs-toggle="modal" data-bs-target="#loginModal"><span>Sign In</span></a>
+                            <a href="#" class="theme-btn btn-style sm-btn border d-none d-lg-block" aria-label="Sign Up Button" data-bs-toggle="modal" data-bs-target="#signupModal"><span>Sign Up</span></a>
+                        @endauth
                         <button class="theme-btn btn-style sm-btn fill menu__btn d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
                             <span><img src="{{asset('assets/images/icon/menu-icon.svg')}}" alt=""></span>
                         </button>

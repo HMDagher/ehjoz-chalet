@@ -90,8 +90,8 @@
                             <div class="swiper-slide">
                                 <div class="room__slide__box radius-6">
                                     <div class="room__thumbnail jara-mask-2 jarallax">
-                                        @if($chalet->getFirstMediaUrl('default'))
-                                            <img height="585" width="420" class="radius-6 jarallax-img" src="{{ $chalet->getFirstMediaUrl('default') }}" alt="{{ $chalet->name }}">
+                                        @if($chalet->getFirstMediaUrl('featured_image'))
+                                            <img height="585" width="420" class="radius-6 jarallax-img" src="{{ $chalet->getFirstMediaUrl('featured_image') }}" alt="{{ $chalet->name }}">
                                         @else
                                             <img height="585" width="420" class="radius-6 jarallax-img" src="{{asset('assets/images/room/4.webp')}}" alt="{{ $chalet->name }}">
                                         @endif

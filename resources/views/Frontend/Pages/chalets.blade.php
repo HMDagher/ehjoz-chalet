@@ -22,7 +22,7 @@
 
                         if(!$chaletModel instanceof \App\Models\Chalet) continue;
 
-                        $thumb = $chaletModel->getFirstMediaUrl('default') ?: asset('assets/images/room/4.webp');
+                        $thumb = $chaletModel->getFirstMediaUrl('featured_image') ?: asset('assets/images/room/4.webp');
                         $title = $chaletModel->name;
                         $desc = \Illuminate\Support\Str::limit(strip_tags($chaletModel->description), 150);
                         $chalet_slug = $chaletModel->slug;
