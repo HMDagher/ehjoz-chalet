@@ -19,6 +19,8 @@ use Ysfkaya\FilamentPhoneInput\PhoneInputNumberType;
 use Ysfkaya\FilamentPhoneInput\Tables\PhoneColumn;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
+use Filament\Forms\Set;
+use Illuminate\Support\Str;
 
 final class ChaletResource extends Resource
 {
@@ -37,7 +39,9 @@ final class ChaletResource extends Resource
                         ->schema([
                             Forms\Components\Section::make('Chalet Information')
                                 ->schema([
-                                    Forms\Components\TextInput::make('name')->required()->maxLength(255),
+                                    Forms\Components\TextInput::make('name')->required()->maxLength(255)
+                                        ->live(onBlur: true)
+                                        ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state))),
                                     Forms\Components\TextInput::make('slug')->required()->maxLength(255)->unique(ignoreRecord: true),
                                     Forms\Components\Select::make('owner_id')->relationship('owner', 'name')->searchable()->required(),
                                     Forms\Components\Select::make('status')->options(ChaletStatus::class)->native(false)->required(),
