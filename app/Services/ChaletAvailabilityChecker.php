@@ -277,18 +277,49 @@ final class ChaletAvailabilityChecker
      */
     public function calculateOvernightPrice(string $startDate, string $endDate, int $timeSlotId): array
     {
+        \Log::info('calculateOvernightPrice called', [
+            'startDate' => $startDate, 
+            'endDate' => $endDate, 
+            'timeSlotId' => $timeSlotId
+        ]);
+        
         $start = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
         $total = 0;
         $nights = $start->diffInDays($end);
         $nights = max(1, $nights);
         
+        \Log::info('Nights calculated', ['nights' => $nights]);
+        
         // Calculate price for each night
         $currentDate = $start->copy();
+        $nightPrices = [];
+        
         while ($currentDate < $end) {
-            $total += $this->calculateDayUsePrice($currentDate->format('Y-m-d'), $timeSlotId);
+            $dateStr = $currentDate->format('Y-m-d');
+            $nightPrice = $this->calculateDayUsePrice($dateStr, $timeSlotId);
+            $total += $nightPrice;
+            
+            \Log::info('Night price calculated', [
+                'date' => $dateStr,
+                'price' => $nightPrice,
+                'running_total' => $total
+            ]);
+            
+            $nightPrices[] = [
+                'date' => $dateStr,
+                'price' => $nightPrice
+            ];
+            
             $currentDate->addDay();
         }
+        
+        \Log::info('Total overnight price calculated', [
+            'total' => $total,
+            'nights' => $nights,
+            'price_per_night' => $total / $nights,
+            'night_prices' => $nightPrices
+        ]);
         
         return [
             'total_price' => $total,
@@ -332,19 +363,36 @@ final class ChaletAvailabilityChecker
      */
     public function getAvailableOvernightSlots(string $startDate, string $endDate): Collection
     {
+        \Log::info('Checker: getAvailableOvernightSlots called', ['start' => $startDate, 'end' => $endDate]);
+        
         $slots = $this->chalet->timeSlots()
             ->where('is_active', true)
             ->where('is_overnight', true)
             ->get();
-        \Log::info('Checker: getAvailableOvernightSlots', ['start' => $startDate, 'end' => $endDate, 'slot_ids' => $slots->pluck('id')->toArray()]);
+            
+        \Log::info('Checker: getAvailableOvernightSlots found slots', [
+            'chalet_id' => $this->chalet->id,
+            'slots_count' => $slots->count(),
+            'slot_ids' => $slots->pluck('id')->toArray()
+        ]);
+        
         return $slots
             ->filter(function ($slot) use ($startDate, $endDate) {
                 $result = $this->isOvernightSlotAvailable($startDate, $endDate, $slot->id);
-                \Log::info('Checker: getAvailableOvernightSlots filter', ['slot_id' => $slot->id, 'result' => $result]);
+                \Log::info('Checker: getAvailableOvernightSlots filter', [
+                    'slot_id' => $slot->id, 
+                    'slot_name' => $slot->name,
+                    'result' => $result
+                ]);
                 return $result;
             })
             ->map(function ($slot) use ($startDate, $endDate) {
                 $priceData = $this->calculateOvernightPrice($startDate, $endDate, $slot->id);
+                \Log::info('Checker: getAvailableOvernightSlots mapping slot', [
+                    'slot_id' => $slot->id,
+                    'price_data' => $priceData
+                ]);
+                
                 return [
                     'id' => $slot->id,
                     'name' => $slot->name,

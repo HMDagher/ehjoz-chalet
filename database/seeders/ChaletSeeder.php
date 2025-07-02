@@ -99,10 +99,24 @@ final class ChaletSeeder extends Seeder
                 'is_active' => true,
             ],
         ];
+        
+        // Debug log to verify seeded data
+        \Log::info('Seeding chalet time slots', [
+            'chalet_id' => $chalet->id,
+            'time_slots_count' => count($timeSlots)
+        ]);
 
+        $createdSlots = [];
         foreach ($timeSlots as $slotData) {
             $slot = $chalet->timeSlots()->create($slotData);
-            ChaletCustomPricing::create([
+            $createdSlots[] = [
+                'id' => $slot->id,
+                'name' => $slot->name,
+                'is_overnight' => $slot->is_overnight
+            ];
+            
+            // Create custom pricing for each slot
+            $customPricing = ChaletCustomPricing::create([
                 'chalet_id' => $chalet->id,
                 'time_slot_id' => $slot->id,
                 'start_date' => now()->addDays(7)->toDateString(),
@@ -111,6 +125,20 @@ final class ChaletSeeder extends Seeder
                 'name' => $slotData['name'] . ' Special',
                 'is_active' => true,
             ]);
+            
+            \Log::info('Created time slot and custom pricing', [
+                'slot_id' => $slot->id,
+                'slot_name' => $slot->name,
+                'is_overnight' => $slot->is_overnight,
+                'custom_pricing_id' => $customPricing->id,
+                'custom_adjustment' => $customPricing->custom_adjustment,
+                'custom_pricing_dates' => [
+                    'start' => $customPricing->start_date,
+                    'end' => $customPricing->end_date
+                ]
+            ]);
         }
+        
+        \Log::info('All created time slots', ['slots' => $createdSlots]);
     }
 }

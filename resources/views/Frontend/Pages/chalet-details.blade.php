@@ -30,8 +30,8 @@
                             <span><i class="flaticon-user"></i>{{ $chalet->max_adults + $chalet->max_children }} Person</span>
                         </div>
 
-                        @if($chalet->address || $chalet->city)
-                            <div class="mb-2"><strong>Address:</strong> {{ $chalet->address }}, {{ $chalet->city }}</div>
+                        @if($chalet->address)
+                            <div class="mb-2"><strong>Address:</strong> {{ $chalet->address }}</div>
                         @endif
 
                         @if($chalet->check_in_instructions)
@@ -203,8 +203,10 @@
                                 <!-- Price summary for overnight -->
                                 <div id="overnight-price-summary" class="wow fadeInUp" data-wow-delay=".4s" style="display: none;">
                                     <div class="mb-3">
-                                        <strong>Price per night:</strong> $<span id="price-per-night">0</span>
-                                        <br><strong>Total for stay:</strong> $<span id="overnight-total-price">0</span>
+                                        <div id="nightly-breakdown"></div>
+                                        <div class="mt-2 pt-2 border-top">
+                                            <strong>Total for stay:</strong> $<span id="overnight-total-price">0</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -362,6 +364,13 @@
                     },
                     success: function(response) {
                         console.log('Availability response:', response); // Debug log
+                        
+                        // More detailed debugging
+                        if (bookingType === 'overnight') {
+                            console.log('Overnight slots:', response.data?.slots);
+                            console.log('Nightly breakdown:', response.data?.nightly_breakdown);
+                        }
+                        
                         if (response.success) {
                             availableSlots = response.data.slots;
                             
@@ -411,16 +420,127 @@
             }
 
             function displayOvernightSlots(data) {
-                if (data.slots.length === 0) {
+                console.log('displayOvernightSlots called with data:', data);
+                
+                if (!data.slots || data.slots.length === 0) {
                     showError("No overnight availability for selected dates");
                     return;
                 }
 
                 const slot = data.slots[0]; // Overnight bookings use single slot
+                console.log('Selected slot:', slot);
+                
                 const nights = calculateNights(data.start_date, data.end_date);
+                console.log('Nights calculated:', nights);
+                
                 const totalPrice = slot.total_price;
-
-                $("#price-per-night").text(slot.price_per_night.toFixed(2));
+                console.log('Total price:', totalPrice);
+                
+                // Generate nightly breakdown
+                const nightlyBreakdown = $("#nightly-breakdown");
+                nightlyBreakdown.empty();
+                
+                console.log('Nightly breakdown data:', data.nightly_breakdown);
+                
+                if (data.nightly_breakdown && data.nightly_breakdown.length > 0) {
+                    console.log('Using nightly breakdown from API');
+                    
+                    // Group nights by weekend/weekday and track custom pricing
+                    const weekdayNights = [];
+                    const weekendNights = [];
+                    let hasCustomPricing = false;
+                    
+                    // Process all nights and group them
+                    data.nightly_breakdown.forEach(night => {
+                        const isWeekend = night.is_weekend;
+                        const basePrice = parseFloat(night.base_price);
+                        const adjustment = parseFloat(night.custom_adjustment || 0);
+                        const nightPrice = parseFloat(night.final_price);
+                        const nightDate = new Date(night.date);
+                        
+                        if (adjustment !== 0) {
+                            hasCustomPricing = true;
+                        }
+                        
+                        const nightData = {
+                            date: night.date,
+                            dateObj: nightDate,
+                            basePrice: basePrice,
+                            adjustment: adjustment,
+                            finalPrice: nightPrice
+                        };
+                        
+                        if (isWeekend) {
+                            weekendNights.push(nightData);
+                        } else {
+                            weekdayNights.push(nightData);
+                        }
+                    });
+                    
+                    // Calculate totals
+                    const weekdayTotal = weekdayNights.reduce((sum, night) => sum + night.finalPrice, 0);
+                    const weekendTotal = weekendNights.reduce((sum, night) => sum + night.finalPrice, 0);
+                    
+                    // Display weekday nights if any
+                    if (weekdayNights.length > 0) {
+                        const weekdayBasePrice = weekdayNights[0].basePrice;
+                        const hasWeekdayCustom = weekdayNights.some(n => n.adjustment !== 0);
+                        
+                        const weekdayHtml = `
+                            <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
+                                <div>
+                                    <strong>Weekday Nights (${weekdayNights.length})</strong><br>
+                                    <small class="text-muted">
+                                        Base price: $${weekdayBasePrice.toFixed(2)} per night
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    ${hasWeekdayCustom ? '<div class="text-info small mb-1">Custom pricing applied</div>' : ''}
+                                    <strong>$${weekdayTotal.toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        `;
+                        nightlyBreakdown.append(weekdayHtml);
+                    }
+                    
+                    // Display weekend nights if any
+                    if (weekendNights.length > 0) {
+                        const weekendBasePrice = weekendNights[0].basePrice;
+                        const hasWeekendCustom = weekendNights.some(n => n.adjustment !== 0);
+                        
+                        const weekendHtml = `
+                            <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
+                                <div>
+                                    <strong>Weekend Nights (${weekendNights.length})</strong><br>
+                                    <small class="text-muted">
+                                        Base price: $${weekendBasePrice.toFixed(2)} per night
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    ${hasWeekendCustom ? '<div class="text-info small mb-1">Custom pricing applied</div>' : ''}
+                                    <strong>$${weekendTotal.toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        `;
+                        nightlyBreakdown.append(weekendHtml);
+                    }
+                    
+                    // Add note about custom pricing if applicable
+                    if (hasCustomPricing) {
+                        nightlyBreakdown.append(`
+                            <div class="text-info small mt-2">
+                                <i class="fas fa-info-circle"></i> 
+                                Special pricing applies during your selected dates.
+                            </div>
+                        `);
+                    }
+                } else {
+                    // Fallback if nightly breakdown not provided
+                    console.log('No nightly breakdown, using fallback');
+                    const pricePerNight = parseFloat(slot.price_per_night);
+                    nightlyBreakdown.html(`<strong>Price per night:</strong> $${pricePerNight.toFixed(2)}`);
+                }
+                
                 $("#overnight-total-price").text(totalPrice.toFixed(2));
                 $("#overnight-price-summary").show();
 

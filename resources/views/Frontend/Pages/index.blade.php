@@ -15,20 +15,7 @@
                     <div class="col-lg-10">
                         <div class="banner__slide__content">
                             <h1 class="wow fadeInUp">Luxury Stay Chalet Experience Comfort & Elegance</h1>
-                            <div class="banner__slide__content__info">
-                                <div class="item wow fadeInUp" data-wow-delay=".3s">
-                                    <span class="h2 d-block">{{ $chaletCount }}</span>
-                                    <p>Chalets</p>
-                                </div>
-                                <div class="item wow fadeInUp" data-wow-delay=".5s">
-                                    <span class="h2 d-block">{{ $bookingCount }}</span>
-                                    <p>Bookings</p>
-                                </div>
-                                <div class="item wow fadeInUp" data-wow-delay=".7s">
-                                    <span class="h2 d-block">{{ $customerCount }}</span>
-                                    <p>Customers</p>
-                                </div>
-                            </div>
+                            
                         </div>
                     </div>
                 </div>

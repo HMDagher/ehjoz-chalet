@@ -55,7 +55,45 @@ class ChaletApiController extends Controller
                     $endDate = Carbon::parse($startDate)->addDay()->format('Y-m-d');
                 }
                 
+                \Log::info('Getting available overnight slots', [
+                    'chalet_id' => $chalet->id,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ]);
+                
+                // Get all time slots for debugging
+                $allTimeSlots = $chalet->timeSlots()->get();
+                \Log::info('All time slots for chalet', [
+                    'chalet_id' => $chalet->id,
+                    'slots_count' => $allTimeSlots->count(),
+                    'slots' => $allTimeSlots->map(function($slot) {
+                        return [
+                            'id' => $slot->id,
+                            'name' => $slot->name,
+                            'is_overnight' => $slot->is_overnight,
+                            'is_active' => $slot->is_active
+                        ];
+                    })->toArray()
+                ]);
+                
                 $availableSlots = $availabilityChecker->getAvailableOvernightSlots($startDate, $endDate);
+                
+                \Log::info('Available overnight slots result', [
+                    'count' => $availableSlots->count(),
+                    'slots' => $availableSlots->toArray()
+                ]);
+                
+                // Generate nightly breakdown for each available slot
+                $nightlyBreakdown = [];
+                if ($availableSlots->isNotEmpty()) {
+                    $slot = $availableSlots->first();
+                    \Log::info('Using first available slot for nightly breakdown', [
+                        'slot' => $slot
+                    ]);
+                    $nightlyBreakdown = $this->generateNightlyBreakdown($chalet, $availabilityChecker, $startDate, $endDate, $slot['id']);
+                } else {
+                    \Log::warning('No available overnight slots found for nightly breakdown');
+                }
                 
                 return response()->json([
                     'success' => true,
@@ -63,13 +101,86 @@ class ChaletApiController extends Controller
                         'slots' => $availableSlots->toArray(),
                         'booking_type' => 'overnight',
                         'start_date' => $startDate,
-                        'end_date' => $endDate
+                        'end_date' => $endDate,
+                        'nightly_breakdown' => $nightlyBreakdown
                     ]
                 ]);
             }
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error checking availability: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Generate a breakdown of prices for each night in an overnight stay
+     */
+    private function generateNightlyBreakdown(Chalet $chalet, ChaletAvailabilityChecker $availabilityChecker, string $startDate, string $endDate, int $timeSlotId): array
+    {
+        \Log::info('generateNightlyBreakdown called', [
+            'chalet_id' => $chalet->id,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'timeSlotId' => $timeSlotId
+        ]);
+        
+        $start = Carbon::parse($startDate);
+        $end = Carbon::parse($endDate);
+        $breakdown = [];
+        
+        // Calculate price for each night
+        $currentDate = $start->copy();
+        while ($currentDate < $end) {
+            $date = $currentDate->format('Y-m-d');
+            $isWeekend = in_array($currentDate->dayOfWeek, [5, 6, 0]); // Friday, Saturday, Sunday
+            
+            // Get the time slot
+            $timeSlot = $chalet->timeSlots()->findOrFail($timeSlotId);
+            
+            \Log::info('Processing night', [
+                'date' => $date,
+                'isWeekend' => $isWeekend,
+                'timeSlot' => $timeSlot->name
+            ]);
+            
+            // Get base price (weekday/weekend)
+            $basePrice = $isWeekend ? $timeSlot->weekend_price : $timeSlot->weekday_price;
+            
+            // Check for seasonal pricing adjustment
+            $customPricing = $chalet->customPricing()
+                ->where('time_slot_id', $timeSlotId)
+                ->where('start_date', '<=', $date)
+                ->where('end_date', '>=', $date)
+                ->where('is_active', true)
+                ->latest('created_at')
+                ->first();
+            
+            $adjustment = $customPricing ? $customPricing->custom_adjustment : 0;
+            $finalPrice = $basePrice + $adjustment;
+            
+            \Log::info('Night price details', [
+                'basePrice' => $basePrice,
+                'hasCustomPricing' => $customPricing ? true : false,
+                'adjustment' => $adjustment,
+                'finalPrice' => $finalPrice
+            ]);
+            
+            $breakdown[] = [
+                'date' => $date,
+                'is_weekend' => $isWeekend,
+                'base_price' => (float)$basePrice,
+                'custom_adjustment' => (float)$adjustment,
+                'final_price' => (float)$finalPrice
+            ];
+            
+            $currentDate->addDay();
+        }
+        
+        \Log::info('Nightly breakdown generated', [
+            'nights_count' => count($breakdown),
+            'breakdown' => $breakdown
+        ]);
+        
+        return $breakdown;
     }
 
     /**
@@ -132,6 +243,7 @@ class ChaletApiController extends Controller
                 }
 
                 $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slotId);
+                $nightlyBreakdown = $this->generateNightlyBreakdown($chalet, $availabilityChecker, $startDate, $endDate, $slotId);
                 
                 return response()->json([
                     'success' => true,
@@ -142,7 +254,8 @@ class ChaletApiController extends Controller
                         'booking_type' => 'overnight',
                         'start_date' => $startDate,
                         'end_date' => $endDate,
-                        'slot_id' => $slotId
+                        'slot_id' => $slotId,
+                        'nightly_breakdown' => $nightlyBreakdown
                     ]
                 ]);
             }
