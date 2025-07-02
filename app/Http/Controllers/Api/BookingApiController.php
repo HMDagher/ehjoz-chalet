@@ -50,6 +50,13 @@ class BookingApiController extends Controller
         $slotIds = $request->slot_ids;
 
         try {
+            // Check if launch promotion is active (15% discount until July 10, 2025)
+            $launchDiscountEndDate = '2025-07-10';
+            $isLaunchPromoActive = now()->lessThanOrEqualTo($launchDiscountEndDate);
+            $originalPrice = 0;
+            $discountAmount = 0;
+            $discountPercentage = $isLaunchPromoActive ? 15 : 0;
+            
             // Validate availability
             if ($bookingType === 'day-use') {
                 if (!$availabilityChecker->areMultipleSlotsAvailable($startDate, $slotIds)) {
@@ -79,6 +86,11 @@ class BookingApiController extends Controller
                 
                 $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slotId);
                 $totalPrice = $priceData['total_price'];
+                
+                if (isset($priceData['has_discount']) && $priceData['has_discount']) {
+                    $originalPrice = $priceData['original_price'];
+                    $discountAmount = $priceData['discount'];
+                }
             }
 
             // Create booking
@@ -92,12 +104,15 @@ class BookingApiController extends Controller
                 'adults_count' => $request->adults_count,
                 'children_count' => $request->children_count,
                 'total_guests' => $request->adults_count + $request->children_count,
-                'base_slot_price' => $totalPrice,
+                'base_slot_price' => $isLaunchPromoActive ? $originalPrice : $totalPrice,
                 'seasonal_adjustment' => 0, // Will be calculated based on custom pricing
                 'extra_hours' => 0,
                 'extra_hours_amount' => 0,
                 'platform_commission' => $totalPrice * 0.1, // 10% commission (stored for settlement calculations)
-                'total_amount' => $totalPrice, // Total amount is the same as base price (commission is included)
+                'discount_amount' => $discountAmount,
+                'discount_percentage' => $discountPercentage,
+                'discount_reason' => $isLaunchPromoActive ? 'Launch Promotion (15% off)' : null,
+                'total_amount' => $totalPrice, // Total amount is the discounted price
                 'status' => 'pending',
                 'payment_status' => 'pending',
             ]);
@@ -112,6 +127,9 @@ class BookingApiController extends Controller
                     'booking_id' => $booking->id,
                     'booking_reference' => $booking->booking_reference,
                     'total_amount' => $booking->total_amount,
+                    'original_price' => $originalPrice,
+                    'discount_amount' => $discountAmount,
+                    'discount_percentage' => $discountPercentage,
                     'status' => $booking->status,
                     'confirmation_url' => route('booking-confirmation', $booking->booking_reference)
                 ]

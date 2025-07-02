@@ -259,6 +259,39 @@ final class ChaletAvailabilityChecker
     }
     
     /**
+     * Check if launch promotion is active (15% discount until July 10, 2025)
+     */
+    private function isLaunchPromoActive(): bool
+    {
+        $launchDiscountEndDate = '2025-07-10';
+        return now()->lessThanOrEqualTo($launchDiscountEndDate);
+    }
+    
+    /**
+     * Apply launch discount if applicable
+     */
+    private function applyLaunchDiscount(float $price): array
+    {
+        $originalPrice = $price;
+        $discount = 0;
+        $discountPercentage = 0;
+        
+        if ($this->isLaunchPromoActive()) {
+            $discountPercentage = 15;
+            $discount = $originalPrice * ($discountPercentage / 100);
+            $price = $originalPrice - $discount;
+        }
+        
+        return [
+            'final_price' => $price,
+            'original_price' => $originalPrice,
+            'discount' => $discount,
+            'discount_percentage' => $discountPercentage,
+            'has_discount' => $discount > 0
+        ];
+    }
+    
+    /**
      * Calculate total price for consecutive day-use slots
      */
     public function calculateConsecutiveSlotsPrice(string $date, array $slotIds): float
@@ -269,7 +302,11 @@ final class ChaletAvailabilityChecker
             $slotIdInt = (int) $slotId;
             $total += $this->calculateDayUsePrice($date, $slotIdInt);
         }
-        return $total;
+        
+        // Apply launch discount
+        $priceData = $this->applyLaunchDiscount($total);
+        
+        return $priceData['final_price'];
     }
     
     /**
@@ -314,17 +351,28 @@ final class ChaletAvailabilityChecker
             $currentDate->addDay();
         }
         
+        // Apply launch discount
+        $priceData = $this->applyLaunchDiscount($total);
+        $finalTotal = $priceData['final_price'];
+        
         \Log::info('Total overnight price calculated', [
-            'total' => $total,
+            'subtotal' => $total,
+            'final_total' => $finalTotal,
+            'has_discount' => $priceData['has_discount'],
+            'discount_amount' => $priceData['discount'],
             'nights' => $nights,
-            'price_per_night' => $total / $nights,
+            'price_per_night' => $finalTotal / $nights,
             'night_prices' => $nightPrices
         ]);
         
         return [
-            'total_price' => $total,
+            'total_price' => $finalTotal,
+            'original_price' => $priceData['original_price'],
+            'discount' => $priceData['discount'],
+            'discount_percentage' => $priceData['discount_percentage'],
+            'has_discount' => $priceData['has_discount'],
             'nights' => $nights,
-            'price_per_night' => $total / $nights
+            'price_per_night' => $finalTotal / $nights
         ];
     }
     
@@ -347,13 +395,18 @@ final class ChaletAvailabilityChecker
             })
             ->map(function ($slot) use ($date) {
                 $price = $this->calculateDayUsePrice($date, $slot->id);
+                $priceData = $this->applyLaunchDiscount($price);
+                
                 return [
                     'id' => $slot->id,
                     'name' => $slot->name,
                     'start_time' => $slot->start_time,
                     'end_time' => $slot->end_time,
                     'duration_hours' => $slot->duration_hours,
-                    'price' => $price
+                    'price' => $priceData['final_price'],
+                    'original_price' => $priceData['has_discount'] ? $priceData['original_price'] : null,
+                    'has_discount' => $priceData['has_discount'],
+                    'discount_percentage' => $priceData['discount_percentage']
                 ];
             });
     }
@@ -401,7 +454,11 @@ final class ChaletAvailabilityChecker
                     'duration_hours' => $slot->duration_hours,
                     'total_price' => $priceData['total_price'],
                     'price_per_night' => $priceData['price_per_night'],
-                    'nights' => $priceData['nights']
+                    'nights' => $priceData['nights'],
+                    'original_price' => $priceData['has_discount'] ? $priceData['original_price'] : null,
+                    'discount' => $priceData['has_discount'] ? $priceData['discount'] : null,
+                    'discount_percentage' => $priceData['has_discount'] ? $priceData['discount_percentage'] : null,
+                    'has_discount' => $priceData['has_discount']
                 ];
             });
     }

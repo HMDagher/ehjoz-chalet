@@ -196,7 +196,13 @@
                                     </div>
                                     <div id="selected-slots-summary" class="mb-3" style="display: none;">
                                         <strong>Selected:</strong> <span id="selected-slots-text"></span>
-                                        <br><strong>Total:</strong> $<span id="total-price">0</span>
+                                        <div id="day-original-price-container" style="display: none;">
+                                            <span class="text-decoration-line-through">Original price: $<span id="day-original-price">0</span></span>
+                                        </div>
+                                        <div id="day-discount-container" style="display: none;" class="text-success">
+                                            <i class="fas fa-tags me-1"></i> <span id="day-discount-text">15% Launch Promotion</span>: -$<span id="day-discount-amount">0</span>
+                                        </div>
+                                        <strong>Total:</strong> $<span id="total-price">0</span>
                                     </div>
                                 </div>
 
@@ -205,6 +211,12 @@
                                     <div class="mb-3">
                                         <div id="nightly-breakdown"></div>
                                         <div class="mt-2 pt-2 border-top">
+                                            <div id="original-price-container" style="display: none;">
+                                                <span class="text-decoration-line-through">Original price: $<span id="original-price">0</span></span>
+                                            </div>
+                                            <div id="discount-container" style="display: none;" class="text-success">
+                                                <i class="fas fa-tags me-1"></i> <span id="discount-text">15% Launch Promotion</span>: -$<span id="discount-amount">0</span>
+                                            </div>
                                             <strong>Total for stay:</strong> $<span id="overnight-total-price">0</span>
                                         </div>
                                     </div>
@@ -403,13 +415,23 @@
                 }
 
                 data.slots.forEach(slot => {
+                    let priceDisplay = `$${slot.price}`;
+                    let additionalAttributes = '';
+                    
+                    // Check if slot has discount
+                    if (slot.has_discount) {
+                        priceDisplay = `<span class="text-decoration-line-through">$${slot.original_price}</span> <span class="text-success">$${slot.price}</span>`;
+                        additionalAttributes = `data-original-price="${slot.original_price}" data-has-discount="1" data-discount-percentage="${slot.discount_percentage}"`;
+                    }
+                    
                     const slotHtml = `
                         <div class="form-check mb-2">
                             <input class="form-check-input slot-checkbox" type="checkbox" 
                                    value="${slot.id}" id="slot_${slot.id}" 
-                                   data-price="${slot.price}" data-name="${slot.name}">
+                                   data-price="${slot.price}" data-name="${slot.name}" ${additionalAttributes}>
                             <label class="form-check-label" for="slot_${slot.id}">
-                                <strong>${slot.name}</strong> (${slot.start_time} - ${slot.end_time}, ${slot.duration_hours} hrs) - $${slot.price}
+                                <strong>${slot.name}</strong> (${slot.start_time} - ${slot.end_time}, ${slot.duration_hours} hrs) - ${priceDisplay}
+                                ${slot.has_discount ? '<span class="badge bg-success ms-1">15% OFF</span>' : ''}
                             </label>
                         </div>
                     `;
@@ -557,6 +579,23 @@
                     nightlyBreakdown.html(`<strong>Price per night:</strong> $${pricePerNight.toFixed(2)}`);
                 }
                 
+                // Handle launch promotion discount
+                if (slot.has_discount) {
+                    const originalPrice = parseFloat(slot.original_price);
+                    const discountAmount = parseFloat(slot.discount);
+                    const discountPercentage = parseInt(slot.discount_percentage);
+                    
+                    $("#original-price").text(originalPrice.toFixed(2));
+                    $("#discount-amount").text(discountAmount.toFixed(2));
+                    $("#discount-text").text(`${discountPercentage}% Launch Promotion`);
+                    
+                    $("#original-price-container").show();
+                    $("#discount-container").show();
+                } else {
+                    $("#original-price-container").hide();
+                    $("#discount-container").hide();
+                }
+                
                 $("#overnight-total-price").text(totalPrice.toFixed(2));
                 $("#overnight-price-summary").show();
 
@@ -567,12 +606,25 @@
             function updateSelectedSlots() {
                 selectedSlots = [];
                 let totalPrice = 0;
+                let originalPrice = 0;
                 let selectedNames = [];
+                let hasDiscount = false;
+                let discountPercentage = 15; // Default discount percentage
 
                 $(".slot-checkbox:checked").each(function() {
                     const slotId = $(this).val();
                     const price = parseFloat($(this).data("price"));
                     const name = $(this).data("name");
+                    const slotHasDiscount = $(this).data("has-discount") === 1;
+                    
+                    if (slotHasDiscount) {
+                        hasDiscount = true;
+                        const slotOriginalPrice = parseFloat($(this).data("original-price"));
+                        originalPrice += slotOriginalPrice;
+                        discountPercentage = parseInt($(this).data("discount-percentage"));
+                    } else {
+                        originalPrice += price;
+                    }
 
                     selectedSlots.push(slotId);
                     totalPrice += price;
@@ -582,6 +634,20 @@
                 if (selectedSlots.length > 0) {
                     $("#selected-slots-text").text(selectedNames.join(", "));
                     $("#total-price").text(totalPrice.toFixed(2));
+                    
+                    if (hasDiscount) {
+                        const discountAmount = originalPrice - totalPrice;
+                        $("#day-original-price").text(originalPrice.toFixed(2));
+                        $("#day-discount-amount").text(discountAmount.toFixed(2));
+                        $("#day-discount-text").text(`${discountPercentage}% Launch Promotion`);
+                        
+                        $("#day-original-price-container").show();
+                        $("#day-discount-container").show();
+                    } else {
+                        $("#day-original-price-container").hide();
+                        $("#day-discount-container").hide();
+                    }
+                    
                     $("#selected-slots-summary").show();
                 } else {
                     $("#selected-slots-summary").hide();

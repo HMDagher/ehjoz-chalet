@@ -183,6 +183,11 @@
                                     ${{ number_format($booking->extra_hours_amount, 2) }}
                                 </p>
                                 @endif
+                                @if($booking->discount_amount > 0)
+                                <p><strong class="text-success">{{ $booking->discount_reason ?? 'Launch Promotion' }}:</strong><br>
+                                    <span class="text-success">-${{ number_format($booking->discount_amount, 2) }} ({{ $booking->discount_percentage }}% off)</span>
+                                </p>
+                                @endif
                             </div>
                             <div class="col-md-6">
                                 <p class="h5"><strong>Total Amount:</strong><br>
@@ -203,6 +208,9 @@
                             <h6><i class="fas fa-info-circle me-2"></i>Important Payment Information</h6>
                             <p class="mb-2">To secure your booking, please complete the payment within <strong>30 minutes</strong>. Your booking will be automatically deleted if payment is not received within this timeframe.</p>
                             <p class="mb-0"><strong>Total Amount Due: ${{ number_format($booking->total_amount, 2) }}</strong></p>
+                            @if($booking->discount_amount > 0)
+                            <p class="mb-0 text-success"><strong><i class="fas fa-tags me-1"></i> You saved ${{ number_format($booking->discount_amount, 2) }} with our {{ $booking->discount_reason ?? 'Launch Promotion' }}!</strong></p>
+                            @endif
                         </div>
 
                         <h6>Payment Methods:</h6>
