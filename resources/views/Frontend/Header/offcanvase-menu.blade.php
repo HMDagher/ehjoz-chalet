@@ -19,7 +19,6 @@
                     </div>
                     <div class="offcanvase__bottom">
                         <div class="offcanvase__address">
-
                             <div class="item">
                                 <span class="h6">Phone</span>
                                 <a href="tel:{{ optional($settings)->support_phone ?? '+1234567890' }}"><i class="flaticon-phone-flip"></i> {{ optional($settings)->support_phone ?? '+1234567890' }}</a>
@@ -28,6 +27,24 @@
                                 <span class="h6">Email</span>
                                 <a href="mailto:{{ optional($settings)->support_email ?? 'info@hostie.com' }}"><i class="flaticon-envelope"></i>{{ optional($settings)->support_email ?? 'info@hostie.com' }}</a>
                             </div>
+                        </div>
+                        <div class="offcanvase__auth mt-4">
+                            @auth
+                                @php
+                                    $dashboardUrl = '/';
+                                    if(auth()->user()->hasRole('admin')) {
+                                        $dashboardUrl = '/admin';
+                                    } elseif(auth()->user()->hasRole('owner')) {
+                                        $dashboardUrl = '/chalet';
+                                    } elseif(auth()->user()->hasRole('customer')) {
+                                        $dashboardUrl = '/customer';
+                                    }
+                                @endphp
+                                <a href="{{ $dashboardUrl }}" class="theme-btn btn-style sm-btn border w-100 mb-2">Dashboard</a>
+                            @else
+                                <a href="#" class="theme-btn btn-style sm-btn border w-100 mb-2" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
+                                <a href="#" class="theme-btn btn-style sm-btn border w-100" data-bs-toggle="modal" data-bs-target="#signupModal">Sign Up</a>
+                            @endauth
                         </div>
                     </div>
                 </div>

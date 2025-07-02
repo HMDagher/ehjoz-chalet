@@ -63,7 +63,7 @@ class ManageChaletBlockedDates extends ManageRecords
                             'date' => $date->toDateString(),
                             'time_slot_id' => $overnightSlot->id,
                         ], [
-                            'reason' => \App\Enums\BlockReason::PersonalUse, // or another default
+                            'reason' => \App\Enums\BlockReason::ExternalBooking,
                             'notes' => $data['notes'] ?? null,
                         ]);
                     }
