@@ -27,55 +27,62 @@ class ChaletBlockedDateResource extends Resource
     {
         return $form
             ->schema([
+                Forms\Components\TextInput::make('chalet_name')
+                    ->label('Chalet Name')
+                    ->default(function () {
+                        return auth()->user()?->chalet?->name;
+                    })
+                    ->readOnly()
+                    ->columnSpanFull(),
                 Forms\Components\DatePicker::make('date')
-    ->required()
-    ->live(),
-Forms\Components\Select::make('time_slot_id')
-    ->label('Time Slot')
-    ->options(function ($get): Collection {
-        $chaletId = auth()->user()->chalet?->id;
-        $date = $get('date');
-        if (!$chaletId || !$date) {
-            return collect();
-        }
+                    ->required()
+                    ->live(),
+                Forms\Components\Select::make('time_slot_id')
+                    ->label('Time Slot')
+                    ->options(function ($get): Collection {
+                    $chaletId = auth()->user()->chalet?->id;
+                    $date = $get('date');
+                    if (!$chaletId || !$date) {
+                        return collect();
+                    }
 
-        // Get all time slots for this chalet
-        $allSlots = \App\Models\ChaletTimeSlot::where('chalet_id', $chaletId)->get();
+                    // Get all time slots for this chalet
+                    $allSlots = \App\Models\ChaletTimeSlot::where('chalet_id', $chaletId)->get();
 
-        // Get bookings for this chalet and date
-        $bookings = \App\Models\Booking::where('chalet_id', $chaletId)
-            ->whereDate('start_date', '<=', $date)
-            ->whereDate('end_date', '>=', $date)
-            ->with('timeSlots')
-            ->get();
+                    // Get bookings for this chalet and date
+                    $bookings = \App\Models\Booking::where('chalet_id', $chaletId)
+                        ->whereDate('start_date', '<=', $date)
+                        ->whereDate('end_date', '>=', $date)
+                        ->with('timeSlots')
+                        ->get();
 
-        // Collect all booked slot IDs for this date
-        $bookedSlotIds = collect();
-        $hasOvernightBooking = false;
-        foreach ($bookings as $booking) {
-            foreach ($booking->timeSlots as $slot) {
-                $bookedSlotIds->push($slot->id);
-                if ($slot->is_overnight) {
-                    $hasOvernightBooking = true;
-                }
-            }
-        }
+                    // Collect all booked slot IDs for this date
+                    $bookedSlotIds = collect();
+                    $hasOvernightBooking = false;
+                    foreach ($bookings as $booking) {
+                        foreach ($booking->timeSlots as $slot) {
+                            $bookedSlotIds->push($slot->id);
+                            if ($slot->is_overnight) {
+                                $hasOvernightBooking = true;
+                            }
+                        }
+                    }
 
-        // If overnight is booked, block all
-        if ($hasOvernightBooking) {
-            return collect();
-        }
+                    // If overnight is booked, block all
+                    if ($hasOvernightBooking) {
+                        return collect();
+                    }
 
-        // If all slots are booked (non-overnight), block all
-        if ($allSlots->where('is_overnight', false)->count() > 0 && $allSlots->where('is_overnight', false)->pluck('id')->diff($bookedSlotIds)->isEmpty()) {
-            return collect();
-        }
+                    // If all slots are booked (non-overnight), block all
+                    if ($allSlots->where('is_overnight', false)->count() > 0 && $allSlots->where('is_overnight', false)->pluck('id')->diff($bookedSlotIds)->isEmpty()) {
+                        return collect();
+                    }
 
-        // Only allow blocking unbooked slots, and overnight if not booked
-        return $allSlots->filter(function ($slot) use ($bookedSlotIds) {
-            return !$bookedSlotIds->contains($slot->id);
-        })->pluck('name', 'id');
-    }),
+                    // Only allow blocking unbooked slots, and overnight if not booked
+                    return $allSlots->filter(function ($slot) use ($bookedSlotIds) {
+                        return !$bookedSlotIds->contains($slot->id);
+                    })->pluck('name', 'id');
+                }),
                 Forms\Components\Select::make('reason')
                     ->options(BlockReason::class)
                     ->required()
