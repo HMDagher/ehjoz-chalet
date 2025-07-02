@@ -45,49 +45,47 @@ class ChaletBlockedDateResource extends Resource
                 Forms\Components\Select::make('time_slot_id')
                     ->label('Time Slot')
                     ->options(function ($get): Collection {
-                    $chaletId = auth()->user()->chalet?->id;
-                    $date = $get('date');
-                    if (!$chaletId || !$date) {
-                        return collect();
-                    }
-
-                    // Get all time slots for this chalet
-                    $allSlots = \App\Models\ChaletTimeSlot::where('chalet_id', $chaletId)->get();
-
-                    // Get bookings for this chalet and date
-                    $bookings = \App\Models\Booking::where('chalet_id', $chaletId)
-                        ->whereDate('start_date', '<=', $date)
-                        ->whereDate('end_date', '>=', $date)
-                        ->with('timeSlots')
-                        ->get();
-
-                    // Collect all booked slot IDs for this date
-                    $bookedSlotIds = collect();
-                    $hasOvernightBooking = false;
-                    foreach ($bookings as $booking) {
-                        foreach ($booking->timeSlots as $slot) {
-                            $bookedSlotIds->push($slot->id);
-                            if ($slot->is_overnight) {
-                                $hasOvernightBooking = true;
+                        $chaletId = auth()->user()->chalet?->id;
+                        $date = $get('date');
+                        if (!$chaletId || !$date) {
+                            return collect();
+                        }
+                        $allSlots = \App\Models\ChaletTimeSlot::where('chalet_id', $chaletId)->get();
+                        $bookings = \App\Models\Booking::where('chalet_id', $chaletId)
+                            ->whereDate('start_date', '<=', $date)
+                            ->whereDate('end_date', '>=', $date)
+                            ->with('timeSlots')
+                            ->get();
+                        $bookedSlotIds = collect();
+                        $hasOvernightBooking = false;
+                        foreach ($bookings as $booking) {
+                            foreach ($booking->timeSlots as $slot) {
+                                $bookedSlotIds->push($slot->id);
+                                if ($slot->is_overnight) {
+                                    $hasOvernightBooking = true;
+                                }
                             }
                         }
-                    }
-
-                    // If overnight is booked, block all
-                    if ($hasOvernightBooking) {
-                        return collect();
-                    }
-
-                    // If all slots are booked (non-overnight), block all
-                    if ($allSlots->where('is_overnight', false)->count() > 0 && $allSlots->where('is_overnight', false)->pluck('id')->diff($bookedSlotIds)->isEmpty()) {
-                        return collect();
-                    }
-
-                    // Only allow blocking unbooked slots, and overnight if not booked
-                    return $allSlots->filter(function ($slot) use ($bookedSlotIds) {
-                        return !$bookedSlotIds->contains($slot->id);
-                    })->pluck('name', 'id');
-                }),
+                        if ($hasOvernightBooking) {
+                            return collect();
+                        }
+                        if ($allSlots->where('is_overnight', false)->count() > 0 && $allSlots->where('is_overnight', false)->pluck('id')->diff($bookedSlotIds)->isEmpty()) {
+                            return collect();
+                        }
+                        // Label overnight slots
+                        return $allSlots->filter(function ($slot) use ($bookedSlotIds) {
+                            return !$bookedSlotIds->contains($slot->id);
+                        })->mapWithKeys(function ($slot) {
+                            $label = $slot->name;
+                            if ($slot->is_overnight) {
+                                $label .= ' (Overnight)';
+                            }
+                            return [$slot->id => $label];
+                        });
+                    })
+                    ->placeholder('Block entire day (leave empty)')
+                    ->helperText('Leave empty to block the entire day. Select a slot to block only that slot. Overnight slots are labeled.')
+                    ->searchable(),
                 Forms\Components\Select::make('reason')
                     ->options(BlockReason::class)
                     ->required()

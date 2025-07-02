@@ -40,14 +40,6 @@ class ManageChaletBlockedDates extends ManageRecords
                             ->send();
                         return;
                     }
-                    $overnightSlot = $chalet->timeSlots()->where('is_overnight', true)->first();
-                    if (!$overnightSlot) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('No overnight time slot found!')
-                            ->danger()
-                            ->send();
-                        return;
-                    }
                     $start = \Carbon\Carbon::parse($data['start_date']);
                     $end = \Carbon\Carbon::parse($data['end_date']);
                     if ($end->lessThan($start)) {
@@ -61,7 +53,7 @@ class ManageChaletBlockedDates extends ManageRecords
                         \App\Models\ChaletBlockedDate::firstOrCreate([
                             'chalet_id' => $chalet->id,
                             'date' => $date->toDateString(),
-                            'time_slot_id' => $overnightSlot->id,
+                            'time_slot_id' => null,
                         ], [
                             'reason' => \App\Enums\BlockReason::ExternalBooking,
                             'notes' => $data['notes'] ?? null,
