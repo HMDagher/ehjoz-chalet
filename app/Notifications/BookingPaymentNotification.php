@@ -1,17 +1,16 @@
 <?php
 
-namespace App\Mail;
+namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Notification;
+use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\Booking;
 use App\Models\Payment;
 
-class BookingPaymentMail extends Mailable
+class BookingPaymentNotification extends Notification
 {
-    use Queueable, SerializesModels;
+    use Queueable;
 
     public Booking $booking;
     public Payment $payment;
@@ -28,7 +27,12 @@ class BookingPaymentMail extends Mailable
         $this->settings = $settings;
     }
 
-    public function build()
+    public function via($notifiable)
+    {
+        return ['mail'];
+    }
+
+    public function toMail($notifiable)
     {
         $status = $this->payment->status;
         $subject = match($status) {
@@ -39,7 +43,14 @@ class BookingPaymentMail extends Mailable
             default => 'Payment Update - Booking Status Changed'
         };
 
-        return $this->subject($subject)
-            ->view('emails.booking-payment');
+        return (new MailMessage)
+            ->subject($subject)
+            ->greeting('Payment Update')
+            ->line("Dear {$notifiable->name},")
+            ->line("Booking Reference: {$this->booking->booking_reference}")
+            ->line("Payment Status: {$status}")
+            ->line("Total Paid: $" . number_format($this->payment->amount, 2))
+            ->line("If you have any questions, reply to this email or contact us at " . ($this->settings->support_email ?? 'info@ehjozchalet.com') . ".")
+            ->salutation('Thank you!');
     }
-} 
+}

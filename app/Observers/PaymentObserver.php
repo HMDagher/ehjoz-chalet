@@ -3,8 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Payment;
-use App\Mail\BookingPaymentMail;
-use Illuminate\Support\Facades\Mail;
+use App\Notifications\BookingPaymentNotification;
 
 class PaymentObserver
 {
@@ -19,11 +18,11 @@ class PaymentObserver
         ];
         
         // Send to customer
-        Mail::to($customer->email)->send(new BookingPaymentMail($booking, $payment, $owner, $customer, $settings));
+        $customer->notify(new BookingPaymentNotification($booking, $payment, $owner, $customer, $settings));
         
         // Send to owner if email exists and is different from customer
         if ($owner && $owner->email && $owner->email !== $customer->email) {
-            Mail::to($owner->email)->send(new BookingPaymentMail($booking, $payment, $owner, $customer, $settings));
+            $owner->notify(new BookingPaymentNotification($booking, $payment, $owner, $customer, $settings));
         }
     }
 } 
