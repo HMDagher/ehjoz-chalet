@@ -29,5 +29,4 @@ Route::prefix('api')->group(function () {
     Route::post('/bookings', [App\Http\Controllers\Api\BookingApiController::class, 'store']);
     Route::get('/user/check-auth', [App\Http\Controllers\Api\BookingApiController::class, 'checkAuth']);
     Route::get('/bookings/consecutive-slot-combinations', [App\Http\Controllers\Api\BookingApiController::class, 'consecutiveSlotCombinations']);
-    Route::get('/chalet/{slug}/available-dates', [App\Http\Controllers\Api\ChaletApiController::class, 'getAvailableDates']);
 });

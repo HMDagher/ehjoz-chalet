@@ -453,48 +453,12 @@
       },
       datePicker: function (e) {
         $(function () {
-          // --- BEGIN: Available dates logic for disabling unavailable check-in dates ---
-          let availableDates = [];
-          // chaletSlug is defined globally in the page script
-          function fetchAvailableDates(year, month, callback) {
-            $.ajax({
-              url: `/api/chalet/${chaletSlug}/available-dates`,
-              data: { month: `${year}-${String(month).padStart(2, '0')}` },
-              success: function(response) {
-                availableDates = response.dates;
-                if (callback) callback();
-              }
-            });
-          }
-          function isDateAvailable(date) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            const dateString = `${y}-${m}-${d}`;
-            return availableDates.includes(dateString);
-          }
-          // --- END: Available dates logic ---
-
           // Check-in: only today or future
-          $("#check__in").datepicker("destroy").datepicker({
+          $("#check__in").datepicker({
               dateFormat: "dd-mm-yy",
               duration: "fast",
-              minDate: 0,
-              beforeShowDay: function(date) {
-                return [isDateAvailable(date)];
-              },
-              onChangeMonthYear: function(year, month, inst) {
-                fetchAvailableDates(year, month, function() {
-                  $("#check__in").datepicker("refresh");
-                });
-              }
+              minDate: 0
           });
-          // Initial fetch for current month
-          const today = new Date();
-          fetchAvailableDates(today.getFullYear(), today.getMonth() + 1, function() {
-            $("#check__in").datepicker("refresh");
-          });
-
           // Checkout: minDate will be set dynamically
           $("#check__out").datepicker({
               dateFormat: "dd-mm-yy",
