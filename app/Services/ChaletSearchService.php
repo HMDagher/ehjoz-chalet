@@ -145,10 +145,6 @@ final class ChaletSearchService
         $results = [];
 
         foreach ($chalets as $chalet) {
-            if ($chalet->timeSlots->isEmpty()) {
-                continue;
-            }
-            
             $availabilityChecker = new ChaletAvailabilityChecker($chalet);
             $allSlots = [];
             
@@ -197,21 +193,18 @@ final class ChaletSearchService
                 
             $allSlots = array_merge($dayUseSlots, $overnightSlots);
             
-            if (!empty($allSlots)) {
-                // Extract prices for sorting
-                $prices = [];
-                foreach ($allSlots as $slot) {
-                    $prices[] = $slot['price'] ?? ($slot['price_per_night'] ?? 0);
-                }
-                
-                $minPrice = !empty($prices) ? min($prices) : 0;
-                
-                $results[] = [
-                    'chalet' => $chalet,
-                    'slots' => $allSlots,
-                    'min_price' => $minPrice
-                ];
+            // Always add the chalet, even if $allSlots is empty
+            $prices = [];
+            foreach ($allSlots as $slot) {
+                $prices[] = $slot['price'] ?? ($slot['price_per_night'] ?? 0);
             }
+            $minPrice = !empty($prices) ? min($prices) : null;
+            
+            $results[] = [
+                'chalet' => $chalet,
+                'slots' => $allSlots,
+                'min_price' => $minPrice
+            ];
         }
 
         // Sort by min_price
