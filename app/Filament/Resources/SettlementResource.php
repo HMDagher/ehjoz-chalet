@@ -99,15 +99,15 @@ final class SettlementResource extends Resource
                             $html .= '<td class="px-2 py-1">' . $b->booking_reference . '</td>';
                             $html .= '<td class="px-2 py-1">' . ($b->start_date ? $b->start_date->format('Y-m-d') : '-') . '</td>';
                             $html .= '<td class="px-2 py-1">' . ($b->end_date ? $b->end_date->format('Y-m-d') : '-') . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->base_slot_price, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->seasonal_adjustment, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->extra_hours_amount, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->platform_commission, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->discount_amount, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . ($b->payment ? number_format($b->payment->amount, 2) : '-') . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->owner_earning, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->platform_earning, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format($b->remaining_payment, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->base_slot_price, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->seasonal_adjustment, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->extra_hours_amount, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->platform_commission, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->discount_amount, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . ($b->payment ? number_format((float) $b->payment->amount, 2) : '-') . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->owner_earning, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->platform_earning, 2) . '</td>';
+                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->remaining_payment, 2) . '</td>';
                             $html .= '</tr>';
                         }
                         $html .= '</tbody></table></div>';
