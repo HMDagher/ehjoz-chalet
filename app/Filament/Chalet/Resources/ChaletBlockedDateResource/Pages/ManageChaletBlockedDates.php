@@ -16,7 +16,7 @@ class ManageChaletBlockedDates extends ManageRecords
             Actions\CreateAction::make()
             ->label('Block Date'),
             Actions\Action::make('blockDateRange')
-                ->label('Block Date Range')
+                ->label('Block Entire Days (Range)')
                 ->icon('heroicon-o-calendar-days')
                 ->outlined()
                 ->form([
