@@ -77,40 +77,14 @@ final class SettlementResource extends Resource
                         Forms\Components\TextInput::make('booking_reference')
                             ->label('Reference')
                             ->readOnly(),
-                        Forms\Components\TextInput::make('start_date')
-                            ->label('Check-in')
-                            ->readOnly(),
-                        Forms\Components\TextInput::make('end_date')
-                            ->label('Check-out')
-                            ->readOnly(),
-                        Forms\Components\TextInput::make('base_slot_price')
-                            ->label('Base')
-                            ->readOnly(),
-                        Forms\Components\TextInput::make('seasonal_adjustment')
-                            ->label('Seasonal')
-                            ->readOnly(),
-                        Forms\Components\TextInput::make('extra_hours_amount')
-                            ->label('Extra')
-                            ->readOnly(),
-                        Forms\Components\TextInput::make('platform_commission')
-                            ->label('Commission')
-                            ->readOnly(),
-                        Forms\Components\TextInput::make('discount_amount')
-                            ->label('Discount')
-                            ->readOnly(),
                         Forms\Components\TextInput::make('payment_amount')
                             ->label('Paid')
                             ->readOnly(),
                         Forms\Components\TextInput::make('owner_earning')
                             ->label('Owner')
                             ->readOnly(),
-                        Forms\Components\TextInput::make('platform_earning')
-                            ->label('Platform')
-                            ->readOnly(),
-                        Forms\Components\TextInput::make('remaining_payment')
-                            ->label('Remaining')
-                            ->readOnly(),
                     ])
+                    ->columns(3)
                     ->columnSpanFull()
                     ->disabled()
                     ->deletable(false)
@@ -201,6 +175,33 @@ final class SettlementResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Section::make('Included Bookings')
+                    ->schema([
+                        \Filament\Infolists\Components\RepeatableEntry::make('included_bookings')
+                            ->label('Included Bookings')
+                            ->schema([
+                                TextEntry::make('booking_reference')->label('Reference'),
+                                TextEntry::make('start_date')->label('Check-in'),
+                                TextEntry::make('end_date')->label('Check-out'),
+                                TextEntry::make('base_slot_price')->label('Base'),
+                                TextEntry::make('seasonal_adjustment')->label('Seasonal'),
+                                TextEntry::make('extra_hours_amount')->label('Extra'),
+                                TextEntry::make('platform_commission')->label('Commission'),
+                                TextEntry::make('discount_amount')->label('Discount'),
+                                TextEntry::make('payment_amount')->label('Paid'),
+                                TextEntry::make('owner_earning')->label('Owner'),
+                                TextEntry::make('platform_earning')->label('Platform'),
+                                TextEntry::make('remaining_payment')->label('Remaining'),
+                            ])
+                            ->columns(3),
+                    ])
             ]);
     }
 
