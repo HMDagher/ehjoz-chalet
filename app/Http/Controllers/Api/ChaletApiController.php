@@ -266,4 +266,28 @@ class ChaletApiController extends Controller
             return response()->json(['error' => 'Error calculating price: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Get all available check-in dates for a chalet for a given month (for day-use)
+     */
+    public function getAvailableDates(Request $request, string $slug): JsonResponse
+    {
+        $chalet = Chalet::where('slug', $slug)->where('status', 'active')->first();
+        if (!$chalet) {
+            return response()->json(['error' => 'Chalet not found'], 404);
+        }
+        $month = $request->get('month', now()->format('Y-m'));
+        $start = Carbon::parse($month . '-01');
+        $end = (clone $start)->endOfMonth();
+        $checker = new ChaletAvailabilityChecker($chalet);
+
+        $dates = [];
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $availableSlots = $checker->getAvailableDayUseSlots($date->format('Y-m-d'));
+            if ($availableSlots->count() > 0) {
+                $dates[] = $date->format('Y-m-d');
+            }
+        }
+        return response()->json(['dates' => $dates]);
+    }
 } 
