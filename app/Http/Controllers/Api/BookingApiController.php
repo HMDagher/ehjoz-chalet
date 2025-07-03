@@ -73,6 +73,15 @@ class BookingApiController extends Controller
                 }
                 $totalPrice = $availabilityChecker->calculateConsecutiveSlotsPrice($startDate, $slotIds);
                 
+                // Calculate original price and discount for launch promo
+                if ($isLaunchPromoActive) {
+                    $originalPrice = round($totalPrice / (1 - $discountPercentage / 100), 2);
+                    $discountAmount = $originalPrice - $totalPrice;
+                } else {
+                    $originalPrice = $totalPrice;
+                    $discountAmount = 0;
+                }
+                
                 // For day-use, set start and end datetime based on selected slots
                 $slots = $chalet->timeSlots()->whereIn('id', $slotIds)->orderBy('start_time')->get();
                 $firstSlot = $slots->first();
@@ -99,10 +108,12 @@ class BookingApiController extends Controller
                 
                 $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slotId);
                 $totalPrice = $priceData['total_price'];
-                
                 if (isset($priceData['has_discount']) && $priceData['has_discount']) {
                     $originalPrice = $priceData['original_price'];
                     $discountAmount = $priceData['discount'];
+                } else {
+                    $originalPrice = $totalPrice;
+                    $discountAmount = 0;
                 }
             }
 

@@ -58,15 +58,6 @@ class BookingResource extends Resource
                                                 ->dateTime(),
                                             TextEntry::make('end_date')
                                                 ->dateTime(),
-                                            TextEntry::make('extra_hours'),
-                                        ]),
-                                    ]),
-                                Section::make('Guest Information')
-                                    ->schema([
-                                        Grid::make(3)->schema([
-                                            TextEntry::make('adults_count'),
-                                            TextEntry::make('children_count'),
-                                            TextEntry::make('total_guests'),
                                         ]),
                                     ]),
                                 Section::make('Pricing')

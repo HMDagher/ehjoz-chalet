@@ -194,9 +194,9 @@
                                     ${{ number_format($booking->extra_hours_amount, 2) }}
                                 </p>
                                 @endif
-                                @if($booking->discount_amount > 0)
+                                @if($booking->discount_percentage > 0)
                                 <p><strong class="text-success">{{ $booking->discount_reason ?? 'Launch Promotion' }}:</strong><br>
-                                    <span class="text-success">-${{ number_format($booking->discount_amount, 2) }} ({{ $booking->discount_percentage }}% off)</span>
+                                    <span class="text-success">- ${{ number_format($booking->discount_amount, 2) }} ({{ $booking->discount_percentage }}% off)</span>
                                 </p>
                                 @endif
                             </div>
