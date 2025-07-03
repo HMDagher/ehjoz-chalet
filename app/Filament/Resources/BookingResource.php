@@ -178,20 +178,9 @@ final class BookingResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('payment_status')
-                    ->badge()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('total_amount')
-                    ->label('Total')
-                    ->money('USD')
-                    ->sortable(),
-            ])
-            ->filters([
-                //
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('addPayment')
                     ->label('Add Payment')
                     ->icon('heroicon-o-banknotes')
@@ -236,19 +225,7 @@ final class BookingResource extends Resource
                     })
                     ->modalHeading('Add Payment')
                     ->modalButton('Add Payment'),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
             ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
     }
 
     public static function getPages(): array
@@ -257,7 +234,6 @@ final class BookingResource extends Resource
             'index' => Pages\ListBookings::route('/'),
             'create' => Pages\CreateBooking::route('/create'),
             'view' => Pages\ViewBooking::route('/{record}'),
-            'edit' => Pages\EditBooking::route('/{record}/edit'),
         ];
     }
 }

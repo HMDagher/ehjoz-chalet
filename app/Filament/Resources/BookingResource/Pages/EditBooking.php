@@ -41,7 +41,21 @@ final class EditBooking extends EditRecord
                         'status' => $data['status'],
                         'notes' => $data['notes'] ?? null,
                     ]);
-                    
+                    // Recalculate earnings and remaining payment
+                    $platformCommission = $record->platform_commission;
+                    $discountAmount = $record->discount_amount;
+                    $baseSlotPrice = $record->base_slot_price;
+                    $seasonalAdjustment = $record->seasonal_adjustment;
+                    $extraHoursAmount = $record->extra_hours_amount;
+                    $paymentAmount = $payment->amount;
+                    $ownerEarning = $paymentAmount - $platformCommission;
+                    $platformEarning = $platformCommission - $discountAmount;
+                    $remainingPayment = $baseSlotPrice + $seasonalAdjustment + $extraHoursAmount - $platformCommission - $paymentAmount;
+                    $record->update([
+                        'owner_earning' => $ownerEarning,
+                        'platform_earning' => $platformEarning,
+                        'remaining_payment' => $remainingPayment,
+                    ]);
                     // Update booking status/payment_status
                     if (in_array($data['status'], ['paid', 'partial'])) {
                         $record->update([
@@ -53,7 +67,6 @@ final class EditBooking extends EditRecord
                             'payment_status' => $data['status'],
                         ]);
                     }
-                    
                     \Filament\Notifications\Notification::make()
                         ->title('Payment added successfully!')
                         ->success()

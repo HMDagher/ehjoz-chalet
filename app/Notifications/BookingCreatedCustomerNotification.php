@@ -27,15 +27,23 @@ class BookingCreatedCustomerNotification extends Notification
 
     public function toMail($notifiable)
     {
-        // You can use plain text or simple HTML here
+        $minDeposit = $this->booking->total_amount * 0.5;
+        $lines = [
+            "Booking Reference: {$this->booking->booking_reference}",
+            "Total Amount Due: $" . number_format($this->booking->total_amount, 2),
+            "Minimum Deposit Required: $" . number_format($minDeposit, 2),
+        ];
+        if ($this->booking->payment && $this->booking->payment->amount < $this->booking->total_amount) {
+            $remaining = $this->booking->remaining_payment ?? ($this->booking->total_amount - $this->booking->payment->amount);
+            $lines[] = "Remaining Payment: $" . number_format($remaining, 2);
+        }
         return (new MailMessage)
             ->subject('Your Booking Confirmation - Payment Required')
             ->greeting('Booking Confirmation')
             ->line("Dear {$this->booking->user->name},")
+            ->lines($lines)
             ->line("Thank you for your booking at {$this->booking->chalet->name}!")
-            ->line("Booking Reference: {$this->booking->booking_reference}")
             ->line("Your booking has been received and is currently pending. To secure your reservation, please complete the payment within 30 minutes. If payment is not received in this timeframe, your booking will be automatically deleted.")
-            ->line("Total Amount Due: $" . number_format($this->booking->total_amount, 2))
             ->line("If you have any questions, reply to this email or contact us at " . ($this->settings->support_email ?? 'info@ehjozchalet.com') . ".")
             ->salutation('Thanks for choosing us!');
     }

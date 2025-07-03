@@ -155,7 +155,8 @@ class BookingApiController extends Controller
             }
 
             // Calculate commission and earnings
-            $platformCommission = round($baseSlotPrice * 0.1, 2);
+            $extraHoursAmount = 0; // Set to 0 for now, but use in formulas
+            $platformCommission = round(($baseSlotPrice + $seasonalAdjustment + $extraHoursAmount) * 0.1, 2);
             $ownerEarning = $baseSlotPrice - $platformCommission;
             // Platform earning is what remains after paying the owner from the total amount
             $platformEarning = $totalPrice - $ownerEarning;
@@ -173,7 +174,7 @@ class BookingApiController extends Controller
                 'base_slot_price' => $baseSlotPrice,
                 'seasonal_adjustment' => $seasonalAdjustment,
                 'extra_hours' => 0,
-                'extra_hours_amount' => 0,
+                'extra_hours_amount' => $extraHoursAmount,
                 'platform_commission' => $platformCommission,
                 'discount_amount' => $discountAmount,
                 'discount_percentage' => $discountPercentage,

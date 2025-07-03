@@ -44,6 +44,7 @@ final class Booking extends Model
         'auto_completed_at',
         'owner_earning',
         'platform_earning',
+        'remaining_payment',
     ];
 
     /**
@@ -118,6 +119,7 @@ final class Booking extends Model
             'payment_status' => PaymentStatus::class,
             'owner_earning' => 'decimal:2',
             'platform_earning' => 'decimal:2',
+            'remaining_payment' => 'decimal:2',
         ];
     }
 }

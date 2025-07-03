@@ -43,13 +43,20 @@ class BookingPaymentNotification extends Notification
             default => 'Payment Update - Booking Status Changed'
         };
 
+        $remaining = $this->booking->remaining_payment ?? ($this->booking->total_amount - $this->payment->amount);
+        $lines = [
+            "Booking Reference: {$this->booking->booking_reference}",
+            "Total Amount: $" . number_format($this->booking->total_amount, 2),
+            "Total Paid: $" . number_format($this->payment->amount, 2),
+        ];
+        if ($remaining > 0.01) {
+            $lines[] = "Remaining Payment: $" . number_format($remaining, 2);
+        }
         return (new MailMessage)
             ->subject($subject)
             ->greeting('Payment Update')
             ->line("Dear {$notifiable->name},")
-            ->line("Booking Reference: {$this->booking->booking_reference}")
-            ->line("Payment Status: {$status}")
-            ->line("Total Paid: $" . number_format($this->payment->amount, 2))
+            ->lines($lines)
             ->line("If you have any questions, reply to this email or contact us at " . ($this->settings->support_email ?? 'info@ehjozchalet.com') . ".")
             ->salutation('Thank you!');
     }
