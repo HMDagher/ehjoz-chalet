@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 
 final class ChaletAvailabilityChecker
 {
-    private Chalet $chalet;
+    public Chalet $chalet;
 
     public function __construct(Chalet $chalet)
     {
