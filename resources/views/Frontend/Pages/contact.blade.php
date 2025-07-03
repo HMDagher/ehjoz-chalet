@@ -1,12 +1,12 @@
 @extends('Frontend.Layouts.app')
-@section('page_title', 'Hotel and Resort Laravel 12 Template')
+@section('page_title', 'Contact Us | Lebanon Chalet Booking Support & Inquiries')
 
 @section('content')
     @include('Frontend.Header.header')
     
     @php 
         $title = "Contact Us";
-        $desc = "Whether you have questions, need assistance, or simply want to share.";
+        $desc = "Have questions about booking a chalet in Lebanon? Need assistance or want to share your feedback? Our team is here to help you with all your chalet rental inquiries.";
     @endphp
     @include('Frontend.Components.page-hero',compact('title','desc'))
     

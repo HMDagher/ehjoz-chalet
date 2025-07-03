@@ -1,5 +1,5 @@
 @extends('Frontend.Layouts.app')
-@section('page_title', 'Hotel and Resort Laravel 12 Template')
+@section('page_title', 'Lebanon Chalets | Book the Best Chalets for Rent Online')
 
 @section('content')
 
@@ -14,7 +14,7 @@
                 <div class="row justify-content-center">
                     <div class="col-lg-10">
                         <div class="banner__slide__content">
-                            <h1 class="wow fadeInUp">Luxury Stay Chalet Experience Comfort & Elegance</h1>
+                            <h1 class="wow fadeInUp">Discover & Book Chalets in Lebanon</h1>
                             
                         </div>
                     </div>

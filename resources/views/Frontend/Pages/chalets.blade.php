@@ -1,12 +1,12 @@
 @extends('Frontend.Layouts.app')
-@section('page_title', 'Room Style Three Template')
+@section('page_title', 'Chalets for Rent in Lebanon | Find & Book Your Perfect Chalet')
 
 @section('content')
     @include('Frontend.Header.header')
     
     @php 
-        $title = "Deluxe Room";
-        $desc = "A step up from the standard room, often with better views, more space, and additional amenities.";
+        $title = "Chalets for Rent in Lebanon";
+        $desc = "Browse our curated selection of chalets available for rent across Lebanon. Find the perfect chalet for your next getaway—whether for a weekend escape, family vacation, or special occasion. Search by date, amenities, and more!";
         $bookingType = $bookingType ?? request('booking_type', 'overnight');
     @endphp
     @include('Frontend.Components.page-hero-with-search',compact('title','desc','checkin','checkout','bookingType'))

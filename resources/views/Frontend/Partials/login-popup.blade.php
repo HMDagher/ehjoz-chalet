@@ -5,7 +5,7 @@
       <div class="modal-content">
         <div class="max-content similar__form form__padding">
             <div class="d-flex mb-3 align-items-center justify-content-between">
-                <h6 class="mb-0">Login To Moonlit</h6>
+                <h6 class="mb-0">Login To Ehjoz Chalets</h6>
                 <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close">
                 </button>
             </div>
