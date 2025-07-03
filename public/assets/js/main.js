@@ -625,12 +625,14 @@ function checkAvailability() {
 function displayDayUseSlots(data) {
     const container = $("#available-slot-combinations-list");
     container.empty();
-    if (!data.slots || data.slots.length === 0) {
+    // Convert slots to array if it's an object
+    const slotsArray = Array.isArray(data.slots) ? data.slots : Object.values(data.slots);
+    if (!slotsArray || slotsArray.length === 0) {
         container.html('<p class="text-danger">No available slots for selected date</p>');
         $("#available-slots-container").hide();
         return;
     }
-    data.slots.forEach(slot => {
+    slotsArray.forEach(slot => {
         let priceDisplay = `$${slot.price}`;
         let additionalAttributes = '';
         if (slot.has_discount) {
