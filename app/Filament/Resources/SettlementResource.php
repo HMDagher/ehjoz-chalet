@@ -16,6 +16,7 @@ use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Forms\Components\Repeater;
 
 final class SettlementResource extends Resource
 {
@@ -70,14 +71,28 @@ final class SettlementResource extends Resource
                 Forms\Components\TextInput::make('payment_reference'),
                 Forms\Components\Textarea::make('notes')
                     ->columnSpanFull(),
-                Forms\Components\Placeholder::make('bookings_summary')
+                Forms\Components\Repeater::make('included_bookings')
                     ->label('Included Bookings')
-                    ->content(function ($get) {
+                    ->schema([
+                        Forms\Components\TextInput::make('booking_reference')->label('Reference')->readOnly(),
+                        Forms\Components\TextInput::make('start_date')->label('Check-in')->readOnly(),
+                        Forms\Components\TextInput::make('end_date')->label('Check-out')->readOnly(),
+                        Forms\Components\TextInput::make('base_slot_price')->label('Base')->readOnly(),
+                        Forms\Components\TextInput::make('seasonal_adjustment')->label('Seasonal')->readOnly(),
+                        Forms\Components\TextInput::make('extra_hours_amount')->label('Extra')->readOnly(),
+                        Forms\Components\TextInput::make('platform_commission')->label('Commission')->readOnly(),
+                        Forms\Components\TextInput::make('discount_amount')->label('Discount')->readOnly(),
+                        Forms\Components\TextInput::make('payment_amount')->label('Paid')->readOnly(),
+                        Forms\Components\TextInput::make('owner_earning')->label('Owner')->readOnly(),
+                        Forms\Components\TextInput::make('platform_earning')->label('Platform')->readOnly(),
+                        Forms\Components\TextInput::make('remaining_payment')->label('Remaining')->readOnly(),
+                    ])
+                    ->default(function ($get) {
                         $chaletId = $get('chalet_id');
                         $start = $get('period_start');
                         $end = $get('period_end');
                         if (!$chaletId || !$start || !$end) {
-                            return 'Select a chalet and period to see included bookings.';
+                            return [];
                         }
                         $bookings = \App\Models\Booking::query()
                             ->where('chalet_id', $chaletId)
@@ -85,36 +100,25 @@ final class SettlementResource extends Resource
                             ->whereDate('end_date', '<=', $end)
                             ->whereIn('status', ['confirmed', 'completed'])
                             ->get();
-                        if ($bookings->isEmpty()) {
-                            return 'No bookings found for this period.';
-                        }
-                        $html = '<div style="overflow-x:auto"><table class="table-auto w-full text-xs"><thead><tr>';
-                        $columns = ['Reference', 'Check-in', 'Check-out', 'Base', 'Seasonal', 'Extra', 'Commission', 'Discount', 'Paid', 'Owner', 'Platform', 'Remaining'];
-                        foreach ($columns as $col) {
-                            $html .= '<th class="px-2 py-1">' . $col . '</th>';
-                        }
-                        $html .= '</tr></thead><tbody>';
-                        foreach ($bookings as $b) {
-                            $html .= '<tr>';
-                            $html .= '<td class="px-2 py-1">' . $b->booking_reference . '</td>';
-                            $html .= '<td class="px-2 py-1">' . ($b->start_date ? $b->start_date->format('Y-m-d') : '-') . '</td>';
-                            $html .= '<td class="px-2 py-1">' . ($b->end_date ? $b->end_date->format('Y-m-d') : '-') . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->base_slot_price, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->seasonal_adjustment, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->extra_hours_amount, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->platform_commission, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->discount_amount, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . ($b->payment ? number_format((float) $b->payment->amount, 2) : '-') . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->owner_earning, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->platform_earning, 2) . '</td>';
-                            $html .= '<td class="px-2 py-1">' . number_format((float) $b->remaining_payment, 2) . '</td>';
-                            $html .= '</tr>';
-                        }
-                        $html .= '</tbody></table></div>';
-                        return $html;
+                        return $bookings->map(function ($b) {
+                            return [
+                                'booking_reference' => $b->booking_reference,
+                                'start_date' => optional($b->start_date)->format('Y-m-d'),
+                                'end_date' => optional($b->end_date)->format('Y-m-d'),
+                                'base_slot_price' => (float) $b->base_slot_price,
+                                'seasonal_adjustment' => (float) $b->seasonal_adjustment,
+                                'extra_hours_amount' => (float) $b->extra_hours_amount,
+                                'platform_commission' => (float) $b->platform_commission,
+                                'discount_amount' => (float) $b->discount_amount,
+                                'payment_amount' => $b->payment ? (float) $b->payment->amount : 0,
+                                'owner_earning' => (float) $b->owner_earning,
+                                'platform_earning' => (float) $b->platform_earning,
+                                'remaining_payment' => (float) $b->remaining_payment,
+                            ];
+                        })->toArray();
                     })
                     ->columnSpanFull()
-                    ->extraAttributes(['class' => 'prose max-w-none']),
+                    ->disabled(),
             ]);
     }
 
