@@ -17,6 +17,7 @@ use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Tabs;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\Section;
 
 final class BookingResource extends Resource
 {
@@ -27,137 +28,6 @@ final class BookingResource extends Resource
     protected static ?string $navigationGroup = 'Chalet Management';
 
     protected static ?string $recordTitleAttribute = 'booking_reference';
-
-    public static function form(Form $form): Form
-    {
-        return $form
-            ->schema([
-                Section::make('Booking Details')
-                    ->columns(2)
-                    ->schema([
-                        Forms\Components\Select::make('chalet_id')
-                            ->relationship('chalet', 'name')
-                            ->required(),
-                        Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
-                            ->required(),
-                        Forms\Components\Select::make('timeSlots')
-                            ->label('Time Slots')
-                            ->relationship(
-                                name: 'timeSlots',
-                                titleAttribute: 'name',
-                                modifyQueryUsing: fn ($query) => $query->select('chalet_time_slots.id', 'chalet_time_slots.name')
-                            )
-                            ->multiple()
-                            ->preload(),
-                        Forms\Components\TextInput::make('booking_reference')
-                            ->required(),
-                        Forms\Components\DateTimePicker::make('start_date')
-                            ->required(),
-                        Forms\Components\DateTimePicker::make('end_date')
-                            ->required(),
-                        Fieldset::make('Guests')
-                            ->schema([
-                                Forms\Components\TextInput::make('adults_count')
-                                    ->required()
-                                    ->numeric()
-                                    ->default(1),
-                                Forms\Components\TextInput::make('children_count')
-                                    ->required()
-                                    ->numeric(),
-                                Forms\Components\TextInput::make('total_guests')
-                                    ->required()
-                                    ->numeric()
-                                    ->default(1),
-                            ])->columns(3),
-                        Forms\Components\TextInput::make('base_slot_price')
-                            ->required()
-                            ->numeric(),
-                        Forms\Components\TextInput::make('seasonal_adjustment')
-                            ->numeric()
-                            ->default(0),
-                        Forms\Components\TextInput::make('extra_hours')
-                            ->numeric(),
-                        Forms\Components\TextInput::make('extra_hours_amount')
-                            ->numeric()
-                            ->default(0),
-                        Forms\Components\TextInput::make('platform_commission')
-                            ->required()
-                            ->numeric(),
-                        Forms\Components\TextInput::make('discount_amount')
-                            ->numeric()
-                            ->default(0),
-                        Forms\Components\TextInput::make('discount_percentage')
-                            ->numeric()
-                            ->default(0),
-                        Forms\Components\TextInput::make('discount_reason'),
-                        Forms\Components\TextInput::make('total_amount')
-                            ->required()
-                            ->numeric(),
-                        Forms\Components\TextInput::make('owner_earning')
-                            ->numeric()
-                            ->default(0),
-                        Forms\Components\TextInput::make('platform_earning')
-                            ->numeric()
-                            ->default(0),
-                        Forms\Components\Select::make('status')
-                            ->options(BookingStatus::class)
-                            ->native(false)
-                            ->required(),
-                        Forms\Components\Select::make('payment_status')
-                            ->options(PaymentStatus::class)
-                            ->native(false)
-                            ->required(),
-                    ]),
-                Section::make('Additional Information')
-                    ->columns(2)
-                    ->schema([
-                        Forms\Components\Textarea::make('special_requests')
-                            ->columnSpanFull(),
-                        Forms\Components\Textarea::make('internal_notes')
-                            ->columnSpanFull(),
-                        Forms\Components\Textarea::make('cancellation_reason')
-                            ->columnSpanFull(),
-                        Forms\Components\DateTimePicker::make('cancelled_at'),
-                        Forms\Components\DateTimePicker::make('auto_completed_at'),
-                    ]),
-                Section::make('Payment Information')
-                    ->schema([
-                        Forms\Components\Placeholder::make('payment.payment_reference')
-                            ->label('Payment Reference')
-                            ->content(fn ($record) => $record->payment?->payment_reference ?? 'No payment recorded'),
-                        Forms\Components\Placeholder::make('payment.amount')
-                            ->label('Payment Amount')
-                            ->content(fn ($record) => $record->payment ? '$' . number_format($record->payment->amount, 2) : 'No payment recorded'),
-                        Forms\Components\Placeholder::make('payment.payment_method')
-                            ->label('Payment Method')
-                            ->content(fn ($record) => $record->payment?->payment_method?->getLabel() ?? 'No payment recorded'),
-                        Forms\Components\Placeholder::make('payment.status')
-                            ->label('Payment Status')
-                            ->content(fn ($record) => $record->payment?->status?->getLabel() ?? 'No payment recorded'),
-                        Forms\Components\Placeholder::make('payment.paid_at')
-                            ->label('Paid At')
-                            ->content(function ($record) {
-                                if (!$record->payment || !$record->payment->paid_at) {
-                                    return 'No payment recorded';
-                                }
-                                
-                                $paidAt = $record->payment->paid_at;
-                                if (is_numeric($paidAt)) {
-                                    return \Carbon\Carbon::createFromTimestamp($paidAt)->format('M d, Y H:i');
-                                }
-                                
-                                return $paidAt->format('M d, Y H:i');
-                            }),
-                        Forms\Components\Placeholder::make('payment.notes')
-                            ->label('Payment Notes')
-                            ->content(fn ($record) => $record->payment?->notes ?? 'No notes'),
-                    ])
-                    ->columns(2)
-                    ->collapsible()
-                    ->collapsed(),
-            ]);
-    }
 
     public static function infolist(Infolist $infolist): Infolist
     {
