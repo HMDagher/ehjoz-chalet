@@ -71,16 +71,34 @@ class BookingApiController extends Controller
                         return response()->json(['error' => $reason], 400);
                     }
                 }
-                $totalPrice = $availabilityChecker->calculateConsecutiveSlotsPrice($startDate, $slotIds);
-                
-                // Calculate original price and discount for launch promo
+                // Calculate base slot price (sum of standard slot prices, no custom adjustment)
+                $baseSlotPrice = 0;
+                $seasonalAdjustment = 0;
+                foreach ($slotIds as $slotId) {
+                    $slot = $chalet->timeSlots()->find($slotId);
+                    $date = Carbon::parse($startDate);
+                    $isWeekend = in_array($date->dayOfWeek, [5, 6, 0]);
+                    $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
+                    $baseSlotPrice += $basePrice;
+                    // Custom adjustment
+                    $customPricing = $chalet->customPricing()
+                        ->where('time_slot_id', $slotId)
+                        ->where('start_date', '<=', $date->format('Y-m-d'))
+                        ->where('end_date', '>=', $date->format('Y-m-d'))
+                        ->where('is_active', true)
+                        ->latest('created_at')
+                        ->first();
+                    $adjustment = $customPricing ? $customPricing->custom_adjustment : 0;
+                    $seasonalAdjustment += $adjustment;
+                }
+                $totalBeforeDiscount = $baseSlotPrice + $seasonalAdjustment;
+                // Apply launch discount
                 if ($isLaunchPromoActive) {
-                    $originalPrice = round($totalPrice / (1 - $discountPercentage / 100), 2);
-                    $discountAmount = $originalPrice - $totalPrice;
+                    $discountAmount = round($totalBeforeDiscount * ($discountPercentage / 100), 2);
                 } else {
-                    $originalPrice = $totalPrice;
                     $discountAmount = 0;
                 }
+                $totalPrice = $totalBeforeDiscount - $discountAmount;
                 
                 // For day-use, set start and end datetime based on selected slots
                 $slots = $chalet->timeSlots()->whereIn('id', $slotIds)->orderBy('start_time')->get();
@@ -106,17 +124,40 @@ class BookingApiController extends Controller
                     return response()->json(['error' => $reason], 400);
                 }
                 
-                $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slotId);
-                $totalPrice = $priceData['total_price'];
-                if (isset($priceData['has_discount']) && $priceData['has_discount']) {
-                    $originalPrice = $priceData['original_price'];
-                    $discountAmount = $priceData['discount'];
+                $start = Carbon::parse($startDate);
+                $end = Carbon::parse($endDate);
+                $baseSlotPrice = 0;
+                $seasonalAdjustment = 0;
+                $currentDate = $start->copy();
+                while ($currentDate < $end) {
+                    $slot = $chalet->timeSlots()->find($slotId);
+                    $isWeekend = in_array($currentDate->dayOfWeek, [5, 6, 0]);
+                    $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
+                    $baseSlotPrice += $basePrice;
+                    $customPricing = $chalet->customPricing()
+                        ->where('time_slot_id', $slotId)
+                        ->where('start_date', '<=', $currentDate->format('Y-m-d'))
+                        ->where('end_date', '>=', $currentDate->format('Y-m-d'))
+                        ->where('is_active', true)
+                        ->latest('created_at')
+                        ->first();
+                    $adjustment = $customPricing ? $customPricing->custom_adjustment : 0;
+                    $seasonalAdjustment += $adjustment;
+                    $currentDate->addDay();
+                }
+                $totalBeforeDiscount = $baseSlotPrice + $seasonalAdjustment;
+                if ($isLaunchPromoActive) {
+                    $discountAmount = round($totalBeforeDiscount * ($discountPercentage / 100), 2);
                 } else {
-                    $originalPrice = $totalPrice;
                     $discountAmount = 0;
                 }
+                $totalPrice = $totalBeforeDiscount - $discountAmount;
             }
 
+            // Calculate commission and earnings
+            $platformCommission = round($baseSlotPrice * 0.1, 2);
+            $ownerEarning = $baseSlotPrice - $platformCommission;
+            $platformEarning = $platformCommission + $discountAmount;
             // Create booking
             $booking = Booking::create([
                 'chalet_id' => $chalet->id,
@@ -128,17 +169,20 @@ class BookingApiController extends Controller
                 'adults_count' => $request->adults_count,
                 'children_count' => $request->children_count,
                 'total_guests' => $request->adults_count + $request->children_count,
-                'base_slot_price' => $isLaunchPromoActive ? $originalPrice : $totalPrice,
-                'seasonal_adjustment' => 0, // Will be calculated based on custom pricing
+                'base_slot_price' => $baseSlotPrice,
+                'seasonal_adjustment' => $seasonalAdjustment,
                 'extra_hours' => 0,
                 'extra_hours_amount' => 0,
-                'platform_commission' => $totalPrice * 0.1, // 10% commission (stored for settlement calculations)
+                'platform_commission' => $platformCommission,
                 'discount_amount' => $discountAmount,
                 'discount_percentage' => $discountPercentage,
                 'discount_reason' => $isLaunchPromoActive ? 'Launch Promotion (15% off)' : null,
-                'total_amount' => $totalPrice, // Total amount is the discounted price
+                'total_amount' => $totalPrice,
                 'status' => 'pending',
                 'payment_status' => 'pending',
+                // Save earnings if columns exist
+                'owner_earning' => $ownerEarning,
+                'platform_earning' => $platformEarning,
             ]);
 
             // Attach time slots
@@ -151,7 +195,7 @@ class BookingApiController extends Controller
                     'booking_id' => $booking->id,
                     'booking_reference' => $booking->booking_reference,
                     'total_amount' => $booking->total_amount,
-                    'original_price' => $originalPrice,
+                    'original_price' => $baseSlotPrice,
                     'discount_amount' => $discountAmount,
                     'discount_percentage' => $discountPercentage,
                     'status' => $booking->status,

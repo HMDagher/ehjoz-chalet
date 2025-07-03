@@ -42,6 +42,8 @@ final class Booking extends Model
         'cancellation_reason',
         'cancelled_at',
         'auto_completed_at',
+        'owner_earning',
+        'platform_earning',
     ];
 
     /**
@@ -114,6 +116,8 @@ final class Booking extends Model
             'auto_completed_at' => 'timestamp',
             'status' => BookingStatus::class,
             'payment_status' => PaymentStatus::class,
+            'owner_earning' => 'decimal:2',
+            'platform_earning' => 'decimal:2',
         ];
     }
 }

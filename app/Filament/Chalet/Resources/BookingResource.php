@@ -68,6 +68,8 @@ class BookingResource extends Resource
                                             TextEntry::make('extra_hours_amount')->money('USD'),
                                             TextEntry::make('platform_commission')->money('USD'),
                                             TextEntry::make('total_amount')->money('USD'),
+                                            TextEntry::make('owner_earning')->money('USD')->label('Owner Earning'),
+                                            TextEntry::make('platform_earning')->money('USD')->label('Platform Earning'),
                                         ]),
                                     ]),
                                 Section::make('Status and Notes')
