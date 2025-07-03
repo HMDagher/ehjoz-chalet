@@ -36,17 +36,17 @@ final class SettlementResource extends Resource
                     ->relationship('chalet', 'name')
                     ->required()
                     ->reactive()
-                    ->afterStateUpdated(fn ($state, callable $set, callable $get) => self::calculateSettlementFields($set, $get)),
+                    ->afterStateUpdated(fn ($state, callable $set, callable $get) => self::updateBookingsAndCalculateFields($set, $get)),
                 Forms\Components\TextInput::make('settlement_reference')
                     ->required(),
                 Forms\Components\DatePicker::make('period_start')
                     ->required()
                     ->reactive()
-                    ->afterStateUpdated(fn ($state, callable $set, callable $get) => self::calculateSettlementFields($set, $get)),
+                    ->afterStateUpdated(fn ($state, callable $set, callable $get) => self::updateBookingsAndCalculateFields($set, $get)),
                 Forms\Components\DatePicker::make('period_end')
                     ->required()
                     ->reactive()
-                    ->afterStateUpdated(fn ($state, callable $set, callable $get) => self::calculateSettlementFields($set, $get)),
+                    ->afterStateUpdated(fn ($state, callable $set, callable $get) => self::updateBookingsAndCalculateFields($set, $get)),
                 Forms\Components\TextInput::make('total_bookings')
                     ->required()
                     ->numeric()
@@ -74,80 +74,106 @@ final class SettlementResource extends Resource
                 Forms\Components\Repeater::make('included_bookings')
                     ->label('Included Bookings')
                     ->schema([
-                        Forms\Components\TextInput::make('booking_reference')->label('Reference')->readOnly(),
-                        Forms\Components\TextInput::make('start_date')->label('Check-in')->readOnly(),
-                        Forms\Components\TextInput::make('end_date')->label('Check-out')->readOnly(),
-                        Forms\Components\TextInput::make('base_slot_price')->label('Base')->readOnly(),
-                        Forms\Components\TextInput::make('seasonal_adjustment')->label('Seasonal')->readOnly(),
-                        Forms\Components\TextInput::make('extra_hours_amount')->label('Extra')->readOnly(),
-                        Forms\Components\TextInput::make('platform_commission')->label('Commission')->readOnly(),
-                        Forms\Components\TextInput::make('discount_amount')->label('Discount')->readOnly(),
-                        Forms\Components\TextInput::make('payment_amount')->label('Paid')->readOnly(),
-                        Forms\Components\TextInput::make('owner_earning')->label('Owner')->readOnly(),
-                        Forms\Components\TextInput::make('platform_earning')->label('Platform')->readOnly(),
-                        Forms\Components\TextInput::make('remaining_payment')->label('Remaining')->readOnly(),
+                        Forms\Components\TextInput::make('booking_reference')
+                            ->label('Reference')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('start_date')
+                            ->label('Check-in')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('end_date')
+                            ->label('Check-out')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('base_slot_price')
+                            ->label('Base')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('seasonal_adjustment')
+                            ->label('Seasonal')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('extra_hours_amount')
+                            ->label('Extra')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('platform_commission')
+                            ->label('Commission')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('discount_amount')
+                            ->label('Discount')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('payment_amount')
+                            ->label('Paid')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('owner_earning')
+                            ->label('Owner')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('platform_earning')
+                            ->label('Platform')
+                            ->readOnly(),
+                        Forms\Components\TextInput::make('remaining_payment')
+                            ->label('Remaining')
+                            ->readOnly(),
                     ])
-                    ->default(function ($get) {
-                        $chaletId = $get('chalet_id');
-                        $start = $get('period_start');
-                        $end = $get('period_end');
-                        if (!$chaletId || !$start || !$end) {
-                            return [];
-                        }
-                        $bookings = \App\Models\Booking::query()
-                            ->where('chalet_id', $chaletId)
-                            ->whereDate('start_date', '>=', $start)
-                            ->whereDate('end_date', '<=', $end)
-                            ->whereIn('status', ['confirmed', 'completed'])
-                            ->get();
-                        return $bookings->map(function ($b) {
-                            return [
-                                'booking_reference' => $b->booking_reference,
-                                'start_date' => optional($b->start_date)->format('Y-m-d'),
-                                'end_date' => optional($b->end_date)->format('Y-m-d'),
-                                'base_slot_price' => (float) $b->base_slot_price,
-                                'seasonal_adjustment' => (float) $b->seasonal_adjustment,
-                                'extra_hours_amount' => (float) $b->extra_hours_amount,
-                                'platform_commission' => (float) $b->platform_commission,
-                                'discount_amount' => (float) $b->discount_amount,
-                                'payment_amount' => $b->payment ? (float) $b->payment->amount : 0,
-                                'owner_earning' => (float) $b->owner_earning,
-                                'platform_earning' => (float) $b->platform_earning,
-                                'remaining_payment' => (float) $b->remaining_payment,
-                            ];
-                        })->toArray();
-                    })
                     ->columnSpanFull()
-                    ->disabled(),
+                    ->disabled()
+                    ->deletable(false)
+                    ->addable(false)
+                    ->reorderable(false),
             ]);
     }
 
-    public static function calculateSettlementFields(callable $set, callable $get)
+    public static function updateBookingsAndCalculateFields(callable $set, callable $get): void
     {
         $chaletId = $get('chalet_id');
         $start = $get('period_start');
         $end = $get('period_end');
+        
         if (!$chaletId || !$start || !$end) {
+            // Reset all fields when required data is missing
             $set('total_bookings', 0);
             $set('gross_amount', 0);
             $set('commission_amount', 0);
             $set('net_amount', 0);
+            $set('included_bookings', []);
             return;
         }
+
+        // Fetch bookings for the selected chalet and period
         $bookings = \App\Models\Booking::query()
             ->where('chalet_id', $chaletId)
             ->whereDate('start_date', '>=', $start)
             ->whereDate('end_date', '<=', $end)
             ->whereIn('status', ['confirmed', 'completed'])
             ->get();
+
+        // Calculate settlement fields
         $totalBookings = $bookings->count();
         $grossAmount = $bookings->sum(fn($b) => $b->base_slot_price + $b->seasonal_adjustment + $b->extra_hours_amount);
         $commissionAmount = $bookings->sum('platform_commission');
         $netAmount = $bookings->sum('owner_earning');
+
+        // Update the calculated fields
         $set('total_bookings', $totalBookings);
         $set('gross_amount', $grossAmount);
         $set('commission_amount', $commissionAmount);
         $set('net_amount', $netAmount);
+
+        // Update the repeater with booking data
+        $bookingData = $bookings->map(function ($booking) {
+            return [
+                'booking_reference' => $booking->booking_reference,
+                'start_date' => optional($booking->start_date)->format('Y-m-d'),
+                'end_date' => optional($booking->end_date)->format('Y-m-d'),
+                'base_slot_price' => (float) $booking->base_slot_price,
+                'seasonal_adjustment' => (float) $booking->seasonal_adjustment,
+                'extra_hours_amount' => (float) $booking->extra_hours_amount,
+                'platform_commission' => (float) $booking->platform_commission,
+                'discount_amount' => (float) $booking->discount_amount,
+                'payment_amount' => $booking->payment ? (float) $booking->payment->amount : 0,
+                'owner_earning' => (float) $booking->owner_earning,
+                'platform_earning' => (float) $booking->platform_earning,
+                'remaining_payment' => (float) $booking->remaining_payment,
+            ];
+        })->toArray();
+
+        $set('included_bookings', $bookingData);
     }
 
     public static function table(Table $table): Table
