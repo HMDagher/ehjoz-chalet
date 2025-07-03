@@ -46,6 +46,16 @@
                                 <p><strong>Chalet:</strong><br>
                                     {{ $booking->chalet->name }}
                                 </p>
+                                <p><strong>Address:</strong><br>
+                                    {{ $booking->chalet->address }}
+                                </p>
+                                @if($booking->chalet->latitude && $booking->chalet->longitude)
+                                    <p>
+                                        <a href="https://www.google.com/maps/search/?api=1&query={{ $booking->chalet->latitude }},{{ $booking->chalet->longitude }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-map-marker-alt me-1"></i>View on Google Maps
+                                        </a>
+                                    </p>
+                                @endif
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Check-in Date & Time:</strong><br>
