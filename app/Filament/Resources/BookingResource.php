@@ -53,16 +53,16 @@ final class BookingResource extends Resource
                         Fieldset::make('Guests')
                             ->schema([
                                 Forms\Components\TextInput::make('adults_count')
-                            ->required()
-                            ->numeric()
-                            ->default(1),
-                        Forms\Components\TextInput::make('children_count')
-                            ->required()
-                            ->numeric(),
-                        Forms\Components\TextInput::make('total_guests')
-                            ->required()
-                            ->numeric()
-                            ->default(1),
+                                    ->required()
+                                    ->numeric()
+                                    ->default(1),
+                                Forms\Components\TextInput::make('children_count')
+                                    ->required()
+                                    ->numeric(),
+                                Forms\Components\TextInput::make('total_guests')
+                                    ->required()
+                                    ->numeric()
+                                    ->default(1),
                             ])->columns(3),
                         Forms\Components\TextInput::make('base_slot_price')
                             ->required()
@@ -78,9 +78,22 @@ final class BookingResource extends Resource
                         Forms\Components\TextInput::make('platform_commission')
                             ->required()
                             ->numeric(),
+                        Forms\Components\TextInput::make('discount_amount')
+                            ->numeric()
+                            ->default(0),
+                        Forms\Components\TextInput::make('discount_percentage')
+                            ->numeric()
+                            ->default(0),
+                        Forms\Components\TextInput::make('discount_reason'),
                         Forms\Components\TextInput::make('total_amount')
                             ->required()
                             ->numeric(),
+                        Forms\Components\TextInput::make('owner_earning')
+                            ->numeric()
+                            ->default(0),
+                        Forms\Components\TextInput::make('platform_earning')
+                            ->numeric()
+                            ->default(0),
                         Forms\Components\Select::make('status')
                             ->options(BookingStatus::class)
                             ->native(false)
@@ -104,19 +117,19 @@ final class BookingResource extends Resource
                     ]),
                 Section::make('Payment Information')
                     ->schema([
-                        Forms\Components\Placeholder::make('payment_reference')
+                        Forms\Components\Placeholder::make('payment.payment_reference')
                             ->label('Payment Reference')
                             ->content(fn ($record) => $record->payment?->payment_reference ?? 'No payment recorded'),
-                        Forms\Components\Placeholder::make('payment_amount')
+                        Forms\Components\Placeholder::make('payment.amount')
                             ->label('Payment Amount')
                             ->content(fn ($record) => $record->payment ? '$' . number_format($record->payment->amount, 2) : 'No payment recorded'),
-                        Forms\Components\Placeholder::make('payment_method')
+                        Forms\Components\Placeholder::make('payment.payment_method')
                             ->label('Payment Method')
                             ->content(fn ($record) => $record->payment?->payment_method?->getLabel() ?? 'No payment recorded'),
-                        Forms\Components\Placeholder::make('payment_status')
+                        Forms\Components\Placeholder::make('payment.status')
                             ->label('Payment Status')
                             ->content(fn ($record) => $record->payment?->status?->getLabel() ?? 'No payment recorded'),
-                        Forms\Components\Placeholder::make('paid_at')
+                        Forms\Components\Placeholder::make('payment.paid_at')
                             ->label('Paid At')
                             ->content(function ($record) {
                                 if (!$record->payment || !$record->payment->paid_at) {
@@ -130,7 +143,7 @@ final class BookingResource extends Resource
                                 
                                 return $paidAt->format('M d, Y H:i');
                             }),
-                        Forms\Components\Placeholder::make('payment_notes')
+                        Forms\Components\Placeholder::make('payment.notes')
                             ->label('Payment Notes')
                             ->content(fn ($record) => $record->payment?->notes ?? 'No notes'),
                     ])
@@ -170,7 +183,7 @@ final class BookingResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Total')
-                    ->numeric()
+                    ->money('USD')
                     ->sortable(),
             ])
             ->filters([

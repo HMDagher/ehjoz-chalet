@@ -157,7 +157,8 @@ class BookingApiController extends Controller
             // Calculate commission and earnings
             $platformCommission = round($baseSlotPrice * 0.1, 2);
             $ownerEarning = $baseSlotPrice - $platformCommission;
-            $platformEarning = $platformCommission + $discountAmount;
+            // Platform earning is what remains after paying the owner from the total amount
+            $platformEarning = $totalPrice - $ownerEarning;
             // Create booking
             $booking = Booking::create([
                 'chalet_id' => $chalet->id,
