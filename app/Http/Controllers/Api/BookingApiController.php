@@ -65,7 +65,8 @@ class BookingApiController extends Controller
                 }
                 // Enhanced error reporting for slot availability
                 foreach ($slotIds as $slotId) {
-                    $reason = $this->getDayUseSlotConflictReason($availabilityChecker, $startDate, $slotId);
+                    $slotIdInt = (int) $slotId;
+                    $reason = $this->getDayUseSlotConflictReason($availabilityChecker, $startDate, $slotIdInt);
                     if ($reason !== null) {
                         return response()->json(['error' => $reason], 400);
                     }
