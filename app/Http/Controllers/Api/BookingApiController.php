@@ -80,6 +80,9 @@ class BookingApiController extends Controller
                 
                 $startDateTime = Carbon::parse($startDate)->setTimeFromTimeString($firstSlot->start_time);
                 $endDateTime = Carbon::parse($startDate)->setTimeFromTimeString($lastSlot->end_time);
+                if ($lastSlot->end_time === '00:00:00') {
+                    $endDateTime->addDay();
+                }
                 
                 $startDate = $startDateTime->format('Y-m-d H:i:s');
                 $endDate = $endDateTime->format('Y-m-d H:i:s');
