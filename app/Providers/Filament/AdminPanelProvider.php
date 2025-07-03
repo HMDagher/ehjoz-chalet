@@ -32,6 +32,7 @@ final class AdminPanelProvider extends PanelProvider
             ->profile(isSimple: false)
             ->unsavedChangesAlerts()
             ->databaseTransactions()
+            ->sidebarCollapsibleOnDesktop()
             ->navigationGroups([
                 'Chalet Management',
                 'Content & Features',
