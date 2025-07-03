@@ -19,11 +19,10 @@ final class ChaletAvailabilityChecker
     }
 
     /**
-     * Helper: Check if two time ranges overlap (strict, no touching)
+     * Helper: Check if two time ranges overlap with a grace period (in minutes)
      */
-    private function timeRangesOverlap($start1, $end1, $start2, $end2): bool
+    private function timeRangesOverlapWithGrace($start1, $end1, $start2, $end2, $graceMinutes = 15): bool
     {
-        // Handles overnight slots (end < start)
         $toMinutes = function($time) {
             [$h, $m, $s] = array_pad(explode(':', $time), 3, 0);
             return ((int)$h) * 60 + (int)$m;
@@ -32,11 +31,12 @@ final class ChaletAvailabilityChecker
         $e1 = $toMinutes($end1);
         $s2 = $toMinutes($start2);
         $e2 = $toMinutes($end2);
-        // Normalize overnight
         if ($e1 <= $s1) $e1 += 24 * 60;
         if ($e2 <= $s2) $e2 += 24 * 60;
-        // Strict overlap: only if times actually intersect, not just touch
-        return ($s1 < $e2 && $s2 < $e1);
+        $overlapStart = max($s1, $s2);
+        $overlapEnd = min($e1, $e2);
+        $overlap = $overlapEnd - $overlapStart;
+        return $overlap > $graceMinutes;
     }
 
     /**
@@ -102,7 +102,7 @@ final class ChaletAvailabilityChecker
                 ->where('date', $date)
                 ->where('time_slot_id', $overnightSlot->id)
                 ->exists();
-            if ($blockedOvernight && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time)) {
+            if ($blockedOvernight && $this->timeRangesOverlapWithGrace($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time, 15)) {
                 \Log::info('Checker: Overlap with blocked overnight slot', [
                     'slot_id' => $timeSlotId, 
                     'overnight_slot_id' => $overnightSlot->id, 
@@ -121,7 +121,7 @@ final class ChaletAvailabilityChecker
                 })
                 ->whereIn('status', ['confirmed', 'pending'])
                 ->exists();
-            if ($overnightBooking && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time)) {
+            if ($overnightBooking && $this->timeRangesOverlapWithGrace($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time, 15)) {
                 \Log::info('Checker: Overlap with overnight booking', [
                     'slot_id' => $timeSlotId, 
                     'overnight_slot_id' => $overnightSlot->id, 
@@ -265,7 +265,7 @@ final class ChaletAvailabilityChecker
                     })
                     ->whereIn('status', ['confirmed', 'pending'])
                     ->exists();
-                if ($dayUseBooking && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $daySlot->start_time, $daySlot->end_time)) {
+                if ($dayUseBooking && $this->timeRangesOverlapWithGrace($slot->start_time, $slot->end_time, $daySlot->start_time, $daySlot->end_time, 15)) {
                     \Log::info('Checker: Overlap with day-use booking', [
                         'overnight_slot_id' => $slot->id, 
                         'day_slot_id' => $daySlot->id, 
@@ -278,7 +278,7 @@ final class ChaletAvailabilityChecker
                     ->where('date', $currentDateStr)
                     ->where('time_slot_id', $daySlot->id)
                     ->exists();
-                if ($daySlotBlocked && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $daySlot->start_time, $daySlot->end_time)) {
+                if ($daySlotBlocked && $this->timeRangesOverlapWithGrace($slot->start_time, $slot->end_time, $daySlot->start_time, $daySlot->end_time, 15)) {
                     \Log::info('Checker: Overlap with blocked day-use slot', [
                         'overnight_slot_id' => $slot->id, 
                         'day_slot_id' => $daySlot->id, 
