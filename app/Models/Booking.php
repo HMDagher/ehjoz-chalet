@@ -101,8 +101,8 @@ final class Booking extends Model
     protected function casts(): array
     {
         return [
-            'start_date' => 'date',
-            'end_date' => 'date',
+            'start_date' => 'datetime',
+            'end_date' => 'datetime',
             'base_slot_price' => 'decimal:2',
             'seasonal_adjustment' => 'decimal:2',
             'extra_hours_amount' => 'decimal:2',

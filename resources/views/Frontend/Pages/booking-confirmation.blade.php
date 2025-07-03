@@ -49,10 +49,10 @@
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Check-in Date & Time:</strong><br>
-                                    {{ \Carbon\Carbon::parse($booking->start_date)->format('l, F j, Y \a\t g:i A') }}
+                                    {{ $booking->start_date->format('l, F j, Y \a\t g:i A') }}
                                 </p>
                                 <p><strong>Check-out Date & Time:</strong><br>
-                                    {{ \Carbon\Carbon::parse($booking->end_date)->format('l, F j, Y \a\t g:i A') }}
+                                    {{ $booking->end_date->format('l, F j, Y \a\t g:i A') }}
                                 </p>
                                 <p><strong>Booking Type:</strong><br>
                                     <span class="badge bg-info">{{ $booking->booking_type === 'day-use' ? 'Day Use' : 'Overnight' }}</span>
