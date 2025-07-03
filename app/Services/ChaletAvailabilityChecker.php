@@ -575,7 +575,7 @@ final class ChaletAvailabilityChecker
     /**
      * Check if day-use slot IDs are consecutive in time (not just by ID)
      */
-    private function areDayUseSlotIdsConsecutive(array $slotIds): bool
+    public function areDayUseSlotIdsConsecutive(array $slotIds): bool
     {
         if (count($slotIds) <= 1) {
             return true;
