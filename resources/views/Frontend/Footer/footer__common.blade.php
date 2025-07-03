@@ -12,17 +12,6 @@
     </div>
     <div class="container">
         <div class="row">
-            <div class="footer__newsletter">
-                <span class="h2">Join Our Newsletter</span>
-                <div class="rts__form">
-                    <form action="#" method="post">
-                        <input type="email" name="email" id="subscription" placeholder="Enter your mail" required>
-                        <button type="submit" >Subscribe</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-        <div class="row">
             <div class="footer__widget__wrapper">
                 <div class="rts__widget">
                     <a href="{{route('index')}}"><img class="footer__logo" src="{{ asset(optional($settings)->site_logo ?? 'assets/images/logo/logo.png') }}" alt="{{ optional($settings)->site_name ?? 'Moonlit' }} logo" style="width: 170px; height: 40px; object-fit: contain;"></a>

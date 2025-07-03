@@ -1,24 +1,22 @@
 <?php
 
-namespace App\Filament\Chalet\Resources;
+namespace App\Filament\Customer\Resources;
 
-use App\Filament\Chalet\Resources\BookingResource\Pages;
-use App\Filament\Chalet\Resources\BookingResource\RelationManagers;
+use App\Filament\Customer\Resources\BookingResource\Pages;
+use App\Filament\Customer\Resources\BookingResource\RelationManagers;
 use App\Models\Booking;
-use Filament\Infolists;
-use Filament\Infolists\Infolist;
+use Filament\Forms;
+use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Enums\BookingStatus;
-use App\Enums\PaymentStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\Tabs;
 use Filament\Infolists\Components\TextEntry;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\Auth;
 
 class BookingResource extends Resource
 {
@@ -30,9 +28,7 @@ class BookingResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->whereHas('chalet', function (Builder $query) {
-            $query->where('owner_id', Auth::id());
-        });
+        return parent::getEloquentQuery()->where('user_id', auth()->id());
     }
 
     public static function infolist(Infolist $infolist): Infolist
@@ -43,14 +39,7 @@ class BookingResource extends Resource
                     ->tabs([
                         Tabs\Tab::make('Booking Details')
                             ->schema([
-                                Section::make('Customer Information')
-                                    ->schema([
-                                        Grid::make(2)->schema([
-                                            TextEntry::make('user.name')->label('Customer Name'),
-                                            TextEntry::make('user.email')->label('Customer Email'),
-                                        ]),
-                                    ]),
-                                Section::make('Booking Details')
+                                Section::make('Booking Information')
                                     ->schema([
                                         Grid::make(2)->schema([
                                             TextEntry::make('booking_reference')->label('Booking Reference'),
@@ -73,9 +62,7 @@ class BookingResource extends Resource
                                             TextEntry::make('discount_amount')->money('USD')->label('Discount'),
                                             TextEntry::make('discount_reason')->label('Discount Reason'),
                                             TextEntry::make('total_amount')->money('USD')->label('Total Amount'),
-                                            TextEntry::make('platform_commission')->money('USD')->label('Platform Commission'),
-                                            TextEntry::make('owner_earning')->money('USD')->label('Owner Earning'),
-                                            TextEntry::make('platform_earning')->money('USD')->label('Platform Earning'),
+                                            TextEntry::make('payment.amount')->money('USD')->label('Paid'),
                                             TextEntry::make('remaining_payment')->money('USD')->label('Remaining Payment'),
                                         ]),
                                     ]),
@@ -83,20 +70,18 @@ class BookingResource extends Resource
                                     ->schema([
                                         Grid::make(2)->schema([
                                             TextEntry::make('payment.payment_reference')->label('Payment Reference'),
-                                            TextEntry::make('payment.amount')->money('USD')->label('Payment Amount'),
                                             TextEntry::make('payment.payment_method')->badge()->label('Payment Method'),
                                             TextEntry::make('payment.status')->badge()->label('Payment Status'),
                                             TextEntry::make('payment.paid_at')->dateTime()->label('Paid At'),
                                             TextEntry::make('payment.notes')->label('Payment Notes')->columnSpanFull(),
                                         ]),
                                     ]),
-                                Section::make('Status and Notes')
+                                Section::make('Status')
                                     ->schema([
                                         Grid::make(2)->schema([
                                             TextEntry::make('status')->badge()->label('Booking Status'),
                                             TextEntry::make('payment_status')->badge()->label('Payment Status'),
                                         ]),
-                                        TextEntry::make('internal_notes')->label('Internal Notes')->columnSpanFull(),
                                     ]),
                                 Section::make('Cancellation')
                                     ->schema([
@@ -105,18 +90,6 @@ class BookingResource extends Resource
                                             TextEntry::make('cancellation_reason')->label('Cancellation Reason'),
                                         ]),
                                     ])->collapsible(),
-                            ]),
-                        Tabs\Tab::make('Payment')
-                            ->schema([
-                                Section::make('Payment Details')
-                                    ->schema([
-                                        TextEntry::make('payment.payment_reference')->label('Payment Reference'),
-                                        TextEntry::make('payment.amount')->money('USD')->label('Payment Amount'),
-                                        TextEntry::make('payment.payment_method')->badge()->label('Payment Method'),
-                                        TextEntry::make('payment.status')->badge()->label('Payment Status'),
-                                        TextEntry::make('payment.paid_at')->dateTime()->label('Paid At'),
-                                        TextEntry::make('payment.notes')->label('Payment Notes')->columnSpanFull(),
-                                    ]),
                             ]),
                     ])->columnSpanFull(),
             ]);
@@ -127,15 +100,13 @@ class BookingResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('booking_reference')->label('Reference')->searchable(),
-                Tables\Columns\TextColumn::make('user.name')->label('Customer')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('chalet.name')->label('Chalet')->sortable(),
                 Tables\Columns\TextColumn::make('start_date')->label('Check-in')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('end_date')->label('Check-out')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('total_amount')->label('Total')->money('USD')->sortable(),
                 Tables\Columns\TextColumn::make('payment_status')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('owner_earning')->label('Owner Earning')->money('USD')->sortable(),
-                Tables\Columns\TextColumn::make('remaining_payment')->label('Remaining')->money('USD')->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge()->sortable(),
+                Tables\Columns\TextColumn::make('remaining_payment')->label('Remaining')->money('USD')->sortable(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -145,7 +116,7 @@ class BookingResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListBookings::route('/'),
+            'index' => Pages\ManageBookings::route('/'),
         ];
     }
 }
