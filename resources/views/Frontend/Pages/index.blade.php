@@ -75,25 +75,27 @@
                                 }
                             @endphp
                             <div class="swiper-slide">
-                                <div class="room__slide__box radius-6">
-                                    <div class="room__thumbnail jara-mask-2 jarallax">
-                                        @if($chalet->getFirstMediaUrl('featured_image'))
-                                            <img height="585" width="420" class="radius-6 jarallax-img" src="{{ $chalet->getFirstMediaUrl('featured_image') }}" alt="{{ $chalet->name }}">
-                                        @else
-                                            <img height="585" width="420" class="radius-6 jarallax-img" src="{{asset('assets/images/room/4.webp')}}" alt="{{ $chalet->name }}">
-                                        @endif
-                                    </div>
-                                    <div class="room__content">
-                                        <a href="{{ url($chalet->slug) }}" class="room__title">
-                                            <h5>{{ $chalet->name }}</h5>
-                                        </a>
-                                        <div class="room__content__meta">
-                                            <span><i class="flaticon-construction"></i> {{ $chalet->bedrooms_count ?? '-' }} Bedrooms</span>
-                                            <span><i class="flaticon-user"></i> {{ $chalet->max_adults + $chalet->max_children }} Guests</span>
-                                            <span><i class="flaticon-tag"></i> {{ $priceDisplay }}</span>
+                                <a href="{{ url($chalet->slug) }}" style="text-decoration:none; color:inherit;">
+                                    <div class="room__slide__box radius-6" style="cursor:pointer;">
+                                        <div class="room__thumbnail jara-mask-2 jarallax">
+                                            @if($chalet->getFirstMediaUrl('featured_image'))
+                                                <img height="585" width="420" class="radius-6 jarallax-img" src="{{ $chalet->getFirstMediaUrl('featured_image') }}" alt="{{ $chalet->name }}">
+                                            @else
+                                                <img height="585" width="420" class="radius-6 jarallax-img" src="{{asset('assets/images/room/4.webp')}}" alt="{{ $chalet->name }}">
+                                            @endif
+                                        </div>
+                                        <div class="room__content">
+                                            <div class="room__title">
+                                                <h5>{{ $chalet->name }}</h5>
+                                            </div>
+                                            <div class="room__content__meta">
+                                                <span><i class="flaticon-construction"></i> {{ $chalet->bedrooms_count ?? '-' }} Bedrooms</span>
+                                                <span><i class="flaticon-user"></i> {{ $chalet->max_adults + $chalet->max_children }} Guests</span>
+                                                <span><i class="flaticon-tag"></i> {{ $priceDisplay }}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                         @empty
                             <div class="swiper-slide">
