@@ -137,6 +137,7 @@ class BookingResource extends Resource
                 Tables\Columns\TextColumn::make('remaining_payment')->label('Remaining')->money('USD')->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge()->sortable(),
             ])
+            ->defaultSort('start_date', 'desc')
             ->actions([
                 Tables\Actions\ViewAction::make(),
             ]);
