@@ -36,69 +36,30 @@ class pageController extends baseController
             'slots_count' => $featuredChalets->mapWithKeys(fn($c) => [$c->id => $c->timeSlots->count()])->toArray(),
         ]);
 
-        $today = Carbon::today()->format('Y-m-d');
+        // Just send the featured chalets (with their slots) to the view, no availability check
         $featuredChaletsWithSlots = [];
-
         foreach ($featuredChalets as $chalet) {
-            $availabilityChecker = new ChaletAvailabilityChecker($chalet);
-            
-            // Get both day-use and overnight slots
-            $dayUseSlots = $chalet->timeSlots
+            $slots = $chalet->timeSlots
                 ->where('is_active', true)
-                ->where('is_overnight', false)
-                ->filter(function($slot) use ($availabilityChecker, $today) {
-                    return $availabilityChecker->isDayUseSlotAvailable($today, $slot->id);
-                })
-                ->map(function ($slot) use ($availabilityChecker, $today) {
-                return [
-                    'id' => $slot->id,
-                    'name' => $slot->name,
-                    'start_time' => $slot->start_time,
-                    'end_time' => $slot->end_time,
-                    'duration_hours' => $slot->duration_hours,
-                        'price' => $availabilityChecker->calculateDayUsePrice($today, $slot->id),
-                    ];
-                })->values()->toArray();
-                
-            $tomorrow = Carbon::tomorrow()->format('Y-m-d');
-            $overnightSlots = $chalet->timeSlots
-                ->where('is_active', true)
-                ->where('is_overnight', true)
-                ->filter(function($slot) use ($availabilityChecker, $today, $tomorrow) {
-                    return $availabilityChecker->isOvernightSlotAvailable($today, $tomorrow, $slot->id);
-                })
-                ->map(function ($slot) use ($availabilityChecker, $today, $tomorrow) {
-                    $priceData = $availabilityChecker->calculateOvernightPrice($today, $tomorrow, $slot->id);
-            return [
+                ->map(function ($slot) {
+                    return [
                         'id' => $slot->id,
                         'name' => $slot->name,
                         'start_time' => $slot->start_time,
                         'end_time' => $slot->end_time,
                         'duration_hours' => $slot->duration_hours,
-                        'price' => $priceData['price_per_night'],
+                        'price' => $slot->price ?? null,
+                        'is_overnight' => $slot->is_overnight,
                     ];
                 })->values()->toArray();
-                
-            $allSlots = array_merge($dayUseSlots, $overnightSlots);
-            
-            // Debug: Log available slots for each featured chalet
-            \Log::info('Featured chalet available slots', [
-                'chalet_id' => $chalet->id,
-                'day_use_slots' => $dayUseSlots,
-                'overnight_slots' => $overnightSlots,
-                'all_slots_count' => count($allSlots),
-            ]);
-            
-            if (!empty($allSlots)) {
-                $featuredChaletsWithSlots[] = [
+
+            $featuredChaletsWithSlots[] = [
                 'chalet' => $chalet,
-                    'slots' => $allSlots,
+                'slots' => $slots,
             ];
-            }
         }
 
-        // Debug: Log after filtering for available slots
-        \Log::info('Featured chalets with available slots', [
+        \Log::info('Featured chalets sent to index', [
             'count' => count($featuredChaletsWithSlots),
             'ids' => array_map(fn($c) => $c['chalet']->id, $featuredChaletsWithSlots),
         ]);
