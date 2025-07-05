@@ -359,8 +359,15 @@
                                 duration: "fast",
                                 minDate: 0, // Disable past dates
                                 beforeShowDay: function(date) {
-                                    const dateStr = date.toISOString().slice(0, 10); // Always 'YYYY-MM-DD'
-                                    const today = new Date().toISOString().slice(0, 10);
+                                    // Format date as yyyy-mm-dd to match unavailableDates format
+                                    const dateObj = new Date(
+                                        date.getFullYear(), 
+                                        date.getMonth(), 
+                                        date.getDate()
+                                    );
+                                    const dateStr = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD format
+                                    const today = new Date().toISOString().split('T')[0];
+                                    
                                     // Debug log but only for visible month to avoid console spam
                                     const currentMonth = new Date().getMonth();
                                     const dateMonth = date.getMonth();
@@ -372,11 +379,16 @@
                                     if (dateStr < today) {
                                         return [false, 'past-date', 'Past date'];
                                     }
-                                    // Check if date is unavailable
-                                    const isUnavailable = unavailableDates.includes(dateStr);
-                                    if (isUnavailable) {
-                                        return [false, 'unavailable-date', 'No availability'];
+                                    
+                                    // Check if date is unavailable - strict comparison to make sure it works
+                                    if (unavailableDates && Array.isArray(unavailableDates)) {
+                                        for (let i = 0; i < unavailableDates.length; i++) {
+                                            if (unavailableDates[i] === dateStr) {
+                                                return [false, 'unavailable-date', 'No availability'];
+                                            }
+                                        }
                                     }
+                                    
                                     return [true, 'available-date', 'Available'];
                                 },
                                 onSelect: function(dateText, inst) {
@@ -784,52 +796,82 @@
 
                 const slotsList = $("#available-slot-combinations-list");
                 slotsList.empty();
-
-                // Display individual slots
-                data.slots.forEach(slot => {
-                    const slotHtml = `
-                        <div class="form-check mb-2">
-                            <input class="form-check-input slot-checkbox" type="checkbox" 
-                                   value="${slot.id}" 
-                                   id="slot_${slot.id}"
-                                   data-price="${slot.final_price}"
-                                   data-name="${slot.name}"
-                                   data-has-discount="${slot.has_discount ? 1 : 0}"
-                                   data-original-price="${slot.original_price || slot.final_price}"
-                                   data-discount-percentage="${slot.discount_percentage || 0}">
-                            <label class="form-check-label" for="slot_${slot.id}">
-                                <strong>${slot.name}</strong> - $${slot.final_price}
-                                ${slot.has_discount ? ` <span class="text-success">(${slot.discount_percentage}% off)</span>` : ''}
-                            </label>
-                        </div>
-                    `;
-                    slotsList.append(slotHtml);
-                });
-
-                // Display slot combinations if available
-                if (data.combinations && data.combinations.length > 0) {
-                    slotsList.append('<hr class="my-3">');
-                    slotsList.append('<h6>Recommended Combinations:</h6>');
-                    
-                    data.combinations.forEach(combo => {
-                        const comboHtml = `
+                
+                try {
+                    // Display individual slots
+                    data.slots.forEach(slot => {
+                        // Validate slot data
+                        if (!slot || slot.id === undefined || !slot.name || slot.final_price === undefined) {
+                            console.error('Invalid slot data:', slot);
+                            return; // Skip this slot
+                        }
+                        
+                        const slotHtml = `
                             <div class="form-check mb-2">
                                 <input class="form-check-input slot-checkbox" type="checkbox" 
-                                       value="${combo.slot_ids.join(',')}" 
-                                       id="combo_${combo.id}"
-                                       data-price="${combo.total_price}"
-                                       data-name="${combo.slot_names.join(' + ')}"
-                                       data-has-discount="${combo.has_discount ? 1 : 0}"
-                                       data-original-price="${combo.original_price || combo.total_price}"
-                                       data-discount-percentage="${combo.discount_percentage || 0}">
-                                <label class="form-check-label" for="combo_${combo.id}">
-                                    <strong>${combo.slot_names.join(' + ')}</strong> - $${combo.total_price}
-                                    ${combo.has_discount ? ` <span class="text-success">(${combo.discount_percentage}% off)</span>` : ''}
+                                    value="${slot.id}" 
+                                    id="slot_${slot.id}"
+                                    data-price="${slot.final_price}"
+                                    data-name="${slot.name}"
+                                    data-has-discount="${slot.has_discount ? 1 : 0}"
+                                    data-original-price="${slot.original_price || slot.final_price}"
+                                    data-discount-percentage="${slot.discount_percentage || 0}">
+                                <label class="form-check-label" for="slot_${slot.id}">
+                                    <strong>${slot.name}</strong> - $${slot.final_price}
+                                    ${slot.has_discount ? ` <span class="text-success">(${slot.discount_percentage}% off)</span>` : ''}
                                 </label>
                             </div>
                         `;
-                        slotsList.append(comboHtml);
+                        slotsList.append(slotHtml);
                     });
+                } catch (error) {
+                    console.error('Error displaying day-use slots:', error);
+                    showError("Error displaying available slots");
+                }
+
+                // Display slot combinations if available
+                try {
+                    if (data.combinations && data.combinations.length > 0) {
+                        slotsList.append('<hr class="my-3">');
+                        slotsList.append('<h6>Recommended Combinations:</h6>');
+                        
+                        data.combinations.forEach(combo => {
+                            // Safety check for required properties
+                            if (!combo.slot_ids || !Array.isArray(combo.slot_ids) || 
+                                !combo.slot_names || !Array.isArray(combo.slot_names) ||
+                                !combo.id || combo.total_price === undefined) {
+                                console.error('Invalid combination data:', combo);
+                                return; // Skip this combo
+                            }
+                            
+                            try {
+                                const slotIds = combo.slot_ids.join(',');
+                                const slotNames = combo.slot_names.join(' + ');
+                                
+                                const comboHtml = `
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input slot-checkbox" type="checkbox" 
+                                            value="${slotIds}" 
+                                            id="combo_${combo.id}"
+                                            data-price="${combo.total_price}"
+                                            data-name="${slotNames}"
+                                            data-has-discount="${combo.has_discount ? 1 : 0}"
+                                            data-original-price="${combo.original_price || combo.total_price}"
+                                            data-discount-percentage="${combo.discount_percentage || 0}">
+                                        <label class="form-check-label" for="combo_${combo.id}">
+                                            <strong>${slotNames}</strong> - $${combo.total_price}
+                                            ${combo.has_discount ? ` <span class="text-success">(${combo.discount_percentage}% off)</span>` : ''}
+                                        </label>
+                                    </div>
+                                `;
+                                slotsList.append(comboHtml);
+                            } catch (innerError) {
+                                console.error('Error processing combination:', innerError, combo);
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error displaying combinations:', error);
                 }
 
                 $("#available-slots-container").show();
