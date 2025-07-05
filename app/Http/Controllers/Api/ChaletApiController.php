@@ -292,54 +292,82 @@ class ChaletApiController extends Controller
             while ($currentDate <= $end) {
                 $dateStr = $currentDate->format('Y-m-d');
                 $hasAvailableSlot = false;
-                $checkedSlots = [];
-                $availableSlots = [];
-                $blockedSlots = [];
 
                 if ($bookingType === 'day-use') {
-                    $slots = $chalet->timeSlots()->where('is_active', true)->where('is_overnight', false)->get();
-                    foreach ($slots as $slot) {
-                        $checkedSlots[] = $slot->id;
-                        if ($availabilityChecker->isDayUseSlotAvailable($dateStr, $slot->id)) {
-                            $hasAvailableSlot = true;
-                            $availableSlots[] = $slot->id;
-                            break;
-                        } else {
-                            $blockedSlots[] = $slot->id;
+                    // For day-use: check if ANY day-use slot is available
+                    $dayUseSlots = $chalet->timeSlots()
+                        ->where('is_active', true)
+                        ->where('is_overnight', false)
+                        ->get();
+                    
+                    if ($dayUseSlots->isEmpty()) {
+                        // No day-use slots exist, mark as unavailable
+                        $unavailableDates[] = $dateStr;
+                        \Log::info('Date marked unavailable - no day-use slots exist', [
+                            'date' => $dateStr,
+                            'booking_type' => $bookingType
+                        ]);
+                    } else {
+                        // Check if ANY day-use slot is available
+                        foreach ($dayUseSlots as $slot) {
+                            if ($availabilityChecker->isDayUseSlotAvailable($dateStr, $slot->id)) {
+                                $hasAvailableSlot = true;
+                                \Log::info('Day-use slot available', [
+                                    'date' => $dateStr,
+                                    'slot_id' => $slot->id,
+                                    'slot_name' => $slot->name
+                                ]);
+                                break; // Found an available slot, no need to check others
+                            }
+                        }
+                        
+                        if (!$hasAvailableSlot) {
+                            $unavailableDates[] = $dateStr;
+                            \Log::info('Date marked unavailable - all day-use slots blocked', [
+                                'date' => $dateStr,
+                                'booking_type' => $bookingType,
+                                'total_day_use_slots' => $dayUseSlots->count()
+                            ]);
                         }
                     }
                 } else {
-                    $slots = $chalet->timeSlots()->where('is_active', true)->where('is_overnight', true)->get();
-                    foreach ($slots as $slot) {
-                        $checkedSlots[] = $slot->id;
-                        $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
-                        if ($availabilityChecker->isOvernightSlotAvailable($dateStr, $nextDate, $slot->id)) {
-                            $hasAvailableSlot = true;
-                            $availableSlots[] = $slot->id;
-                            break;
-                        } else {
-                            $blockedSlots[] = $slot->id;
+                    // For overnight: check if ANY overnight slot is available
+                    $overnightSlots = $chalet->timeSlots()
+                        ->where('is_active', true)
+                        ->where('is_overnight', true)
+                        ->get();
+                    
+                    if ($overnightSlots->isEmpty()) {
+                        // No overnight slots exist, mark as unavailable
+                        $unavailableDates[] = $dateStr;
+                        \Log::info('Date marked unavailable - no overnight slots exist', [
+                            'date' => $dateStr,
+                            'booking_type' => $bookingType
+                        ]);
+                    } else {
+                        // Check if ANY overnight slot is available
+                        foreach ($overnightSlots as $slot) {
+                            $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
+                            if ($availabilityChecker->isOvernightSlotAvailable($dateStr, $nextDate, $slot->id)) {
+                                $hasAvailableSlot = true;
+                                \Log::info('Overnight slot available', [
+                                    'date' => $dateStr,
+                                    'slot_id' => $slot->id,
+                                    'slot_name' => $slot->name
+                                ]);
+                                break; // Found an available slot, no need to check others
+                            }
+                        }
+                        
+                        if (!$hasAvailableSlot) {
+                            $unavailableDates[] = $dateStr;
+                            \Log::info('Date marked unavailable - all overnight slots blocked', [
+                                'date' => $dateStr,
+                                'booking_type' => $bookingType,
+                                'total_overnight_slots' => $overnightSlots->count()
+                            ]);
                         }
                     }
-                }
-
-                if (!$hasAvailableSlot) {
-                    $unavailableDates[] = $dateStr;
-                    \Log::info('Date marked unavailable', [
-                        'date' => $dateStr,
-                        'booking_type' => $bookingType,
-                        'checked_slots' => $checkedSlots,
-                        'available_slots' => $availableSlots,
-                        'blocked_slots' => $blockedSlots,
-                    ]);
-                } else {
-                    \Log::info('Date is available', [
-                        'date' => $dateStr,
-                        'booking_type' => $bookingType,
-                        'checked_slots' => $checkedSlots,
-                        'available_slots' => $availableSlots,
-                        'blocked_slots' => $blockedSlots,
-                    ]);
                 }
 
                 $currentDate->addDay();

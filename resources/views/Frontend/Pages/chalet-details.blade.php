@@ -273,6 +273,9 @@
             const chaletId = {{ $chalet->id }};
             let selectedSlots = [];
             let availableSlots = [];
+            let unavailableDates = [];
+            let datepickerInitialized = false;
+            let isInitializing = false; // Prevent multiple simultaneous initializations
 
             // Debug: Log URL parameters
             console.log('URL Parameters:', {
@@ -281,29 +284,21 @@
                 checkout: '{{ request("checkout") }}'
             });
 
-            // Use existing datepicker from main.js
-            $("#check__in, #check__out").datepicker({
-                dateFormat: "dd-mm-yy",
-                duration: "fast",
-                minDate: 0
-            });
-
             // Enhanced datepicker with availability filtering
-            let unavailableDates = [];
-            let datepickerInitialized = false;
-
-            // Initialize datepicker with availability filtering
             function initializeDatepickerWithAvailability() {
-                if (datepickerInitialized) {
-                    // Destroy existing datepicker instances
-                    $("#check__in, #check__out").datepicker('destroy');
+                if (isInitializing) {
+                    console.log('Already initializing datepicker, skipping...');
+                    return;
                 }
-
+                
                 const bookingType = $("#booking_type").val();
                 if (!bookingType) {
                     console.log('Not initializing datepicker: bookingType is empty');
                     return;
                 }
+                
+                isInitializing = true;
+                console.log('Initializing datepicker for booking type:', bookingType);
                 
                 // Show spinner overlay
                 $("#datepicker-loading-spinner").css('display', 'flex');
@@ -322,10 +317,17 @@
                         // Hide spinner overlay
                         $("#datepicker-loading-spinner").hide();
                         $("#check__in, #check__out").prop('disabled', false);
+                        isInitializing = false;
                         
                         if (response.success) {
                             unavailableDates = response.data.unavailable_dates;
                             console.log('Updated unavailableDates:', unavailableDates);
+                            
+                            // Destroy existing datepicker if it exists
+                            if (datepickerInitialized) {
+                                $("#check__in, #check__out").datepicker('destroy');
+                                datepickerInitialized = false;
+                            }
                             
                             // Initialize datepicker with disabled dates
                             $("#check__in, #check__out").datepicker({
@@ -377,6 +379,7 @@
                         // Hide spinner overlay
                         $("#datepicker-loading-spinner").hide();
                         $("#check__in, #check__out").prop('disabled', false);
+                        isInitializing = false;
                         
                         console.error('Error loading unavailable dates:', xhr);
                         showDatepickerStatus('Error loading availability data', 'error');
@@ -388,6 +391,11 @@
 
             // Fallback to basic datepicker
             function initializeBasicDatepicker() {
+                if (datepickerInitialized) {
+                    $("#check__in, #check__out").datepicker('destroy');
+                    datepickerInitialized = false;
+                }
+                
                 $("#check__in, #check__out").datepicker({
                     dateFormat: "dd-mm-yy",
                     duration: "fast",
@@ -567,8 +575,8 @@
                 handleCheckOutChange();
             });
 
-            // Handle booking type change (from main.js)
-            $("#booking_type").on("change", function() {
+            // Handle booking type change - ONLY ONE EVENT LISTENER
+            $("#booking_type").off('change').on("change", function() {
                 console.log('Booking type changed:', $(this).val()); // Debug log
                 toggleCheckoutField();
                 clearAvailabilityData();
@@ -579,14 +587,16 @@
                 // Update button state
                 updateBookButtonState();
                 
-                // Reinitialize datepicker with new booking type
-                initializeDatepickerWithAvailability();
-                
-                // Check availability if we have a date selected
-                if ($("#check__in").val()) {
-                    if (validateSelectedDates()) {
-                checkAvailability();
-                    }
+                // Show date fields if booking type is selected
+                const bookingType = $(this).val();
+                if (bookingType) {
+                    $("#date-fields-container").show();
+                    // Reinitialize datepicker with new booking type
+                    initializeDatepickerWithAvailability();
+                } else {
+                    // Hide date fields if placeholder is selected
+                    $("#date-fields-container").hide();
+                    $("#check__in, #check__out").val("");
                 }
             });
 
@@ -603,22 +613,6 @@
                 }
             });
 
-            // Initial setup
-            toggleCheckoutField();
-            
-            // Update legend text
-            updateAvailabilityLegend();
-            
-            // Update button state
-            updateBookButtonState();
-            
-            if ($("#check__in").val()) {
-                console.log('Initial check-in value:', $("#check__in").val()); // Debug log
-                if (validateSelectedDates()) {
-                checkAvailability();
-                }
-            }
-
             // Update toggleCheckoutField to show/hide checkout field for overnight
             function toggleCheckoutField() {
                 var bookingType = $("#booking_type").val();
@@ -630,7 +624,7 @@
                     if (datepickerInitialized) {
                         $('#check__out').datepicker('option', 'minDate', null);
                     }
-                } else {
+                } else if (bookingType === "overnight") {
                     $(".checkout-field").show();
                     $("#check__out").prop("required", true);
                     // For overnight, set minDate based on check-in date
@@ -712,6 +706,67 @@
                         showError(error);
                     }
                 });
+            }
+
+            function displayDayUseSlots(data) {
+                console.log('displayDayUseSlots called with data:', data);
+                
+                if (!data.slots || data.slots.length === 0) {
+                    showError("No day-use availability for selected date");
+                    return;
+                }
+
+                const slotsList = $("#available-slot-combinations-list");
+                slotsList.empty();
+
+                // Display individual slots
+                data.slots.forEach(slot => {
+                    const slotHtml = `
+                        <div class="form-check mb-2">
+                            <input class="form-check-input slot-checkbox" type="checkbox" 
+                                   value="${slot.id}" 
+                                   id="slot_${slot.id}"
+                                   data-price="${slot.final_price}"
+                                   data-name="${slot.name}"
+                                   data-has-discount="${slot.has_discount ? 1 : 0}"
+                                   data-original-price="${slot.original_price || slot.final_price}"
+                                   data-discount-percentage="${slot.discount_percentage || 0}">
+                            <label class="form-check-label" for="slot_${slot.id}">
+                                <strong>${slot.name}</strong> - $${slot.final_price}
+                                ${slot.has_discount ? ` <span class="text-success">(${slot.discount_percentage}% off)</span>` : ''}
+                            </label>
+                        </div>
+                    `;
+                    slotsList.append(slotHtml);
+                });
+
+                // Display slot combinations if available
+                if (data.combinations && data.combinations.length > 0) {
+                    slotsList.append('<hr class="my-3">');
+                    slotsList.append('<h6>Recommended Combinations:</h6>');
+                    
+                    data.combinations.forEach(combo => {
+                        const comboHtml = `
+                            <div class="form-check mb-2">
+                                <input class="form-check-input slot-checkbox" type="checkbox" 
+                                       value="${combo.slot_ids.join(',')}" 
+                                       id="combo_${combo.id}"
+                                       data-price="${combo.total_price}"
+                                       data-name="${combo.slot_names.join(' + ')}"
+                                       data-has-discount="${combo.has_discount ? 1 : 0}"
+                                       data-original-price="${combo.original_price || combo.total_price}"
+                                       data-discount-percentage="${combo.discount_percentage || 0}">
+                                <label class="form-check-label" for="combo_${combo.id}">
+                                    <strong>${combo.slot_names.join(' + ')}</strong> - $${combo.total_price}
+                                    ${combo.has_discount ? ` <span class="text-success">(${combo.discount_percentage}% off)</span>` : ''}
+                                </label>
+                            </div>
+                        `;
+                        slotsList.append(comboHtml);
+                    });
+                }
+
+                $("#available-slots-container").show();
             }
 
             function displayOvernightSlots(data) {
@@ -1184,38 +1239,13 @@
                 $("#book-button").prop("disabled", !isValid).text(buttonText);
             }
 
-            // Only show and initialize date fields after booking type is selected
-            $("#booking_type").on("change", function() {
-                const bookingType = $(this).val();
-                if (!bookingType) {
-                    // Hide and reset date fields if placeholder is selected
-                    $("#date-fields-container").hide();
-                    $("#check__in, #check__out").val("");
-                    clearAvailabilityData();
-                    updateBookButtonState();
-                    return;
-                }
-                // Show date fields
-                $("#date-fields-container").show();
-                // Reinitialize everything for the new type
-                toggleCheckoutField();
-                clearAvailabilityData();
-                updateAvailabilityLegend();
-                updateBookButtonState();
-                // Only call API if bookingType is not empty
-                if (bookingType) {
-                    initializeDatepickerWithAvailability();
-                }
-                addRefreshButton();
-                // Don't check availability until a date is picked
-            });
-
-            // On page load, hide date fields and do not initialize datepicker
+            // Initial setup - hide date fields and do not initialize datepicker
             $(document).ready(function() {
                 $("#date-fields-container").hide();
                 $("#check__in, #check__out").val("");
                 clearAvailabilityData();
                 updateBookButtonState();
+                addRefreshButton();
             });
 
             // Add a small CSS block for spinner overlay
