@@ -300,9 +300,33 @@
                 isInitializing = true;
                 console.log('Initializing datepicker for booking type:', bookingType);
                 
+                // Always destroy existing datepicker first for clean initialization
+                if (datepickerInitialized) {
+                    try {
+                        $("#check__in, #check__out").datepicker('destroy');
+                    } catch (e) {
+                        console.warn('Error destroying existing datepicker:', e);
+                    }
+                    datepickerInitialized = false;
+                }
+                
                 // Show spinner overlay
                 $("#datepicker-loading-spinner").css('display', 'flex');
                 $("#check__in, #check__out").prop('disabled', true);
+                
+                // Initialize with basic settings first to avoid UI glitches
+                $("#check__in, #check__out").datepicker({
+                    dateFormat: "dd-mm-yy",
+                    duration: "fast",
+                    minDate: 0, // Disable past dates
+                    beforeShowDay: function(date) {
+                        // All dates are shown as "loading" initially
+                        return [false, 'loading-date', 'Loading availability...'];
+                    }
+                });
+                
+                // Add CSS for unavailable dates right away
+                addUnavailableDateStyles();
                 
                 // Get unavailable dates from API
                 $.ajax({
@@ -317,16 +341,16 @@
                         // Hide spinner overlay
                         $("#datepicker-loading-spinner").hide();
                         $("#check__in, #check__out").prop('disabled', false);
-                        isInitializing = false;
                         
                         if (response.success) {
                             unavailableDates = response.data.unavailable_dates;
                             console.log('Updated unavailableDates:', unavailableDates);
                             
-                            // Destroy existing datepicker if it exists
-                            if (datepickerInitialized) {
+                            // Destroy the temporary datepicker
+                            try {
                                 $("#check__in, #check__out").datepicker('destroy');
-                                datepickerInitialized = false;
+                            } catch (e) {
+                                console.warn('Error destroying temporary datepicker:', e);
                             }
                             
                             // Initialize datepicker with disabled dates
@@ -337,8 +361,13 @@
                                 beforeShowDay: function(date) {
                                     const dateStr = date.toISOString().slice(0, 10); // Always 'YYYY-MM-DD'
                                     const today = new Date().toISOString().slice(0, 10);
-                                    // Debug log
-                                    console.log('Checking date:', dateStr, 'Unavailable:', unavailableDates.includes(dateStr));
+                                    // Debug log but only for visible month to avoid console spam
+                                    const currentMonth = new Date().getMonth();
+                                    const dateMonth = date.getMonth();
+                                    if (Math.abs(currentMonth - dateMonth) <= 1) {
+                                        console.log('Checking date:', dateStr, 'Unavailable:', unavailableDates.includes(dateStr));
+                                    }
+                                    
                                     // Disable past dates
                                     if (dateStr < today) {
                                         return [false, 'past-date', 'Past date'];
@@ -362,9 +391,6 @@
                             
                             datepickerInitialized = true;
                             
-                            // Add CSS for unavailable dates
-                            addUnavailableDateStyles();
-                            
                             // Show success message
                             showDatepickerStatus('Calendar updated with availability', 'success');
                             
@@ -374,6 +400,9 @@
                             // Fallback to basic datepicker
                             initializeBasicDatepicker();
                         }
+                        
+                        // Always ensure we clear the initializing flag
+                        isInitializing = false;
                     },
                     error: function(xhr) {
                         // Hide spinner overlay
@@ -428,6 +457,26 @@
                                 background-color: #f8f9fa !important;
                                 color: #6c757d !important;
                             }
+                            .ui-datepicker .ui-state-disabled.loading-date {
+                                background-color: #e9ecef !important;
+                                color: #6c757d !important;
+                                cursor: wait !important;
+                                position: relative;
+                            }
+                            .ui-datepicker .ui-state-disabled.loading-date:hover {
+                                background-color: #e9ecef !important;
+                                color: #6c757d !important;
+                            }
+                            .ui-datepicker td .loading-date {
+                                position: relative;
+                            }
+                            .ui-datepicker td .loading-date:after {
+                                content: "...";
+                                position: absolute;
+                                right: 2px;
+                                bottom: 0;
+                                font-size: 10px;
+                            }
                             .ui-datepicker .available-date {
                                 background-color: #ffffff !important;
                                 color: #000000 !important;
@@ -470,6 +519,9 @@
                             }
                             .datepicker-status.success {
                                 background-color: #28a745;
+                            }
+                            .datepicker-status.info {
+                                background-color: #17a2b8;
                             }
                             .datepicker-status.warning {
                                 background-color: #ffc107;
@@ -578,8 +630,11 @@
             // Handle booking type change - ONLY ONE EVENT LISTENER
             $("#booking_type").off('change').on("change", function() {
                 console.log('Booking type changed:', $(this).val()); // Debug log
+                
+                // Clear existing data
                 toggleCheckoutField();
                 clearAvailabilityData();
+                $("#check__in, #check__out").val("");
                 
                 // Update legend text
                 updateAvailabilityLegend();
@@ -591,12 +646,23 @@
                 const bookingType = $(this).val();
                 if (bookingType) {
                     $("#date-fields-container").show();
+                    
+                    // Destroy existing datepicker to ensure clean initialization
+                    if (datepickerInitialized) {
+                        $("#check__in, #check__out").datepicker('destroy');
+                        datepickerInitialized = false;
+                    }
+                    
+                    // Show a loading message
+                    showDatepickerStatus('Loading availability calendar...', 'info');
+                    
                     // Reinitialize datepicker with new booking type
-                    initializeDatepickerWithAvailability();
+                    setTimeout(function() {
+                        initializeDatepickerWithAvailability();
+                    }, 100); // Short delay to allow UI to update
                 } else {
                     // Hide date fields if placeholder is selected
                     $("#date-fields-container").hide();
-                    $("#check__in, #check__out").val("");
                 }
             });
 
@@ -1246,6 +1312,14 @@
                 clearAvailabilityData();
                 updateBookButtonState();
                 addRefreshButton();
+                
+                // Pre-initialize datepickers with basic settings to avoid the first-time issue
+                $("#check__in, #check__out").datepicker({
+                    dateFormat: "dd-mm-yy",
+                    duration: "fast",
+                    minDate: 0
+                });
+                datepickerInitialized = true;
             });
 
             // Add a small CSS block for spinner overlay
