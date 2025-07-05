@@ -269,6 +269,7 @@ class ChaletApiController extends Controller
 
     /**
      * Get unavailable dates for a chalet (for datepicker pre-filtering)
+     * Returns two separate arrays for day-use and overnight unavailable dates
      */
     public function getUnavailableDates(Request $request, string $slug): JsonResponse
     {
@@ -278,127 +279,115 @@ class ChaletApiController extends Controller
             return response()->json(['error' => 'Chalet not found'], 404);
         }
 
-        $bookingType = $request->get('booking_type', 'overnight');
         $startDate = $request->get('start_date', now()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->addMonths(3)->format('Y-m-d')); // Default 3 months ahead
 
         $availabilityChecker = new ChaletAvailabilityChecker($chalet);
-        $unavailableDates = [];
+        $unavailableDayUseDates = [];
+        $unavailableOvernightDates = [];
 
         try {
+            // First check for completely blocked dates (full day blocks)
+            $fullyBlockedDates = $this->getFullyBlockedDates($chalet, $startDate, $endDate);
+            
+            // Add fully blocked dates to both arrays
+            $unavailableDayUseDates = $fullyBlockedDates;
+            $unavailableOvernightDates = $fullyBlockedDates;
+            
+            // Now check date-specific availability for each type
             $currentDate = Carbon::parse($startDate);
             $end = Carbon::parse($endDate);
 
             while ($currentDate <= $end) {
                 $dateStr = $currentDate->format('Y-m-d');
-                $hasAvailableSlot = false;
+                
+                // Skip dates we already know are fully blocked
+                if (in_array($dateStr, $fullyBlockedDates)) {
+                    $currentDate->addDay();
+                    continue;
+                }
 
-                if ($bookingType === 'day-use') {
-                    // For day-use: check if ANY day-use slot is available
-                    $dayUseSlots = $chalet->timeSlots()
-                        ->where('is_active', true)
-                        ->where('is_overnight', false)
-                        ->get();
+                // Check day-use availability
+                $dayUseSlots = $chalet->timeSlots()
+                    ->where('is_active', true)
+                    ->where('is_overnight', false)
+                    ->get();
+                
+                if ($dayUseSlots->isEmpty()) {
+                    // No day-use slots exist, mark as unavailable
+                    $unavailableDayUseDates[] = $dateStr;
+                    \Log::info('Date marked unavailable for day-use - no day-use slots exist', [
+                        'date' => $dateStr
+                    ]);
+                } else {
+                    // Count how many slots are available
+                    $availableDayUseSlotCount = 0;
+                    $totalDayUseSlotCount = $dayUseSlots->count();
                     
-                    if ($dayUseSlots->isEmpty()) {
-                        // No day-use slots exist, mark as unavailable
-                        $unavailableDates[] = $dateStr;
-                        \Log::info('Date marked unavailable - no day-use slots exist', [
-                            'date' => $dateStr,
-                            'booking_type' => $bookingType
-                        ]);
-                    } else {
-                        // Count how many slots are available
-                        $availableSlotCount = 0;
-                        $totalSlotCount = $dayUseSlots->count();
-                        
-                        foreach ($dayUseSlots as $slot) {
-                            if ($availabilityChecker->isDayUseSlotAvailable($dateStr, $slot->id)) {
-                                $hasAvailableSlot = true;
-                                $availableSlotCount++;
-                                \Log::info('Day-use slot available', [
-                                    'date' => $dateStr,
-                                    'slot_id' => $slot->id,
-                                    'slot_name' => $slot->name
-                                ]);
-                                // Don't break here, count all available slots
-                            }
-                        }
-                        
-                        // Only mark date unavailable if ALL slots are blocked
-                        if ($availableSlotCount == 0) {
-                            $unavailableDates[] = $dateStr;
-                            \Log::info('Date marked unavailable - all day-use slots blocked', [
-                                'date' => $dateStr,
-                                'booking_type' => $bookingType,
-                                'total_day_use_slots' => $totalSlotCount
-                            ]);
-                        } else {
-                            \Log::info('Date is available - has ' . $availableSlotCount . ' available day-use slots out of ' . $totalSlotCount, [
-                                'date' => $dateStr,
-                                'booking_type' => $bookingType
-                            ]);
+                    foreach ($dayUseSlots as $slot) {
+                        if ($availabilityChecker->isDayUseSlotAvailable($dateStr, $slot->id)) {
+                            $availableDayUseSlotCount++;
                         }
                     }
-                } else {
-                    // For overnight: check if ANY overnight slot is available
-                    $overnightSlots = $chalet->timeSlots()
-                        ->where('is_active', true)
-                        ->where('is_overnight', true)
-                        ->get();
                     
-                    if ($overnightSlots->isEmpty()) {
-                        // No overnight slots exist, mark as unavailable
-                        $unavailableDates[] = $dateStr;
-                        \Log::info('Date marked unavailable - no overnight slots exist', [
+                    // Only mark date unavailable for day-use if ALL slots are blocked
+                    if ($availableDayUseSlotCount == 0) {
+                        $unavailableDayUseDates[] = $dateStr;
+                        \Log::info('Date marked unavailable for day-use - all day-use slots blocked', [
                             'date' => $dateStr,
-                            'booking_type' => $bookingType
+                            'total_day_use_slots' => $totalDayUseSlotCount
                         ]);
-                    } else {
-                        // Count how many slots are available
-                        $availableSlotCount = 0;
-                        $totalSlotCount = $overnightSlots->count();
-                        
-                        // Check if ANY overnight slot is available
-                        foreach ($overnightSlots as $slot) {
-                            $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
-                            if ($availabilityChecker->isOvernightSlotAvailable($dateStr, $nextDate, $slot->id)) {
-                                $hasAvailableSlot = true;
-                                $availableSlotCount++;
-                                \Log::info('Overnight slot available', [
-                                    'date' => $dateStr,
-                                    'slot_id' => $slot->id,
-                                    'slot_name' => $slot->name
-                                ]);
-                                // Don't break here, count all available slots
-                            }
+                    }
+                }
+
+                // Check overnight availability
+                $overnightSlots = $chalet->timeSlots()
+                    ->where('is_active', true)
+                    ->where('is_overnight', true)
+                    ->get();
+                
+                if ($overnightSlots->isEmpty()) {
+                    // No overnight slots exist, mark as unavailable
+                    $unavailableOvernightDates[] = $dateStr;
+                    \Log::info('Date marked unavailable for overnight - no overnight slots exist', [
+                        'date' => $dateStr
+                    ]);
+                } else {
+                    // Count how many slots are available
+                    $availableOvernightSlotCount = 0;
+                    $totalOvernightSlotCount = $overnightSlots->count();
+                    
+                    // Check if ANY overnight slot is available
+                    foreach ($overnightSlots as $slot) {
+                        $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
+                        if ($availabilityChecker->isOvernightSlotAvailable($dateStr, $nextDate, $slot->id)) {
+                            $availableOvernightSlotCount++;
                         }
-                        
-                        // Only mark date unavailable if ALL slots are blocked
-                        if ($availableSlotCount == 0) {
-                            $unavailableDates[] = $dateStr;
-                            \Log::info('Date marked unavailable - all overnight slots blocked', [
-                                'date' => $dateStr,
-                                'booking_type' => $bookingType,
-                                'total_overnight_slots' => $totalSlotCount
-                            ]);
-                        } else {
-                            \Log::info('Date is available - has ' . $availableSlotCount . ' available overnight slots out of ' . $totalSlotCount, [
-                                'date' => $dateStr,
-                                'booking_type' => $bookingType
-                            ]);
-                        }
+                    }
+                    
+                    // Only mark date unavailable for overnight if ALL slots are blocked
+                    if ($availableOvernightSlotCount == 0) {
+                        $unavailableOvernightDates[] = $dateStr;
+                        \Log::info('Date marked unavailable for overnight - all overnight slots blocked', [
+                            'date' => $dateStr,
+                            'total_overnight_slots' => $totalOvernightSlotCount
+                        ]);
                     }
                 }
 
                 $currentDate->addDay();
             }
 
+            // Ensure no duplicates in the arrays
+            $unavailableDayUseDates = array_unique($unavailableDayUseDates);
+            $unavailableOvernightDates = array_unique($unavailableOvernightDates);
+
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'unavailable_dates' => $unavailableDates,
-                    'booking_type' => $bookingType,
+                    'unavailable_day_use_dates' => $unavailableDayUseDates,
+                    'unavailable_overnight_dates' => $unavailableOvernightDates,
+                    'fully_blocked_dates' => $fullyBlockedDates,
                     'date_range' => [
                         'start' => $startDate,
                         'end' => $endDate
@@ -408,6 +397,40 @@ class ChaletApiController extends Controller
 
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error getting unavailable dates: ' . $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Get dates that are fully blocked (no slots available for either booking type)
+     */
+    private function getFullyBlockedDates(Chalet $chalet, string $startDate, string $endDate): array
+    {
+        $fullyBlockedDates = [];
+        
+        try {
+            // Get all blocked dates without a specific time slot (fully blocked)
+            $blockedDates = $chalet->blockedDates()
+                ->whereNull('time_slot_id')
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $endDate)
+                ->pluck('date')
+                ->toArray();
+                
+            // Format dates to YYYY-MM-DD
+            foreach ($blockedDates as $date) {
+                $formattedDate = Carbon::parse($date)->format('Y-m-d');
+                $fullyBlockedDates[] = $formattedDate;
+            }
+            
+            \Log::info('Found fully blocked dates', [
+                'chalet_id' => $chalet->id, 
+                'fully_blocked_dates' => $fullyBlockedDates
+            ]);
+            
+            return array_unique($fullyBlockedDates);
+        } catch (\Exception $e) {
+            \Log::error('Error getting fully blocked dates: ' . $e->getMessage());
+            return [];
         }
     }
 } 

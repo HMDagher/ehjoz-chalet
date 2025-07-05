@@ -342,9 +342,19 @@
                         $("#datepicker-loading-spinner").hide();
                         $("#check__in, #check__out").prop('disabled', false);
                         
-                        if (response.success) {
-                            unavailableDates = response.data.unavailable_dates;
-                            console.log('Updated unavailableDates:', unavailableDates);
+                                                    if (response.success) {
+                            // Select the correct array of unavailable dates based on booking type
+                            if (bookingType === 'day-use') {
+                                unavailableDates = response.data.unavailable_day_use_dates;
+                                console.log('Updated day-use unavailableDates:', unavailableDates);
+                            } else {
+                                unavailableDates = response.data.unavailable_overnight_dates;
+                                console.log('Updated overnight unavailableDates:', unavailableDates);
+                            }
+                            
+                            // Store full data for debugging
+                            const fullyBlockedDates = response.data.fully_blocked_dates || [];
+                            console.log('Fully blocked dates:', fullyBlockedDates);
                             
                             // Destroy the temporary datepicker
                             try {
@@ -359,33 +369,38 @@
                                 duration: "fast",
                                 minDate: 0, // Disable past dates
                                 beforeShowDay: function(date) {
-                                    // Format date as yyyy-mm-dd to match unavailableDates format
-                                    const dateObj = new Date(
-                                        date.getFullYear(), 
-                                        date.getMonth(), 
-                                        date.getDate()
-                                    );
-                                    const dateStr = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD format
-                                    const today = new Date().toISOString().split('T')[0];
+                                    // Format date as yyyy-mm-dd to match unavailableDates format - make sure timezone doesn't affect it
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD format
+                                    
+                                    // Get today's date in same format for consistent comparison
+                                    const today = new Date();
+                                    const todayYear = today.getFullYear();
+                                    const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+                                    const todayDay = String(today.getDate()).padStart(2, '0');
+                                    const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
                                     
                                     // Debug log but only for visible month to avoid console spam
-                                    const currentMonth = new Date().getMonth();
+                                    const currentMonth = today.getMonth();
                                     const dateMonth = date.getMonth();
                                     if (Math.abs(currentMonth - dateMonth) <= 1) {
-                                        console.log('Checking date:', dateStr, 'Unavailable:', unavailableDates.includes(dateStr));
+                                        const isUnavailable = unavailableDates && 
+                                            Array.isArray(unavailableDates) && 
+                                            unavailableDates.indexOf(dateStr) !== -1;
+                                        console.log('Checking date:', dateStr, 'Unavailable:', isUnavailable);
                                     }
                                     
                                     // Disable past dates
-                                    if (dateStr < today) {
+                                    if (dateStr < todayStr) {
                                         return [false, 'past-date', 'Past date'];
                                     }
                                     
-                                    // Check if date is unavailable - strict comparison to make sure it works
+                                    // Check if date is unavailable - using indexOf for strict comparison
                                     if (unavailableDates && Array.isArray(unavailableDates)) {
-                                        for (let i = 0; i < unavailableDates.length; i++) {
-                                            if (unavailableDates[i] === dateStr) {
-                                                return [false, 'unavailable-date', 'No availability'];
-                                            }
+                                        if (unavailableDates.indexOf(dateStr) !== -1) {
+                                            return [false, 'unavailable-date', 'No availability'];
                                         }
                                     }
                                     
@@ -641,12 +656,16 @@
 
             // Handle booking type change - ONLY ONE EVENT LISTENER
             $("#booking_type").off('change').on("change", function() {
-                console.log('Booking type changed:', $(this).val()); // Debug log
+                const bookingType = $(this).val();
+                console.log('Booking type changed:', bookingType); // Debug log
                 
                 // Clear existing data
                 toggleCheckoutField();
                 clearAvailabilityData();
                 $("#check__in, #check__out").val("");
+                
+                // Clear existing unavailable dates array
+                unavailableDates = [];
                 
                 // Update legend text
                 updateAvailabilityLegend();
@@ -655,23 +674,26 @@
                 updateBookButtonState();
                 
                 // Show date fields if booking type is selected
-                const bookingType = $(this).val();
                 if (bookingType) {
                     $("#date-fields-container").show();
                     
-                    // Destroy existing datepicker to ensure clean initialization
+                    // Always destroy existing datepicker to ensure clean initialization
                     if (datepickerInitialized) {
-                        $("#check__in, #check__out").datepicker('destroy');
+                        try {
+                            $("#check__in, #check__out").datepicker('destroy');
+                        } catch (e) {
+                            console.warn('Error destroying datepicker:', e);
+                        }
                         datepickerInitialized = false;
                     }
                     
                     // Show a loading message
-                    showDatepickerStatus('Loading availability calendar...', 'info');
+                    showDatepickerStatus(`Loading availability calendar for ${bookingType}...`, 'info');
                     
-                    // Reinitialize datepicker with new booking type
+                    // Reinitialize datepicker with new booking type after a short delay
                     setTimeout(function() {
                         initializeDatepickerWithAvailability();
-                    }, 100); // Short delay to allow UI to update
+                    }, 300); // Slightly longer delay to ensure UI is ready
                 } else {
                     // Hide date fields if placeholder is selected
                     $("#date-fields-container").hide();
