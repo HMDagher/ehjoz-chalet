@@ -28,7 +28,7 @@ class AuthController extends Controller
 
         $user->assignRole('customer');
 
-        Auth::login($user);
+        Auth::login($user, true);
 
         $request->session()->regenerate();
 
@@ -42,7 +42,7 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (Auth::attempt($credentials, true)) {
             $request->session()->regenerate();
 
             $user = Auth::user();

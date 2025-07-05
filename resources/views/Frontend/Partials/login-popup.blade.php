@@ -39,12 +39,6 @@
                     </div>
                 </div>
                 <div class="d-flex flex-wrap justify-content-between align-items-center ">
-                    <div class="form-check d-flex align-items-center gap-2">
-                        <input class="form-check-input mt-0" type="checkbox" name="remember" id="flexCheckDefault">
-                        <label class="form-check-label mb-0" for="flexCheckDefault">
-                            Remember me
-                        </label>
-                    </div>
                     <!-- <a href="#" class="forgot__password text-para" data-bs-toggle="modal" data-bs-target="#forgotModal" >Forgot Password?</a> -->
                 </div>
                 <div class="form-group my-3">
