@@ -5,19 +5,6 @@
                 <img src="{{ $thumb }}" width="645" height="415" alt="{{ $title ?? 'Chalet Image' }}">
             </a>
         </div>
-        <div class="room__price__tag">
-            <span class="h6 d-block">
-                @if(isset($price))
-                    {{$price}}
-                @elseif(isset($min_price))
-                    Starting from ${{ number_format($min_price) }}
-                @elseif(isset($min_total_price))
-                    Total ${{ number_format($min_total_price) }}
-                @else
-                    Price on request
-                @endif
-            </span>
-        </div>
     </div>
     <div class="room__card__meta">
         <a href="{{route('chalet-details', $chalet_slug)}}" class="room__card__title h4">{{$title ?? ''}}</a>
@@ -34,9 +21,11 @@
         @if(!empty($slots))
         <ul class="list-unstyled mb-0 mt-3">
             @foreach($slots as $slot)
-                <li class="py-2 px-3 rounded bg-light d-flex align-items-center border mb-2">
-                    <div class="text-dark">
-                        <p class="mb-0 fw-bold small">{{ $slot['name'] ?? 'Time Slot' }} 
+                <li class="py-2 px-3 rounded d-flex align-items-center border mb-2 
+                    {{ isset($slot['is_available']) && $slot['is_available'] ? 'bg-light' : 'bg-light-subtle text-muted' }}">
+                    <div class="{{ isset($slot['is_available']) && $slot['is_available'] ? 'text-dark' : 'text-muted' }}">
+                        <p class="mb-0 fw-bold small">
+                            {{ $slot['name'] ?? 'Time Slot' }} 
                             @if(isset($slot['start_time']))
                             <span class="small">({{ \Carbon\Carbon::parse($slot['start_time'])->format('g:i A') }} - {{ \Carbon\Carbon::parse($slot['end_time'])->format('g:i A') }}, {{ $slot['duration_hours'] }} hrs)</span>
                             @endif
@@ -44,9 +33,15 @@
                             @if(isset($slot['nights']))
                             <span class="small">({{ $slot['nights'] }} {{ Str::plural('night', $slot['nights']) }})</span>
                             @endif
+                            
+                            @if(isset($slot['is_available']))
+                            <span class="small ms-2 {{ $slot['is_available'] ? 'text-success' : 'text-danger' }}">
+                                {{ $slot['is_available'] ? '(Available)' : '(Not Available)' }}
+                            </span>
+                            @endif
                         </p>
                     </div>
-                    <span class="ms-auto small mb-0 text-dark fw-bold">
+                    <span class="ms-auto small mb-0 {{ isset($slot['is_available']) && $slot['is_available'] ? 'text-dark' : 'text-muted' }} fw-bold">
                         @if(isset($slot['price']))
                         {{ number_format($slot['price']) }}$
                         @elseif(isset($slot['price_per_night']))
