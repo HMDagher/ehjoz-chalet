@@ -811,7 +811,22 @@
             function displayDayUseSlots(data) {
                 console.log('displayDayUseSlots called with data:', data);
                 
-                if (!data.slots || data.slots.length === 0) {
+                // Check if slots data exists
+                if (!data.slots) {
+                    showError("No day-use availability for selected date");
+                    return;
+                }
+                
+                // Convert slots to array if it's an object (API might return it either way)
+                let slotsArray = [];
+                if (Array.isArray(data.slots)) {
+                    slotsArray = data.slots;
+                } else if (typeof data.slots === 'object') {
+                    // Convert object to array
+                    slotsArray = Object.values(data.slots);
+                }
+                
+                if (slotsArray.length === 0) {
                     showError("No day-use availability for selected date");
                     return;
                 }
@@ -821,26 +836,32 @@
                 
                 try {
                     // Display individual slots
-                    data.slots.forEach(slot => {
+                    slotsArray.forEach(slot => {
                         // Validate slot data
-                        if (!slot || slot.id === undefined || !slot.name || slot.final_price === undefined) {
+                        if (!slot || slot.id === undefined || !slot.name) {
                             console.error('Invalid slot data:', slot);
                             return; // Skip this slot
                         }
+                        
+                        // Set price values with fallbacks
+                        const finalPrice = slot.final_price || slot.price || 0;
+                        const hasDiscount = slot.has_discount || false;
+                        const originalPrice = slot.original_price || finalPrice;
+                        const discountPercentage = slot.discount_percentage || 0;
                         
                         const slotHtml = `
                             <div class="form-check mb-2">
                                 <input class="form-check-input slot-checkbox" type="checkbox" 
                                     value="${slot.id}" 
                                     id="slot_${slot.id}"
-                                    data-price="${slot.final_price}"
+                                    data-price="${finalPrice}"
                                     data-name="${slot.name}"
-                                    data-has-discount="${slot.has_discount ? 1 : 0}"
-                                    data-original-price="${slot.original_price || slot.final_price}"
-                                    data-discount-percentage="${slot.discount_percentage || 0}">
+                                    data-has-discount="${hasDiscount ? 1 : 0}"
+                                    data-original-price="${originalPrice}"
+                                    data-discount-percentage="${discountPercentage}">
                                 <label class="form-check-label" for="slot_${slot.id}">
-                                    <strong>${slot.name}</strong> - $${slot.final_price}
-                                    ${slot.has_discount ? ` <span class="text-success">(${slot.discount_percentage}% off)</span>` : ''}
+                                    <strong>${slot.name}</strong> - $${finalPrice}
+                                    ${hasDiscount ? ` <span class="text-success">(${discountPercentage}% off)</span>` : ''}
                                 </label>
                             </div>
                         `;
@@ -857,32 +878,64 @@
                         slotsList.append('<hr class="my-3">');
                         slotsList.append('<h6>Recommended Combinations:</h6>');
                         
-                        data.combinations.forEach(combo => {
-                            // Safety check for required properties
-                            if (!combo.slot_ids || !Array.isArray(combo.slot_ids) || 
-                                !combo.slot_names || !Array.isArray(combo.slot_names) ||
-                                !combo.id || combo.total_price === undefined) {
-                                console.error('Invalid combination data:', combo);
-                                return; // Skip this combo
-                            }
-                            
+                        data.combinations.forEach((combo, index) => {
                             try {
-                                const slotIds = combo.slot_ids.join(',');
-                                const slotNames = combo.slot_names.join(' + ');
+                                // Extract slot IDs and names based on the API response format
+                                let slotIds = '';
+                                let slotNames = '';
+                                let comboId = index + 1; // Use index as fallback ID
+                                let totalPrice = 0;
+                                let hasDiscount = false;
+                                let originalPrice = 0;
+                                let discountPercentage = 0;
+                                
+                                if (combo.slot_ids && Array.isArray(combo.slot_ids)) {
+                                    // Format 1: Using slot_ids array
+                                    slotIds = combo.slot_ids.join(',');
+                                    comboId = combo.id || comboId;
+                                    totalPrice = combo.total_price || 0;
+                                    slotNames = combo.slot_names && Array.isArray(combo.slot_names) 
+                                        ? combo.slot_names.join(' + ') 
+                                        : `Combination ${comboId}`;
+                                    hasDiscount = combo.has_discount || false;
+                                    originalPrice = combo.original_price || totalPrice;
+                                    discountPercentage = combo.discount_percentage || 0;
+                                } else if (combo.slots && Array.isArray(combo.slots)) {
+                                    // Format 2: Using slots array containing slot objects
+                                    slotIds = combo.slots.map(s => s.id).join(',');
+                                    slotNames = combo.slots.map(s => s.name).join(' + ');
+                                    totalPrice = combo.total_price || 0;
+                                    // Use combo id from slots if available
+                                    if (combo.slots.length > 0 && combo.slots[0].combo_id) {
+                                        comboId = combo.slots[0].combo_id;
+                                    }
+                                } else {
+                                    // Format 3: Direct object with properties
+                                    totalPrice = combo.total_price || 0;
+                                    slotNames = `${combo.start_time || ''} to ${combo.end_time || ''}`;
+                                    slotIds = combo.id || index;
+                                    comboId = combo.id || comboId;
+                                }
+                                
+                                // Skip if we couldn't determine essential info
+                                if (!slotIds || !slotNames || totalPrice === undefined) {
+                                    console.error('Unable to process combination, missing required data:', combo);
+                                    return;
+                                }
                                 
                                 const comboHtml = `
                                     <div class="form-check mb-2">
                                         <input class="form-check-input slot-checkbox" type="checkbox" 
                                             value="${slotIds}" 
-                                            id="combo_${combo.id}"
-                                            data-price="${combo.total_price}"
+                                            id="combo_${comboId}"
+                                            data-price="${totalPrice}"
                                             data-name="${slotNames}"
-                                            data-has-discount="${combo.has_discount ? 1 : 0}"
-                                            data-original-price="${combo.original_price || combo.total_price}"
-                                            data-discount-percentage="${combo.discount_percentage || 0}">
-                                        <label class="form-check-label" for="combo_${combo.id}">
-                                            <strong>${slotNames}</strong> - $${combo.total_price}
-                                            ${combo.has_discount ? ` <span class="text-success">(${combo.discount_percentage}% off)</span>` : ''}
+                                            data-has-discount="${hasDiscount ? 1 : 0}"
+                                            data-original-price="${originalPrice || totalPrice}"
+                                            data-discount-percentage="${discountPercentage || 0}">
+                                        <label class="form-check-label" for="combo_${comboId}">
+                                            <strong>${slotNames}</strong> - $${totalPrice}
+                                            ${hasDiscount ? ` <span class="text-success">(${discountPercentage}% off)</span>` : ''}
                                         </label>
                                     </div>
                                 `;
