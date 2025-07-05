@@ -294,15 +294,25 @@ class ChaletApiController extends Controller
                 $hasAvailability = false;
 
                 if ($bookingType === 'day-use') {
-                    // Check if any day-use slots are available
-                    $availableSlots = $availabilityChecker->getAvailableDayUseSlots($dateStr);
-                    $hasAvailability = $availableSlots->isNotEmpty();
+                    // Only consider day-use slots
+                    $availableSlots = $chalet->timeSlots()->where('is_active', true)->where('is_overnight', false)->get();
+                    foreach ($availableSlots as $slot) {
+                        if ($availabilityChecker->isDayUseSlotAvailable($dateStr, $slot->id)) {
+                            $hasAvailability = true;
+                            break;
+                        }
+                    }
                 } else {
-                    // For overnight, check if any overnight slots are available for this date
-                    // We check availability for a single night starting from this date
-                    $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
-                    $availableSlots = $availabilityChecker->getAvailableOvernightSlots($dateStr, $nextDate);
-                    $hasAvailability = $availableSlots->isNotEmpty();
+                    // Only consider overnight slots
+                    $overnightSlots = $chalet->timeSlots()->where('is_active', true)->where('is_overnight', true)->get();
+                    foreach ($overnightSlots as $slot) {
+                        // For overnight, check if slot is available for this night (date to date+1)
+                        $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
+                        if ($availabilityChecker->isOvernightSlotAvailable($dateStr, $nextDate, $slot->id)) {
+                            $hasAvailability = true;
+                            break;
+                        }
+                    }
                 }
 
                 if (!$hasAvailability) {
