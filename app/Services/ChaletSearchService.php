@@ -100,15 +100,18 @@ final class ChaletSearchService
                     ->where('is_overnight', true)
                     ->map(function($slot) use ($availabilityChecker, $startDate, $endDate) {
                         $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slot->id);
+                        $nights = $priceData['nights'] ?? 1;
+                        $originalTotal = $priceData['original_price'] ?? $priceData['total_price'];
+                        $originalPerNight = $nights > 0 ? $originalTotal / $nights : $originalTotal;
                         return [
                             'id' => $slot->id,
                             'name' => $slot->name,
                             'start_time' => $slot->start_time,
                             'end_time' => $slot->end_time,
                             'duration_hours' => $slot->duration_hours,
-                            'price_per_night' => $priceData['price_per_night'],
-                            'total_price' => $priceData['total_price'],
-                            'nights' => $priceData['nights'],
+                            'price_per_night' => $originalPerNight,
+                            'total_price' => $originalTotal,
+                            'nights' => $nights,
                             'booking_type' => 'overnight'
                         ];
                     })
@@ -214,15 +217,18 @@ final class ChaletSearchService
                 ->where('is_overnight', true)
                 ->map(function($slot) use ($availabilityChecker, $today, $tomorrow) {
                     $priceData = $availabilityChecker->calculateOvernightPrice($today, $tomorrow, $slot->id);
+                    $nights = $priceData['nights'] ?? 1;
+                    $originalTotal = $priceData['original_price'] ?? $priceData['total_price'];
+                    $originalPerNight = $nights > 0 ? $originalTotal / $nights : $originalTotal;
                     return [
                         'id' => $slot->id,
                         'name' => $slot->name,
                         'start_time' => $slot->start_time,
                         'end_time' => $slot->end_time,
                         'duration_hours' => $slot->duration_hours,
-                        'price_per_night' => $priceData['price_per_night'],
-                        'total_price' => $priceData['total_price'],
-                        'nights' => $priceData['nights'],
+                        'price_per_night' => $originalPerNight,
+                        'total_price' => $originalTotal,
+                        'nights' => $nights,
                         'booking_type' => 'overnight'
                     ];
                 })
