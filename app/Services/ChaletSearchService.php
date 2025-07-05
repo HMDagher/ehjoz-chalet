@@ -53,7 +53,7 @@ final class ChaletSearchService
                 continue;
             }
             
-            $availabilityChecker = new ChaletAvailabilityChecker($chalet);
+            $availabilityChecker = new \App\Services\ChaletAvailabilityChecker($chalet);
             $allSlots = [];
             
             if ($bookingType === 'day-use') {
@@ -61,13 +61,7 @@ final class ChaletSearchService
                 $dayUseSlots = $chalet->timeSlots
                     ->where('is_overnight', false)
                     ->map(function($slot) use ($availabilityChecker, $startDate) {
-                        $isAvailable = $availabilityChecker->isDayUseSlotAvailable($startDate, $slot->id);
-                        // Make sure price is never null
-                        $price = $slot->price ?? 0;
-                        if ($price == 0) {
-                            $price = $chalet->base_price ?? 0;
-                        }
-                        
+                        $price = $availabilityChecker->calculateDayUsePrice($startDate, $slot->id);
                         return [
                             'id' => $slot->id,
                             'name' => $slot->name,
@@ -75,7 +69,6 @@ final class ChaletSearchService
                             'end_time' => $slot->end_time,
                             'duration_hours' => $slot->duration_hours,
                             'price' => $price,
-                            'is_available' => $isAvailable,
                             'booking_type' => 'day-use'
                         ];
                     })
@@ -84,13 +77,13 @@ final class ChaletSearchService
                 
                 // Sort by availability (available first)
                 usort($dayUseSlots, function($a, $b) {
-                    return $b['is_available'] <=> $a['is_available'];
+                    return $b['price'] <=> $a['price'];
                 });
                 
                 $allSlots = $dayUseSlots;
                 
                 // Calculate min price from available slots only
-                $availableSlots = array_filter($dayUseSlots, fn($slot) => $slot['is_available']);
+                $availableSlots = array_filter($dayUseSlots, fn($slot) => $slot['price'] !== null);
                 $minPrice = !empty($availableSlots) ? min(array_column($availableSlots, 'price')) : null;
                 
                 $results[] = [
@@ -103,27 +96,17 @@ final class ChaletSearchService
                 // Get all overnight slots and mark their availability
                 $overnightSlots = $chalet->timeSlots
                     ->where('is_overnight', true)
-                    ->map(function($slot) use ($availabilityChecker, $startDate, $endDate, $chalet) {
-                        $isAvailable = $availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slot->id);
-                        $nights = Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate));
-                        $nights = max(1, $nights);
-                        
-                        // Make sure price is never null
-                        $pricePerNight = $slot->price ?? 0;
-                        if ($pricePerNight == 0) {
-                            $pricePerNight = $chalet->base_price ?? 0;
-                        }
-                        
+                    ->map(function($slot) use ($availabilityChecker, $startDate, $endDate) {
+                        $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slot->id);
                         return [
                             'id' => $slot->id,
                             'name' => $slot->name,
                             'start_time' => $slot->start_time,
                             'end_time' => $slot->end_time,
                             'duration_hours' => $slot->duration_hours,
-                            'price_per_night' => $pricePerNight,
-                            'total_price' => $pricePerNight * $nights,
-                            'nights' => $nights,
-                            'is_available' => $isAvailable,
+                            'price_per_night' => $priceData['price_per_night'],
+                            'total_price' => $priceData['total_price'],
+                            'nights' => $priceData['nights'],
                             'booking_type' => 'overnight'
                         ];
                     })
@@ -132,13 +115,13 @@ final class ChaletSearchService
                 
                 // Sort by availability (available first)
                 usort($overnightSlots, function($a, $b) {
-                    return $b['is_available'] <=> $a['is_available'];
+                    return $b['price_per_night'] <=> $a['price_per_night'];
                 });
                 
                 $allSlots = $overnightSlots;
                 
                 // Calculate min price from available slots only
-                $availableSlots = array_filter($overnightSlots, fn($slot) => $slot['is_available']);
+                $availableSlots = array_filter($overnightSlots, fn($slot) => $slot['price_per_night'] !== null);
                 $minPerNightPrice = !empty($availableSlots) ? min(array_column($availableSlots, 'price_per_night')) : null;
                 $nights = Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate));
                 $nights = max(1, $nights);
@@ -194,22 +177,15 @@ final class ChaletSearchService
         $results = [];
 
         foreach ($chalets as $chalet) {
-            $availabilityChecker = new ChaletAvailabilityChecker($chalet);
+            $availabilityChecker = new \App\Services\ChaletAvailabilityChecker($chalet);
             $allSlots = [];
             
             // Get all day-use slots with availability status
             $dayUseSlots = $chalet->timeSlots
                 ->where('is_active', true)
                 ->where('is_overnight', false)
-                ->map(function($slot) use ($availabilityChecker, $today, $chalet) {
-                    $isAvailable = $availabilityChecker->isDayUseSlotAvailable($today, $slot->id);
-                    
-                    // Make sure price is never null
-                    $price = $slot->price ?? 0;
-                    if ($price == 0) {
-                        $price = $chalet->base_price ?? 0;
-                    }
-                    
+                ->map(function($slot) use ($availabilityChecker, $today) {
+                    $price = $availabilityChecker->calculateDayUsePrice($today, $slot->id);
                     return [
                         'id' => $slot->id,
                         'name' => $slot->name,
@@ -217,7 +193,6 @@ final class ChaletSearchService
                         'end_time' => $slot->end_time,
                         'duration_hours' => $slot->duration_hours,
                         'price' => $price,
-                        'is_available' => $isAvailable,
                         'booking_type' => 'day-use'
                     ];
                 })
@@ -226,30 +201,24 @@ final class ChaletSearchService
                 
             // Sort day-use slots by availability
             usort($dayUseSlots, function($a, $b) {
-                return $b['is_available'] <=> $a['is_available'];
+                return $b['price'] <=> $a['price'];
             });
                 
             // Get all overnight slots with availability status
             $overnightSlots = $chalet->timeSlots
                 ->where('is_active', true)
                 ->where('is_overnight', true)
-                ->map(function($slot) use ($availabilityChecker, $today, $tomorrow, $chalet) {
-                    $isAvailable = $availabilityChecker->isOvernightSlotAvailable($today, $tomorrow, $slot->id);
-                    
-                    // Make sure price is never null
-                    $pricePerNight = $slot->price ?? 0;
-                    if ($pricePerNight == 0) {
-                        $pricePerNight = $chalet->base_price ?? 0;
-                    }
-                    
+                ->map(function($slot) use ($availabilityChecker, $today, $tomorrow) {
+                    $priceData = $availabilityChecker->calculateOvernightPrice($today, $tomorrow, $slot->id);
                     return [
                         'id' => $slot->id,
                         'name' => $slot->name,
                         'start_time' => $slot->start_time,
                         'end_time' => $slot->end_time,
                         'duration_hours' => $slot->duration_hours,
-                        'price_per_night' => $pricePerNight,
-                        'is_available' => $isAvailable,
+                        'price_per_night' => $priceData['price_per_night'],
+                        'total_price' => $priceData['total_price'],
+                        'nights' => $priceData['nights'],
                         'booking_type' => 'overnight'
                     ];
                 })
@@ -258,13 +227,13 @@ final class ChaletSearchService
                 
             // Sort overnight slots by availability
             usort($overnightSlots, function($a, $b) {
-                return $b['is_available'] <=> $a['is_available'];
+                return $b['price_per_night'] <=> $a['price_per_night'];
             });
                 
             $allSlots = array_merge($dayUseSlots, $overnightSlots);
             
             // Calculate min price from available slots only
-            $availableSlots = array_filter($allSlots, fn($slot) => $slot['is_available']);
+            $availableSlots = array_filter($allSlots, fn($slot) => $slot['price'] !== null || $slot['price_per_night'] !== null);
             $prices = [];
             foreach ($availableSlots as $slot) {
                 $prices[] = $slot['price'] ?? ($slot['price_per_night'] ?? 0);
