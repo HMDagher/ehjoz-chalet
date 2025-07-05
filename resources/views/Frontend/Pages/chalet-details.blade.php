@@ -179,21 +179,21 @@
                                     </div>
                                     <div id="date-fields-flex" style="display: flex; flex-direction: column; gap: 12px;">
                                         <div class="query__input wow fadeInUp" id="checkin-field">
-                                            <label for="check__in" class="query__label">Check In</label>
-                                            <div class="query__input__position">
-                                                <input type="text" id="check__in" name="check__in" placeholder="{{ now()->format('d M Y') }}" value="{{ request('checkin') ?? request('check__in') }}" required>
-                                                <div class="query__input__icon">
-                                                    <i class="flaticon-calendar"></i>
-                                                </div>
-                                            </div>
+                                    <label for="check__in" class="query__label">Check In</label>
+                                    <div class="query__input__position">
+                                        <input type="text" id="check__in" name="check__in" placeholder="{{ now()->format('d M Y') }}" value="{{ request('checkin') ?? request('check__in') }}" required>
+                                        <div class="query__input__icon">
+                                            <i class="flaticon-calendar"></i>
                                         </div>
+                                    </div>
+                                </div>
                                         <div class="query__input checkout-field wow fadeInUp" id="checkout-field" data-wow-delay=".3s" style="display:none;">
-                                            <label for="check__out" class="query__label">Check Out</label>
-                                            <div class="query__input__position">
-                                                <input type="text" id="check__out" name="check__out" placeholder="{{ now()->addDay()->format('d M Y') }}" value="{{ request('checkout') ?? request('check__out') }}">
-                                                <div class="query__input__icon">
-                                                    <i class="flaticon-calendar"></i>
-                                                </div>
+                                    <label for="check__out" class="query__label">Check Out</label>
+                                    <div class="query__input__position">
+                                        <input type="text" id="check__out" name="check__out" placeholder="{{ now()->addDay()->format('d M Y') }}" value="{{ request('checkout') ?? request('check__out') }}">
+                                        <div class="query__input__icon">
+                                            <i class="flaticon-calendar"></i>
+                                        </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1187,9 +1187,6 @@
                 $("#book-button").prop("disabled", !isValid).text(buttonText);
             }
 
-            // Hide date fields on page load
-            $("#date-fields-container").hide();
-
             // Only show and initialize date fields after booking type is selected
             $("#booking_type").on("change", function() {
                 const bookingType = $(this).val();
@@ -1208,23 +1205,12 @@
                 clearAvailabilityData();
                 updateAvailabilityLegend();
                 updateBookButtonState();
-                initializeDatepickerWithAvailability();
+                // Only call API if bookingType is not empty
+                if (bookingType) {
+                    initializeDatepickerWithAvailability();
+                }
                 addRefreshButton();
                 // Don't check availability until a date is picked
-            });
-
-            // Prevent form submission if booking type is not selected
-            $("#booking-form").on("submit", function(e) {
-                if (!$("#booking_type").val()) {
-                    showError("Please select a booking type");
-                    e.preventDefault();
-                    return false;
-                }
-                if (!validateSelectedDates()) {
-                    e.preventDefault();
-                    return false;
-                }
-                // submitBooking() will be called as before
             });
 
             // On page load, hide date fields and do not initialize datepicker
