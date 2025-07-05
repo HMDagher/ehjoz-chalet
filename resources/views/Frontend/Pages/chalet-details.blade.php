@@ -170,22 +170,30 @@
                                 <!-- booking type input end -->
 
                                 <!-- Wrap date fields in a container for show/hide -->
-                                <div id="date-fields-container" style="display: none;">
-                                    <div class="query__input wow fadeInUp">
-                                        <label for="check__in" class="query__label">Check In</label>
-                                        <div class="query__input__position">
-                                            <input type="text" id="check__in" name="check__in" placeholder="{{ now()->format('d M Y') }}" value="{{ request('checkin') ?? request('check__in') }}" required>
-                                            <div class="query__input__icon">
-                                                <i class="flaticon-calendar"></i>
-                                            </div>
+                                <div id="date-fields-container" style="display: none; position: relative;">
+                                    <!-- Spinner overlay for loading -->
+                                    <div id="datepicker-loading-spinner" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); z-index:10; align-items:center; justify-content:center;">
+                                        <div class="spinner-border text-primary" role="status" style="width:2rem; height:2rem;">
+                                            <span class="visually-hidden">Loading...</span>
                                         </div>
                                     </div>
-                                    <div class="query__input checkout-field wow fadeInUp" data-wow-delay=".3s">
-                                        <label for="check__out" class="query__label">Check Out</label>
-                                        <div class="query__input__position">
-                                            <input type="text" id="check__out" name="check__out" placeholder="{{ now()->addDay()->format('d M Y') }}" value="{{ request('checkout') ?? request('check__out') }}">
-                                            <div class="query__input__icon">
-                                                <i class="flaticon-calendar"></i>
+                                    <div id="date-fields-flex" style="display: flex; flex-direction: column; gap: 12px;">
+                                        <div class="query__input wow fadeInUp" id="checkin-field">
+                                            <label for="check__in" class="query__label">Check In</label>
+                                            <div class="query__input__position">
+                                                <input type="text" id="check__in" name="check__in" placeholder="{{ now()->format('d M Y') }}" value="{{ request('checkin') ?? request('check__in') }}" required>
+                                                <div class="query__input__icon">
+                                                    <i class="flaticon-calendar"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="query__input checkout-field wow fadeInUp" id="checkout-field" data-wow-delay=".3s" style="display:none;">
+                                            <label for="check__out" class="query__label">Check Out</label>
+                                            <div class="query__input__position">
+                                                <input type="text" id="check__out" name="check__out" placeholder="{{ now()->addDay()->format('d M Y') }}" value="{{ request('checkout') ?? request('check__out') }}">
+                                                <div class="query__input__icon">
+                                                    <i class="flaticon-calendar"></i>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -293,8 +301,9 @@
 
                 const bookingType = $("#booking_type").val();
                 
-                // Show loading state
-                $("#check__in, #check__out").prop('disabled', true).addClass('loading');
+                // Show spinner overlay
+                $("#datepicker-loading-spinner").css('display', 'flex');
+                $("#check__in, #check__out").prop('disabled', true);
                 
                 // Get unavailable dates from API
                 $.ajax({
@@ -306,8 +315,9 @@
                         end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 90 days from now
                     },
                     success: function(response) {
-                        // Remove loading state
-                        $("#check__in, #check__out").prop('disabled', false).removeClass('loading');
+                        // Hide spinner overlay
+                        $("#datepicker-loading-spinner").hide();
+                        $("#check__in, #check__out").prop('disabled', false);
                         
                         if (response.success) {
                             unavailableDates = response.data.unavailable_dates;
@@ -361,8 +371,9 @@
                         }
                     },
                     error: function(xhr) {
-                        // Remove loading state
-                        $("#check__in, #check__out").prop('disabled', false).removeClass('loading');
+                        // Hide spinner overlay
+                        $("#datepicker-loading-spinner").hide();
+                        $("#check__in, #check__out").prop('disabled', false);
                         
                         console.error('Error loading unavailable dates:', xhr);
                         showDatepickerStatus('Error loading availability data', 'error');
@@ -611,6 +622,7 @@
                 }
             }
 
+            // Update toggleCheckoutField to show/hide checkout field for overnight
             function toggleCheckoutField() {
                 var bookingType = $("#booking_type").val();
                 if (bookingType === "day-use") {
@@ -1222,6 +1234,17 @@
                 clearAvailabilityData();
                 updateBookButtonState();
             });
+
+            // Add a small CSS block for spinner overlay
+            if (!document.getElementById('datepicker-spinner-css')) {
+                const spinnerCss = document.createElement('style');
+                spinnerCss.id = 'datepicker-spinner-css';
+                spinnerCss.innerHTML = `
+                    #datepicker-loading-spinner { display: none; align-items: center; justify-content: center; }
+                    #datepicker-loading-spinner .spinner-border { width: 2rem; height: 2rem; border-width: 0.25em; }
+                `;
+                document.head.appendChild(spinnerCss);
+            }
         });
     </script>
 @endsection
