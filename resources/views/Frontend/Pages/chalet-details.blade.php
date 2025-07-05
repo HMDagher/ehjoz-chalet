@@ -188,6 +188,14 @@
                                     </div>
                                 </div>
 
+                                <!-- Date availability legend -->
+                                <div class="wow fadeInUp" data-wow-delay=".35s" style="font-size: 12px; color: #6c757d; margin-top: -10px; margin-bottom: 15px;">
+                                    <small>
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <span id="availability-legend">Calendar shows available dates only</span>
+                                    </small>
+                                </div>
+
                                 <!-- Available slots container for day-use -->
                                 <div id="available-slots-container" class="wow fadeInUp" data-wow-delay=".4s" style="display: none;">
                                     <label class="query__label">Available Time Slot Combinations</label>
@@ -270,35 +278,277 @@
                 minDate: 0
             });
 
-            // When check-in changes, update checkout's minDate (from main.js)
-            $('#check__in').on('change', function() {
-                console.log('Check-in changed:', $(this).val()); // Debug log
-                var checkInDate = $(this).datepicker('getDate');
+            // Enhanced datepicker with availability filtering
+            let unavailableDates = [];
+            let datepickerInitialized = false;
+
+            // Initialize datepicker with availability filtering
+            function initializeDatepickerWithAvailability() {
+                if (datepickerInitialized) {
+                    // Destroy existing datepicker instances
+                    $("#check__in, #check__out").datepicker('destroy');
+                }
+
+                const bookingType = $("#booking_type").val();
+                
+                // Show loading state
+                $("#check__in, #check__out").prop('disabled', true).addClass('loading');
+                
+                // Get unavailable dates from API
+                $.ajax({
+                    url: `/api/chalet/${chaletSlug}/unavailable-dates`,
+                    method: 'GET',
+                    data: {
+                        booking_type: bookingType,
+                        start_date: new Date().toISOString().split('T')[0], // Today
+                        end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 90 days from now
+                    },
+                    success: function(response) {
+                        // Remove loading state
+                        $("#check__in, #check__out").prop('disabled', false).removeClass('loading');
+                        
+                        if (response.success) {
+                            unavailableDates = response.data.unavailable_dates;
+                            console.log('Unavailable dates loaded:', unavailableDates);
+                            
+                            // Initialize datepicker with disabled dates
+                            $("#check__in, #check__out").datepicker({
+                                dateFormat: "dd-mm-yy",
+                                duration: "fast",
+                                minDate: 0, // Disable past dates
+                                beforeShowDay: function(date) {
+                                    const dateStr = date.toISOString().split('T')[0];
+                                    const today = new Date().toISOString().split('T')[0];
+                                    
+                                    // Disable past dates
+                                    if (dateStr < today) {
+                                        return [false, 'past-date', 'Past date'];
+                                    }
+                                    
+                                    // Check if date is unavailable
+                                    const isUnavailable = unavailableDates.includes(dateStr);
+                                    if (isUnavailable) {
+                                        return [false, 'unavailable-date', 'No availability'];
+                                    }
+                                    
+                                    return [true, 'available-date', 'Available'];
+                                },
+                                onSelect: function(dateText, inst) {
+                                    // Handle date selection
+                                    if (inst.id === 'check__in') {
+                                        handleCheckInChange();
+                                    } else if (inst.id === 'check__out') {
+                                        handleCheckOutChange();
+                                    }
+                                }
+                            });
+                            
+                            datepickerInitialized = true;
+                            
+                            // Add CSS for unavailable dates
+                            addUnavailableDateStyles();
+                            
+                            // Show success message
+                            showDatepickerStatus('Calendar updated with availability', 'success');
+                            
+                        } else {
+                            console.error('Failed to load unavailable dates:', response.error);
+                            showDatepickerStatus('Could not load availability data', 'warning');
+                            // Fallback to basic datepicker
+                            initializeBasicDatepicker();
+                        }
+                    },
+                    error: function(xhr) {
+                        // Remove loading state
+                        $("#check__in, #check__out").prop('disabled', false).removeClass('loading');
+                        
+                        console.error('Error loading unavailable dates:', xhr);
+                        showDatepickerStatus('Error loading availability data', 'error');
+                        // Fallback to basic datepicker
+                        initializeBasicDatepicker();
+                    }
+                });
+            }
+
+            // Fallback to basic datepicker
+            function initializeBasicDatepicker() {
+                $("#check__in, #check__out").datepicker({
+                    dateFormat: "dd-mm-yy",
+                    duration: "fast",
+                    minDate: 0 // Disable past dates
+                });
+                datepickerInitialized = true;
+            }
+
+            // Add CSS styles for unavailable dates
+            function addUnavailableDateStyles() {
+                if (!$('#unavailable-date-styles').length) {
+                    const styles = `
+                        <style id="unavailable-date-styles">
+                            .ui-datepicker .ui-state-disabled.past-date {
+                                background-color: #f8f9fa !important;
+                                color: #adb5bd !important;
+                                cursor: not-allowed !important;
+                            }
+                            .ui-datepicker .ui-state-disabled.past-date:hover {
+                                background-color: #f8f9fa !important;
+                                color: #adb5bd !important;
+                            }
+                            .ui-datepicker .ui-state-disabled.unavailable-date {
+                                background-color: #f8f9fa !important;
+                                color: #6c757d !important;
+                                text-decoration: line-through !important;
+                                cursor: not-allowed !important;
+                            }
+                            .ui-datepicker .ui-state-disabled.unavailable-date:hover {
+                                background-color: #f8f9fa !important;
+                                color: #6c757d !important;
+                            }
+                            .ui-datepicker .available-date {
+                                background-color: #ffffff !important;
+                                color: #000000 !important;
+                            }
+                            .ui-datepicker .available-date:hover {
+                                background-color: #e9ecef !important;
+                            }
+                            .loading {
+                                opacity: 0.6;
+                                cursor: wait !important;
+                            }
+                            .loading::after {
+                                content: "Loading...";
+                                position: absolute;
+                                top: 50%;
+                                left: 50%;
+                                transform: translate(-50%, -50%);
+                                background: rgba(0,0,0,0.8);
+                                color: white;
+                                padding: 5px 10px;
+                                border-radius: 3px;
+                                font-size: 12px;
+                                z-index: 1000;
+                            }
+                            .datepicker-status {
+                                position: fixed;
+                                top: 20px;
+                                right: 20px;
+                                z-index: 9999;
+                                max-width: 300px;
+                                padding: 10px 15px;
+                                border-radius: 5px;
+                                color: white;
+                                font-size: 14px;
+                                opacity: 0;
+                                transition: opacity 0.3s ease;
+                            }
+                            .datepicker-status.show {
+                                opacity: 1;
+                            }
+                            .datepicker-status.success {
+                                background-color: #28a745;
+                            }
+                            .datepicker-status.warning {
+                                background-color: #ffc107;
+                                color: #212529;
+                            }
+                            .datepicker-status.error {
+                                background-color: #dc3545;
+                            }
+                        </style>
+                    `;
+                    $('head').append(styles);
+                }
+            }
+
+            // Show status message for datepicker operations
+            function showDatepickerStatus(message, type = 'info') {
+                // Remove existing status messages
+                $('.datepicker-status').remove();
+                
+                const statusHtml = `
+                    <div class="datepicker-status ${type}">
+                        ${message}
+                    </div>
+                `;
+                
+                $('body').append(statusHtml);
+                
+                // Show the message
+                setTimeout(() => {
+                    $('.datepicker-status').addClass('show');
+                }, 100);
+                
+                // Hide after 3 seconds
+                setTimeout(() => {
+                    $('.datepicker-status').removeClass('show');
+                    setTimeout(() => {
+                        $('.datepicker-status').remove();
+                    }, 300);
+                }, 3000);
+            }
+
+            // Handle check-in date change
+            function handleCheckInChange() {
+                console.log('Check-in changed:', $("#check__in").val());
+                var checkInDate = $("#check__in").datepicker('getDate');
                 if (checkInDate) {
-                    // Add one day to check-in for minDate
+                    // For overnight bookings, checkout must be at least one day after check-in
                     var minCheckout = new Date(checkInDate.getTime());
                     minCheckout.setDate(minCheckout.getDate() + 1);
+                    
+                    // Update checkout datepicker's minDate
                     $('#check__out').datepicker('option', 'minDate', minCheckout);
+                    
                     // If checkout is before or same as check-in, clear it
                     var checkOutDate = $('#check__out').datepicker('getDate');
                     if (!checkOutDate || checkOutDate <= checkInDate) {
                         $('#check__out').val('');
                     }
+                    
+                    // For day-use bookings, checkout is not needed, so we don't set minDate
+                    const bookingType = $("#booking_type").val();
+                    if (bookingType === 'day-use') {
+                        $('#check__out').datepicker('option', 'minDate', null);
+                    }
                 } else {
-                    // If no check-in, allow any checkout
-                    $('#check__out').datepicker('option', 'minDate', null);
+                    // If no check-in, allow any checkout (but still respect past dates)
+                    $('#check__out').datepicker('option', 'minDate', 0);
                 }
                 
                 // Clear availability data when dates change
                 clearAvailabilityData();
-                checkAvailability();
+                
+                // Update button state
+                updateBookButtonState();
+                
+                // Check availability if we have valid dates
+                if (validateSelectedDates()) {
+                    checkAvailability();
+                }
+            }
+
+            // Handle check-out date change
+            function handleCheckOutChange() {
+                console.log('Check-out changed:', $("#check__out").val());
+                clearAvailabilityData();
+                
+                // Update button state
+                updateBookButtonState();
+                
+                // Check availability if we have valid dates
+                if (validateSelectedDates()) {
+                    checkAvailability();
+                }
+            }
+
+            // When check-in changes, update checkout's minDate (from main.js)
+            $('#check__in').on('change', function() {
+                handleCheckInChange();
             });
 
             // Handle checkout date change
             $('#check__out').on('change', function() {
-                console.log('Check-out changed:', $(this).val()); // Debug log
-                clearAvailabilityData();
-                checkAvailability();
+                handleCheckOutChange();
             });
 
             // Handle booking type change (from main.js)
@@ -306,7 +556,22 @@
                 console.log('Booking type changed:', $(this).val()); // Debug log
                 toggleCheckoutField();
                 clearAvailabilityData();
-                checkAvailability();
+                
+                // Update legend text
+                updateAvailabilityLegend();
+                
+                // Update button state
+                updateBookButtonState();
+                
+                // Reinitialize datepicker with new booking type
+                initializeDatepickerWithAvailability();
+                
+                // Check availability if we have a date selected
+                if ($("#check__in").val()) {
+                    if (validateSelectedDates()) {
+                        checkAvailability();
+                    }
+                }
             });
 
             // Handle slot selection for day-use
@@ -317,14 +582,31 @@
             // Handle form submission
             $("#booking-form").on("submit", function(e) {
                 e.preventDefault();
-                submitBooking();
+                if (validateSelectedDates()) {
+                    submitBooking();
+                }
             });
 
             // Initial setup
             toggleCheckoutField();
+            
+            // Update legend text
+            updateAvailabilityLegend();
+            
+            // Initialize enhanced datepicker with availability filtering
+            initializeDatepickerWithAvailability();
+            
+            // Add refresh button
+            addRefreshButton();
+            
+            // Update button state
+            updateBookButtonState();
+            
             if ($("#check__in").val()) {
                 console.log('Initial check-in value:', $("#check__in").val()); // Debug log
-                checkAvailability();
+                if (validateSelectedDates()) {
+                    checkAvailability();
+                }
             }
 
             function toggleCheckoutField() {
@@ -332,9 +614,25 @@
                 if (bookingType === "day-use") {
                     $(".checkout-field").hide();
                     $("#check__out").prop("required", false);
+                    // Clear checkout date and reset minDate for day-use
+                    $("#check__out").val('');
+                    if (datepickerInitialized) {
+                        $('#check__out').datepicker('option', 'minDate', null);
+                    }
                 } else {
                     $(".checkout-field").show();
                     $("#check__out").prop("required", true);
+                    // For overnight, set minDate based on check-in date
+                    if (datepickerInitialized) {
+                        var checkInDate = $("#check__in").datepicker('getDate');
+                        if (checkInDate) {
+                            var minCheckout = new Date(checkInDate.getTime());
+                            minCheckout.setDate(minCheckout.getDate() + 1);
+                            $('#check__out').datepicker('option', 'minDate', minCheckout);
+                        } else {
+                            $('#check__out').datepicker('option', 'minDate', 0);
+                        }
+                    }
                 }
             }
 
@@ -617,6 +915,11 @@
             }
 
             function submitBooking() {
+                // Validate dates first
+                if (!validateSelectedDates()) {
+                    return;
+                }
+                
                 const bookingType = $("#booking_type").val();
                 const startDate = convertDateFormat($("#check__in").val());
                 let endDate = null;
@@ -773,6 +1076,102 @@
                     });
                 }
             });
+
+            // Refresh availability data and update datepicker
+            function refreshAvailabilityData() {
+                console.log('Refreshing availability data...');
+                clearAvailabilityData();
+                initializeDatepickerWithAvailability();
+            }
+
+            // Add refresh button functionality (optional)
+            function addRefreshButton() {
+                if (!$('#refresh-availability-btn').length) {
+                    const refreshBtn = `
+                        <button type="button" id="refresh-availability-btn" class="btn btn-sm btn-outline-secondary ms-2" title="Refresh availability">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    `;
+                    $('#booking_type').parent().append(refreshBtn);
+                    
+                    $('#refresh-availability-btn').on('click', function() {
+                        $(this).find('i').addClass('fa-spin');
+                        refreshAvailabilityData();
+                        setTimeout(() => {
+                            $(this).find('i').removeClass('fa-spin');
+                        }, 2000);
+                    });
+                }
+            }
+
+            // Update availability legend text
+            function updateAvailabilityLegend() {
+                const bookingType = $("#booking_type").val();
+                const legendText = bookingType === 'day-use' 
+                    ? 'Calendar shows available dates only (past dates disabled)'
+                    : 'Calendar shows available dates only (past dates disabled, checkout must be after check-in)';
+                
+                $('#availability-legend').text(legendText);
+            }
+
+            // Validate selected dates
+            function validateSelectedDates() {
+                const bookingType = $("#booking_type").val();
+                const checkInDate = $("#check__in").val();
+                const checkOutDate = $("#check__out").val();
+                
+                if (!checkInDate) {
+                    showError("Please select a check-in date");
+                    return false;
+                }
+                
+                if (bookingType === 'overnight') {
+                    if (!checkOutDate) {
+                        showError("Please select a check-out date for overnight booking");
+                        return false;
+                    }
+                    
+                    // Convert dates for comparison
+                    const checkIn = new Date(convertDateFormat(checkInDate));
+                    const checkOut = new Date(convertDateFormat(checkOutDate));
+                    
+                    if (checkOut <= checkIn) {
+                        showError("Check-out date must be at least one day after check-in date");
+                        return false;
+                    }
+                }
+                
+                return true;
+            }
+
+            // Update book button state based on date validation
+            function updateBookButtonState() {
+                const bookingType = $("#booking_type").val();
+                const checkInDate = $("#check__in").val();
+                const checkOutDate = $("#check__out").val();
+                
+                let isValid = false;
+                let buttonText = "Check Availability";
+                
+                if (checkInDate) {
+                    if (bookingType === 'day-use') {
+                        isValid = true;
+                        buttonText = "Check Availability";
+                    } else if (bookingType === 'overnight') {
+                        if (checkOutDate) {
+                            // Validate that checkout is after checkin
+                            const checkIn = new Date(convertDateFormat(checkInDate));
+                            const checkOut = new Date(convertDateFormat(checkOutDate));
+                            isValid = checkOut > checkIn;
+                            buttonText = isValid ? "Check Availability" : "Invalid Date Range";
+                        } else {
+                            buttonText = "Select Check-out Date";
+                        }
+                    }
+                }
+                
+                $("#book-button").prop("disabled", !isValid).text(buttonText);
+            }
         });
     </script>
 @endsection

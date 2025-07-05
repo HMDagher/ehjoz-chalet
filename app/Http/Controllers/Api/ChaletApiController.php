@@ -266,4 +266,66 @@ class ChaletApiController extends Controller
             return response()->json(['error' => 'Error calculating price: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Get unavailable dates for a chalet (for datepicker pre-filtering)
+     */
+    public function getUnavailableDates(Request $request, string $slug): JsonResponse
+    {
+        $chalet = Chalet::where('slug', $slug)->where('status', 'active')->first();
+        
+        if (!$chalet) {
+            return response()->json(['error' => 'Chalet not found'], 404);
+        }
+
+        $bookingType = $request->get('booking_type', 'overnight');
+        $startDate = $request->get('start_date', now()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->addMonths(3)->format('Y-m-d')); // Default 3 months ahead
+
+        $availabilityChecker = new ChaletAvailabilityChecker($chalet);
+        $unavailableDates = [];
+
+        try {
+            $currentDate = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+
+            while ($currentDate <= $end) {
+                $dateStr = $currentDate->format('Y-m-d');
+                $hasAvailability = false;
+
+                if ($bookingType === 'day-use') {
+                    // Check if any day-use slots are available
+                    $availableSlots = $availabilityChecker->getAvailableDayUseSlots($dateStr);
+                    $hasAvailability = $availableSlots->isNotEmpty();
+                } else {
+                    // For overnight, check if any overnight slots are available for this date
+                    // We check availability for a single night starting from this date
+                    $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
+                    $availableSlots = $availabilityChecker->getAvailableOvernightSlots($dateStr, $nextDate);
+                    $hasAvailability = $availableSlots->isNotEmpty();
+                }
+
+                if (!$hasAvailability) {
+                    $unavailableDates[] = $dateStr;
+                }
+
+                $currentDate->addDay();
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'unavailable_dates' => $unavailableDates,
+                    'booking_type' => $bookingType,
+                    'date_range' => [
+                        'start' => $startDate,
+                        'end' => $endDate
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error getting unavailable dates: ' . $e->getMessage()], 500);
+        }
+    }
 } 
