@@ -35,11 +35,11 @@
                         </p>
                     </div>
                     <span class="ms-auto small mb-0 text-dark fw-bold">
-                        @if(isset($slot['price']) && $slot['price'])
+                        @if(array_key_exists('price', $slot) && $slot['price'])
                             {{ number_format($slot['price']) }}$
-                        @elseif(isset($slot['price_per_night']) && $slot['price_per_night'])
+                        @elseif(array_key_exists('price_per_night', $slot) && $slot['price_per_night'])
                             {{ number_format($slot['price_per_night']) }}$ / night
-                        @elseif(isset($slot['total_price']) && $slot['total_price'])
+                        @elseif(array_key_exists('total_price', $slot) && $slot['total_price'])
                             {{ number_format($slot['total_price']) }}$ total
                         @else
                             Price on request
