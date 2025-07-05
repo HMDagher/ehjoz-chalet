@@ -159,8 +159,9 @@
                                 <div class="query__input wow fadeInUp">
                                     <label for="booking_type" class="query__label">Booking Type</label>
                                     <select name="booking_type" id="booking_type" class="form-select">
-                                        <option value="day-use" {{ request('booking_type') == 'day-use' ? 'selected' : '' }}>Day Use</option>
-                                        <option value="overnight" {{ request('booking_type') == 'overnight' ? 'selected' : '' }}>Overnight</option>
+                                        <option value="" selected disabled>Select Booking Type</option>
+                                        <option value="day-use">Day Use</option>
+                                        <option value="overnight">Overnight</option>
                                     </select>
                                     <div class="query__input__icon">
                                         <i class="flaticon-calendar"></i>
@@ -168,32 +169,33 @@
                                 </div>
                                 <!-- booking type input end -->
 
-                                <div class="query__input wow fadeInUp">
-                                    <label for="check__in" class="query__label">Check In</label>
-                                    <div class="query__input__position">
-                                        <input type="text" id="check__in" name="check__in" placeholder="{{ now()->format('d M Y') }}" value="{{ request('checkin') ?? request('check__in') }}" required>
-                                        <div class="query__input__icon">
-                                            <i class="flaticon-calendar"></i>
+                                <!-- Wrap date fields in a container for show/hide -->
+                                <div id="date-fields-container" style="display: none;">
+                                    <div class="query__input wow fadeInUp">
+                                        <label for="check__in" class="query__label">Check In</label>
+                                        <div class="query__input__position">
+                                            <input type="text" id="check__in" name="check__in" placeholder="{{ now()->format('d M Y') }}" value="{{ request('checkin') ?? request('check__in') }}" required>
+                                            <div class="query__input__icon">
+                                                <i class="flaticon-calendar"></i>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                
-                                <div class="query__input checkout-field wow fadeInUp" data-wow-delay=".3s">
-                                    <label for="check__out" class="query__label">Check Out</label>
-                                    <div class="query__input__position">
-                                        <input type="text" id="check__out" name="check__out" placeholder="{{ now()->addDay()->format('d M Y') }}" value="{{ request('checkout') ?? request('check__out') }}">
-                                        <div class="query__input__icon">
-                                            <i class="flaticon-calendar"></i>
+                                    <div class="query__input checkout-field wow fadeInUp" data-wow-delay=".3s">
+                                        <label for="check__out" class="query__label">Check Out</label>
+                                        <div class="query__input__position">
+                                            <input type="text" id="check__out" name="check__out" placeholder="{{ now()->addDay()->format('d M Y') }}" value="{{ request('checkout') ?? request('check__out') }}">
+                                            <div class="query__input__icon">
+                                                <i class="flaticon-calendar"></i>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-
-                                <!-- Date availability legend -->
-                                <div class="wow fadeInUp" data-wow-delay=".35s" style="font-size: 12px; color: #6c757d; margin-top: -10px; margin-bottom: 15px;">
-                                    <small>
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        <span id="availability-legend">Calendar shows available dates only</span>
-                                    </small>
+                                    <!-- Date availability legend -->
+                                    <div class="wow fadeInUp" data-wow-delay=".35s" style="font-size: 12px; color: #6c757d; margin-top: -10px; margin-bottom: 15px;">
+                                        <small>
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <span id="availability-legend">Calendar shows available dates only (past dates disabled)</span>
+                                        </small>
+                                    </div>
                                 </div>
 
                                 <!-- Available slots container for day-use -->
@@ -508,7 +510,7 @@
                     // For day-use bookings, checkout is not needed, so we don't set minDate
                     const bookingType = $("#booking_type").val();
                     if (bookingType === 'day-use') {
-                        $('#check__out').datepicker('option', 'minDate', null);
+                    $('#check__out').datepicker('option', 'minDate', null);
                     }
                 } else {
                     // If no check-in, allow any checkout (but still respect past dates)
@@ -523,7 +525,7 @@
                 
                 // Check availability if we have valid dates
                 if (validateSelectedDates()) {
-                    checkAvailability();
+                checkAvailability();
                 }
             }
 
@@ -569,7 +571,7 @@
                 // Check availability if we have a date selected
                 if ($("#check__in").val()) {
                     if (validateSelectedDates()) {
-                        checkAvailability();
+                checkAvailability();
                     }
                 }
             });
@@ -583,7 +585,7 @@
             $("#booking-form").on("submit", function(e) {
                 e.preventDefault();
                 if (validateSelectedDates()) {
-                    submitBooking();
+                submitBooking();
                 }
             });
 
@@ -605,7 +607,7 @@
             if ($("#check__in").val()) {
                 console.log('Initial check-in value:', $("#check__in").val()); // Debug log
                 if (validateSelectedDates()) {
-                    checkAvailability();
+                checkAvailability();
                 }
             }
 
@@ -1172,6 +1174,54 @@
                 
                 $("#book-button").prop("disabled", !isValid).text(buttonText);
             }
+
+            // Hide date fields on page load
+            $("#date-fields-container").hide();
+
+            // Only show and initialize date fields after booking type is selected
+            $("#booking_type").on("change", function() {
+                const bookingType = $(this).val();
+                if (!bookingType) {
+                    // Hide and reset date fields if placeholder is selected
+                    $("#date-fields-container").hide();
+                    $("#check__in, #check__out").val("");
+                    clearAvailabilityData();
+                    updateBookButtonState();
+                    return;
+                }
+                // Show date fields
+                $("#date-fields-container").show();
+                // Reinitialize everything for the new type
+                toggleCheckoutField();
+                clearAvailabilityData();
+                updateAvailabilityLegend();
+                updateBookButtonState();
+                initializeDatepickerWithAvailability();
+                addRefreshButton();
+                // Don't check availability until a date is picked
+            });
+
+            // Prevent form submission if booking type is not selected
+            $("#booking-form").on("submit", function(e) {
+                if (!$("#booking_type").val()) {
+                    showError("Please select a booking type");
+                    e.preventDefault();
+                    return false;
+                }
+                if (!validateSelectedDates()) {
+                    e.preventDefault();
+                    return false;
+                }
+                // submitBooking() will be called as before
+            });
+
+            // On page load, hide date fields and do not initialize datepicker
+            $(document).ready(function() {
+                $("#date-fields-container").hide();
+                $("#check__in, #check__out").val("");
+                clearAvailabilityData();
+                updateBookButtonState();
+            });
         });
     </script>
 @endsection
