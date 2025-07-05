@@ -300,6 +300,10 @@
                 }
 
                 const bookingType = $("#booking_type").val();
+                if (!bookingType) {
+                    console.log('Not initializing datepicker: bookingType is empty');
+                    return;
+                }
                 
                 // Show spinner overlay
                 $("#datepicker-loading-spinner").css('display', 'flex');
@@ -321,7 +325,7 @@
                         
                         if (response.success) {
                             unavailableDates = response.data.unavailable_dates;
-                            console.log('Unavailable dates loaded:', unavailableDates);
+                            console.log('Updated unavailableDates:', unavailableDates);
                             
                             // Initialize datepicker with disabled dates
                             $("#check__in, #check__out").datepicker({
@@ -329,20 +333,19 @@
                                 duration: "fast",
                                 minDate: 0, // Disable past dates
                                 beforeShowDay: function(date) {
-                                    const dateStr = date.toISOString().split('T')[0];
-                                    const today = new Date().toISOString().split('T')[0];
-                                    
+                                    const dateStr = date.toISOString().slice(0, 10); // Always 'YYYY-MM-DD'
+                                    const today = new Date().toISOString().slice(0, 10);
+                                    // Debug log
+                                    console.log('Checking date:', dateStr, 'Unavailable:', unavailableDates.includes(dateStr));
                                     // Disable past dates
                                     if (dateStr < today) {
                                         return [false, 'past-date', 'Past date'];
                                     }
-                                    
                                     // Check if date is unavailable
                                     const isUnavailable = unavailableDates.includes(dateStr);
                                     if (isUnavailable) {
                                         return [false, 'unavailable-date', 'No availability'];
                                     }
-                                    
                                     return [true, 'available-date', 'Available'];
                                 },
                                 onSelect: function(dateText, inst) {
@@ -605,12 +608,6 @@
             
             // Update legend text
             updateAvailabilityLegend();
-            
-            // Initialize enhanced datepicker with availability filtering
-            initializeDatepickerWithAvailability();
-            
-            // Add refresh button
-            addRefreshButton();
             
             // Update button state
             updateBookButtonState();
