@@ -83,7 +83,9 @@ final class ChaletSearchService
                 $allSlots = $dayUseSlots;
                 
                 // Calculate min price from available slots only
-                $availableSlots = array_filter($dayUseSlots, fn($slot) => $slot['price'] !== null);
+                $availableSlots = array_filter($dayUseSlots, function($slot) {
+                    return array_key_exists('price', $slot) && $slot['price'] !== null;
+                });
                 $minPrice = !empty($availableSlots) ? min(array_column($availableSlots, 'price')) : null;
                 
                 $results[] = [
@@ -121,7 +123,9 @@ final class ChaletSearchService
                 $allSlots = $overnightSlots;
                 
                 // Calculate min price from available slots only
-                $availableSlots = array_filter($overnightSlots, fn($slot) => $slot['price_per_night'] !== null);
+                $availableSlots = array_filter($overnightSlots, function($slot) {
+                    return array_key_exists('price_per_night', $slot) && $slot['price_per_night'] !== null;
+                });
                 $minPerNightPrice = !empty($availableSlots) ? min(array_column($availableSlots, 'price_per_night')) : null;
                 $nights = Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate));
                 $nights = max(1, $nights);
@@ -233,7 +237,10 @@ final class ChaletSearchService
             $allSlots = array_merge($dayUseSlots, $overnightSlots);
             
             // Calculate min price from available slots only
-            $availableSlots = array_filter($allSlots, fn($slot) => $slot['price'] !== null || $slot['price_per_night'] !== null);
+            $availableSlots = array_filter($allSlots, function($slot) {
+                return (array_key_exists('price', $slot) && $slot['price'] !== null)
+                    || (array_key_exists('price_per_night', $slot) && $slot['price_per_night'] !== null);
+            });
             $prices = [];
             foreach ($availableSlots as $slot) {
                 $prices[] = $slot['price'] ?? ($slot['price_per_night'] ?? 0);
