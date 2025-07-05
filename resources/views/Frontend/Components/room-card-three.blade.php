@@ -21,9 +21,8 @@
         @if(!empty($slots))
         <ul class="list-unstyled mb-0 mt-3">
             @foreach($slots as $slot)
-                <li class="py-2 px-3 rounded d-flex align-items-center border mb-2 
-                    {{ isset($slot['is_available']) && $slot['is_available'] ? 'bg-light' : 'bg-light-subtle text-muted' }}">
-                    <div class="{{ isset($slot['is_available']) && $slot['is_available'] ? 'text-dark' : 'text-muted' }}">
+                <li class="py-2 px-3 rounded bg-light d-flex align-items-center border mb-2">
+                    <div class="text-dark">
                         <p class="mb-0 fw-bold small">
                             {{ $slot['name'] ?? 'Time Slot' }} 
                             @if(isset($slot['start_time']))
@@ -33,23 +32,17 @@
                             @if(isset($slot['nights']))
                             <span class="small">({{ $slot['nights'] }} {{ Str::plural('night', $slot['nights']) }})</span>
                             @endif
-                            
-                            @if(isset($slot['is_available']))
-                            <span class="small ms-2 {{ $slot['is_available'] ? 'text-success' : 'text-danger' }}">
-                                {{ $slot['is_available'] ? '(Available)' : '(Not Available)' }}
-                            </span>
-                            @endif
                         </p>
                     </div>
-                    <span class="ms-auto small mb-0 {{ isset($slot['is_available']) && $slot['is_available'] ? 'text-dark' : 'text-muted' }} fw-bold">
-                        @if(isset($slot['price']))
-                        {{ number_format($slot['price']) }}$
-                        @elseif(isset($slot['price_per_night']))
+                    <span class="ms-auto small mb-0 text-dark fw-bold">
+                        @if(isset($slot['price']) && $slot['price'])
+                            {{ number_format($slot['price']) }}$
+                        @elseif(isset($slot['price_per_night']) && $slot['price_per_night'])
                             {{ number_format($slot['price_per_night']) }}$ / night
-                        @elseif(isset($slot['total_price']))
+                        @elseif(isset($slot['total_price']) && $slot['total_price'])
                             {{ number_format($slot['total_price']) }}$ total
                         @else
-                            Price not available
+                            Price on request
                         @endif
                     </span>
                 </li>

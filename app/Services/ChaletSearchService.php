@@ -34,7 +34,7 @@ final class ChaletSearchService
         
         // Get active chalets with all time slots
         $chalets = Chalet::where('status', 'active')
-            ->with(['timeSlots' => function($query) use ($bookingType) {
+            ->with(['timeSlots' => function($query) {
                 $query->where('is_active', true);
             }])
             ->get();
@@ -62,13 +62,19 @@ final class ChaletSearchService
                     ->where('is_overnight', false)
                     ->map(function($slot) use ($availabilityChecker, $startDate) {
                         $isAvailable = $availabilityChecker->isDayUseSlotAvailable($startDate, $slot->id);
+                        // Make sure price is never null
+                        $price = $slot->price ?? 0;
+                        if ($price == 0) {
+                            $price = $chalet->base_price ?? 0;
+                        }
+                        
                         return [
                             'id' => $slot->id,
                             'name' => $slot->name,
                             'start_time' => $slot->start_time,
                             'end_time' => $slot->end_time,
                             'duration_hours' => $slot->duration_hours,
-                            'price' => $slot->price,
+                            'price' => $price,
                             'is_available' => $isAvailable,
                             'booking_type' => 'day-use'
                         ];
@@ -97,10 +103,16 @@ final class ChaletSearchService
                 // Get all overnight slots and mark their availability
                 $overnightSlots = $chalet->timeSlots
                     ->where('is_overnight', true)
-                    ->map(function($slot) use ($availabilityChecker, $startDate, $endDate) {
+                    ->map(function($slot) use ($availabilityChecker, $startDate, $endDate, $chalet) {
                         $isAvailable = $availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slot->id);
                         $nights = Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate));
                         $nights = max(1, $nights);
+                        
+                        // Make sure price is never null
+                        $pricePerNight = $slot->price ?? 0;
+                        if ($pricePerNight == 0) {
+                            $pricePerNight = $chalet->base_price ?? 0;
+                        }
                         
                         return [
                             'id' => $slot->id,
@@ -108,8 +120,8 @@ final class ChaletSearchService
                             'start_time' => $slot->start_time,
                             'end_time' => $slot->end_time,
                             'duration_hours' => $slot->duration_hours,
-                            'price_per_night' => $slot->price,
-                            'total_price' => $slot->price * $nights,
+                            'price_per_night' => $pricePerNight,
+                            'total_price' => $pricePerNight * $nights,
                             'nights' => $nights,
                             'is_available' => $isAvailable,
                             'booking_type' => 'overnight'
@@ -189,15 +201,22 @@ final class ChaletSearchService
             $dayUseSlots = $chalet->timeSlots
                 ->where('is_active', true)
                 ->where('is_overnight', false)
-                ->map(function($slot) use ($availabilityChecker, $today) {
+                ->map(function($slot) use ($availabilityChecker, $today, $chalet) {
                     $isAvailable = $availabilityChecker->isDayUseSlotAvailable($today, $slot->id);
+                    
+                    // Make sure price is never null
+                    $price = $slot->price ?? 0;
+                    if ($price == 0) {
+                        $price = $chalet->base_price ?? 0;
+                    }
+                    
                     return [
                         'id' => $slot->id,
                         'name' => $slot->name,
                         'start_time' => $slot->start_time,
                         'end_time' => $slot->end_time,
                         'duration_hours' => $slot->duration_hours,
-                        'price' => $slot->price,
+                        'price' => $price,
                         'is_available' => $isAvailable,
                         'booking_type' => 'day-use'
                     ];
@@ -214,15 +233,22 @@ final class ChaletSearchService
             $overnightSlots = $chalet->timeSlots
                 ->where('is_active', true)
                 ->where('is_overnight', true)
-                ->map(function($slot) use ($availabilityChecker, $today, $tomorrow) {
+                ->map(function($slot) use ($availabilityChecker, $today, $tomorrow, $chalet) {
                     $isAvailable = $availabilityChecker->isOvernightSlotAvailable($today, $tomorrow, $slot->id);
+                    
+                    // Make sure price is never null
+                    $pricePerNight = $slot->price ?? 0;
+                    if ($pricePerNight == 0) {
+                        $pricePerNight = $chalet->base_price ?? 0;
+                    }
+                    
                     return [
                         'id' => $slot->id,
                         'name' => $slot->name,
                         'start_time' => $slot->start_time,
                         'end_time' => $slot->end_time,
                         'duration_hours' => $slot->duration_hours,
-                        'price_per_night' => $slot->price,
+                        'price_per_night' => $pricePerNight,
                         'is_available' => $isAvailable,
                         'booking_type' => 'overnight'
                     ];
@@ -286,6 +312,7 @@ final class ChaletSearchService
             'average_rating' => $chalet->average_rating,
             'total_reviews' => $chalet->total_reviews,
             'is_featured' => $chalet->is_featured,
+            'base_price' => $chalet->base_price,
         ];
     }
 }
