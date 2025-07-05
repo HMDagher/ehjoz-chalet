@@ -278,214 +278,99 @@
                 minDate: 0
             });
 
-            // Enhanced datepicker with availability filtering
+            // Enhanced datepicker with lazy loading of unavailable dates per month
             let unavailableDates = [];
+            let currentMonth = null;
+            let currentYear = null;
             let datepickerInitialized = false;
 
-            // Initialize datepicker with availability filtering
-            function initializeDatepickerWithAvailability() {
-                if (datepickerInitialized) {
-                    // Destroy existing datepicker instances
-                    $("#check__in, #check__out").datepicker('destroy');
-                }
+            function fetchUnavailableDates(month, year, callback) {
+                // month: 0-based (0=Jan), year: 4-digit
+                const start = new Date(year, month, 1);
+                const end = new Date(year, month + 1, 0);
+                const startDate = start.toISOString().split('T')[0];
+                const endDate = end.toISOString().split('T')[0];
 
-                const bookingType = $("#booking_type").val();
-                
-                // Show loading state
                 $("#check__in, #check__out").prop('disabled', true).addClass('loading');
-                
-                // Get unavailable dates from API
+
                 $.ajax({
                     url: `/api/chalet/${chaletSlug}/unavailable-dates`,
                     method: 'GET',
                     data: {
-                        booking_type: bookingType,
-                        start_date: new Date().toISOString().split('T')[0], // Today
-                        end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 90 days from now
+                        booking_type: $("#booking_type").val(),
+                        start_date: startDate,
+                        end_date: endDate
                     },
                     success: function(response) {
-                        // Remove loading state
                         $("#check__in, #check__out").prop('disabled', false).removeClass('loading');
-                        
                         if (response.success) {
                             unavailableDates = response.data.unavailable_dates;
-                            console.log('Unavailable dates loaded:', unavailableDates);
-                            
-                            // Initialize datepicker with disabled dates
-                            $("#check__in, #check__out").datepicker({
-                                dateFormat: "dd-mm-yy",
-                                duration: "fast",
-                                minDate: 0, // Disable past dates
-                                beforeShowDay: function(date) {
-                                    const dateStr = date.toISOString().split('T')[0];
-                                    const today = new Date().toISOString().split('T')[0];
-                                    
-                                    // Disable past dates
-                                    if (dateStr < today) {
-                                        return [false, 'past-date', 'Past date'];
-                                    }
-                                    
-                                    // Check if date is unavailable
-                                    const isUnavailable = unavailableDates.includes(dateStr);
-                                    if (isUnavailable) {
-                                        return [false, 'unavailable-date', 'No availability'];
-                                    }
-                                    
-                                    return [true, 'available-date', 'Available'];
-                                },
-                                onSelect: function(dateText, inst) {
-                                    // Handle date selection
-                                    if (inst.id === 'check__in') {
-                                        handleCheckInChange();
-                                    } else if (inst.id === 'check__out') {
-                                        handleCheckOutChange();
-                                    }
-                                }
-                            });
-                            
-                            datepickerInitialized = true;
-                            
-                            // Add CSS for unavailable dates
-                            addUnavailableDateStyles();
-                            
-                            // Show success message
-                            showDatepickerStatus('Calendar updated with availability', 'success');
-                            
+                            if (typeof callback === 'function') callback();
                         } else {
-                            console.error('Failed to load unavailable dates:', response.error);
-                            showDatepickerStatus('Could not load availability data', 'warning');
-                            // Fallback to basic datepicker
-                            initializeBasicDatepicker();
+                            unavailableDates = [];
+                            if (typeof callback === 'function') callback();
                         }
                     },
-                    error: function(xhr) {
-                        // Remove loading state
+                    error: function() {
                         $("#check__in, #check__out").prop('disabled', false).removeClass('loading');
-                        
-                        console.error('Error loading unavailable dates:', xhr);
-                        showDatepickerStatus('Error loading availability data', 'error');
-                        // Fallback to basic datepicker
-                        initializeBasicDatepicker();
+                        unavailableDates = [];
+                        if (typeof callback === 'function') callback();
                     }
                 });
             }
 
-            // Fallback to basic datepicker
-            function initializeBasicDatepicker() {
+            function initializeDatepickerWithAvailability(month, year) {
+                // Destroy previous instance
+                if (datepickerInitialized) {
+                    $("#check__in, #check__out").datepicker('destroy');
+                }
                 $("#check__in, #check__out").datepicker({
                     dateFormat: "dd-mm-yy",
                     duration: "fast",
-                    minDate: 0 // Disable past dates
+                    minDate: 0,
+                    beforeShowDay: function(date) {
+                        const dateStr = date.toISOString().split('T')[0];
+                        const today = new Date().toISOString().split('T')[0];
+                        if (dateStr < today) return [false, 'past-date', 'Past date'];
+                        if (unavailableDates.includes(dateStr)) return [false, 'unavailable-date', 'No availability'];
+                        return [true, 'available-date', 'Available'];
+                    },
+                    onSelect: function(dateText, inst) {
+                        if (inst.id === 'check__in') handleCheckInChange();
+                        else if (inst.id === 'check__out') handleCheckOutChange();
+                    },
+                    onChangeMonthYear: function(year, month, inst) {
+                        // jQuery UI months are 1-based, JS Date months are 0-based
+                        fetchUnavailableDates(month - 1, year, function() {
+                            $("#check__in, #check__out").datepicker('refresh');
+                        });
+                    }
                 });
                 datepickerInitialized = true;
             }
 
-            // Add CSS styles for unavailable dates
-            function addUnavailableDateStyles() {
-                if (!$('#unavailable-date-styles').length) {
-                    const styles = `
-                        <style id="unavailable-date-styles">
-                            .ui-datepicker .ui-state-disabled.past-date {
-                                background-color: #f8f9fa !important;
-                                color: #adb5bd !important;
-                                cursor: not-allowed !important;
-                            }
-                            .ui-datepicker .ui-state-disabled.past-date:hover {
-                                background-color: #f8f9fa !important;
-                                color: #adb5bd !important;
-                            }
-                            .ui-datepicker .ui-state-disabled.unavailable-date {
-                                background-color: #f8f9fa !important;
-                                color: #6c757d !important;
-                                text-decoration: line-through !important;
-                                cursor: not-allowed !important;
-                            }
-                            .ui-datepicker .ui-state-disabled.unavailable-date:hover {
-                                background-color: #f8f9fa !important;
-                                color: #6c757d !important;
-                            }
-                            .ui-datepicker .available-date {
-                                background-color: #ffffff !important;
-                                color: #000000 !important;
-                            }
-                            .ui-datepicker .available-date:hover {
-                                background-color: #e9ecef !important;
-                            }
-                            .loading {
-                                opacity: 0.6;
-                                cursor: wait !important;
-                            }
-                            .loading::after {
-                                content: "Loading...";
-                                position: absolute;
-                                top: 50%;
-                                left: 50%;
-                                transform: translate(-50%, -50%);
-                                background: rgba(0,0,0,0.8);
-                                color: white;
-                                padding: 5px 10px;
-                                border-radius: 3px;
-                                font-size: 12px;
-                                z-index: 1000;
-                            }
-                            .datepicker-status {
-                                position: fixed;
-                                top: 20px;
-                                right: 20px;
-                                z-index: 9999;
-                                max-width: 300px;
-                                padding: 10px 15px;
-                                border-radius: 5px;
-                                color: white;
-                                font-size: 14px;
-                                opacity: 0;
-                                transition: opacity 0.3s ease;
-                            }
-                            .datepicker-status.show {
-                                opacity: 1;
-                            }
-                            .datepicker-status.success {
-                                background-color: #28a745;
-                            }
-                            .datepicker-status.warning {
-                                background-color: #ffc107;
-                                color: #212529;
-                            }
-                            .datepicker-status.error {
-                                background-color: #dc3545;
-                            }
-                        </style>
-                    `;
-                    $('head').append(styles);
-                }
-            }
+            // On page load, fetch for current month and initialize
+            $(function() {
+                const today = new Date();
+                currentMonth = today.getMonth();
+                currentYear = today.getFullYear();
+                fetchUnavailableDates(currentMonth, currentYear, function() {
+                    initializeDatepickerWithAvailability(currentMonth, currentYear);
+                });
+            });
 
-            // Show status message for datepicker operations
-            function showDatepickerStatus(message, type = 'info') {
-                // Remove existing status messages
-                $('.datepicker-status').remove();
-                
-                const statusHtml = `
-                    <div class="datepicker-status ${type}">
-                        ${message}
-                    </div>
-                `;
-                
-                $('body').append(statusHtml);
-                
-                // Show the message
-                setTimeout(() => {
-                    $('.datepicker-status').addClass('show');
-                }, 100);
-                
-                // Hide after 3 seconds
-                setTimeout(() => {
-                    $('.datepicker-status').removeClass('show');
-                    setTimeout(() => {
-                        $('.datepicker-status').remove();
-                    }, 300);
-                }, 3000);
-            }
+            // When booking type changes, reload for current visible month
+            $("#booking_type").on("change", function() {
+                const dp = $("#check__in").data("datepicker") || $("#check__out").data("datepicker");
+                let month = currentMonth, year = currentYear;
+                if (dp && dp.selectedYear && dp.selectedMonth !== undefined) {
+                    year = dp.selectedYear;
+                    month = dp.selectedMonth;
+                }
+                fetchUnavailableDates(month, year, function() {
+                    initializeDatepickerWithAvailability(month, year);
+                });
+            });
 
             // Handle check-in date change
             function handleCheckInChange() {
