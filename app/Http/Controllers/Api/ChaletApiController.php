@@ -273,107 +273,43 @@ class ChaletApiController extends Controller
     public function getUnavailableDates(Request $request, string $slug): JsonResponse
     {
         $chalet = Chalet::where('slug', $slug)->where('status', 'active')->first();
-
+        
         if (!$chalet) {
             return response()->json(['error' => 'Chalet not found'], 404);
         }
 
         $bookingType = $request->get('booking_type', 'overnight');
         $startDate = $request->get('start_date', now()->format('Y-m-d'));
-        $endDate = $request->get('end_date', now()->addMonths(1)->format('Y-m-d')); // Default 1 month ahead
+        $endDate = $request->get('end_date', now()->addMonths(3)->format('Y-m-d')); // Default 3 months ahead
 
+        $availabilityChecker = new ChaletAvailabilityChecker($chalet);
         $unavailableDates = [];
 
         try {
-            $start = \Carbon\Carbon::parse($startDate);
-            $end = \Carbon\Carbon::parse($endDate);
+            $currentDate = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
 
-            // 1. Fetch all bookings and blocks for the range in one go
-            $blockedDates = $chalet->blockedDates()
-                ->whereBetween('date', [$startDate, $endDate])
-                ->get()
-                ->groupBy('date');
-
-            $bookings = $chalet->bookings()
-                ->where(function ($q) use ($startDate, $endDate) {
-                    $q->whereBetween('start_date', [$startDate, $endDate])
-                      ->orWhereBetween('end_date', [$startDate, $endDate])
-                      ->orWhere(function ($q2) use ($startDate, $endDate) {
-                          $q2->where('start_date', '<', $startDate)
-                             ->where('end_date', '>', $endDate);
-                      });
-                })
-                ->whereIn('status', ['confirmed', 'pending'])
-                ->get();
-
-            // 2. Preload all time slots for efficiency
-            $timeSlots = $chalet->timeSlots()->get()->keyBy('id');
-
-            // 3. Loop through each day in the range
-            $current = $start->copy();
-            while ($current <= $end) {
-                $dateStr = $current->format('Y-m-d');
-                $isAvailable = false;
+            while ($currentDate <= $end) {
+                $dateStr = $currentDate->format('Y-m-d');
+                $hasAvailability = false;
 
                 if ($bookingType === 'day-use') {
-                    // Check if any day-use slot is available
-                    foreach ($timeSlots as $slot) {
-                        if ($slot->is_overnight) continue;
-
-                        // Check if slot is blocked
-                        if (
-                            (isset($blockedDates[$dateStr]) && $blockedDates[$dateStr]->where('time_slot_id', $slot->id)->count()) ||
-                            (isset($blockedDates[$dateStr]) && $blockedDates[$dateStr]->whereNull('time_slot_id')->count())
-                        ) {
-                            continue;
-                        }
-
-                        // Check if slot is booked
-                        $slotBooked = $bookings->filter(function ($booking) use ($dateStr, $slot) {
-                            return $booking->timeSlots->contains('id', $slot->id) &&
-                                $booking->start_date->format('Y-m-d') <= $dateStr &&
-                                $booking->end_date->format('Y-m-d') >= $dateStr;
-                        })->count();
-
-                        if ($slotBooked) continue;
-
-                        // If we reach here, at least one slot is available
-                        $isAvailable = true;
-                        break;
-                    }
+                    // Check if any day-use slots are available
+                    $availableSlots = $availabilityChecker->getAvailableDayUseSlots($dateStr);
+                    $hasAvailability = $availableSlots->isNotEmpty();
                 } else {
-                    // Overnight: check if any overnight slot is available for this night
-                    foreach ($timeSlots as $slot) {
-                        if (!$slot->is_overnight) continue;
-
-                        // Check if slot is blocked for any day in the range (just this night)
-                        if (
-                            (isset($blockedDates[$dateStr]) && $blockedDates[$dateStr]->where('time_slot_id', $slot->id)->count()) ||
-                            (isset($blockedDates[$dateStr]) && $blockedDates[$dateStr]->whereNull('time_slot_id')->count())
-                        ) {
-                            continue;
-                        }
-
-                        // Check if slot is booked for this night
-                        $slotBooked = $bookings->filter(function ($booking) use ($dateStr, $slot) {
-                            return $booking->timeSlots->contains('id', $slot->id) &&
-                                $booking->start_date->format('Y-m-d') <= $dateStr &&
-                                $booking->end_date->format('Y-m-d') > $dateStr;
-                        })->count();
-
-                        if ($slotBooked) continue;
-
-                        // If we reach here, at least one overnight slot is available
-                        $isAvailable = true;
-                        break;
-                    }
+                    // For overnight, check if any overnight slots are available for this date
+                    // We check availability for a single night starting from this date
+                    $nextDate = $currentDate->copy()->addDay()->format('Y-m-d');
+                    $availableSlots = $availabilityChecker->getAvailableOvernightSlots($dateStr, $nextDate);
+                    $hasAvailability = $availableSlots->isNotEmpty();
                 }
 
-                if (!$isAvailable) {
+                if (!$hasAvailability) {
                     $unavailableDates[] = $dateStr;
                 }
 
-                $current->addDay();
+                $currentDate->addDay();
             }
 
             return response()->json([
@@ -387,6 +323,7 @@ class ChaletApiController extends Controller
                     ]
                 ]
             ]);
+
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error getting unavailable dates: ' . $e->getMessage()], 500);
         }
