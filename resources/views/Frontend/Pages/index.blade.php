@@ -55,24 +55,6 @@
                             @php
                                 $chalet = $chaletData['chalet'];
                                 $slots = $chaletData['slots'] ?? [];
-                                
-                                // Get the lowest price from the slots
-                                $lowestPrice = null;
-                                foreach ($slots as $slot) {
-                                    $slotPrice = $slot['price'] ?? 0;
-                                    if ($lowestPrice === null || $slotPrice < $lowestPrice) {
-                                        $lowestPrice = $slotPrice;
-                                    }
-                                }
-                                
-                                $priceDisplay = '';
-                                if ($lowestPrice) {
-                                    $priceDisplay = 'From $' . number_format($lowestPrice);
-                                } elseif ($chalet->base_price) {
-                                    $priceDisplay = 'From $' . number_format($chalet->base_price);
-                                } else {
-                                    $priceDisplay = 'Price on request';
-                                }
                             @endphp
                             <div class="swiper-slide">
                                 <a href="{{ url($chalet->slug) }}" style="text-decoration:none; color:inherit;">
@@ -91,7 +73,6 @@
                                             <div class="room__content__meta">
                                                 <span><i class="flaticon-construction"></i> {{ $chalet->bedrooms_count ?? '-' }} Bedrooms</span>
                                                 <span><i class="flaticon-user"></i> {{ $chalet->max_adults + $chalet->max_children }} Guests</span>
-                                                <span><i class="flaticon-tag"></i> {{ $priceDisplay }}</span>
                                             </div>
                                         </div>
                                     </div>
