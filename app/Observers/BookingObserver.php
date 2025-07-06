@@ -5,6 +5,9 @@ namespace App\Observers;
 use App\Models\Booking;
 use App\Notifications\BookingCreatedCustomerNotification;
 
+use App\Models\User;
+use App\Notifications\BookingCreatedAdminNotification;
+
 class BookingObserver
 {
     public function created(Booking $booking)
@@ -15,5 +18,11 @@ class BookingObserver
             'support_email' => config('mail.support_email', 'info@ehjozchalet.com'),
         ];
         $booking->user->notify(new BookingCreatedCustomerNotification($booking, $settings));
+
+        // Notify all admins
+        $admins = User::role('admin')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new BookingCreatedAdminNotification($booking, $settings));
+        }
     }
 } 

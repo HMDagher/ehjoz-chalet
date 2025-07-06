@@ -325,7 +325,7 @@ final class ChaletAvailabilityChecker
      */
     private function isLaunchPromoActive(): bool
     {
-        $launchDiscountEndDate = '2025-07-10';
+        $launchDiscountEndDate = '2025-07-15';
         return now()->lessThanOrEqualTo($launchDiscountEndDate);
     }
     

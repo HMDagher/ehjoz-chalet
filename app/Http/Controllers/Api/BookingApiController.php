@@ -51,7 +51,7 @@ class BookingApiController extends Controller
 
         try {
             // Check if launch promotion is active (15% discount until July 10, 2025)
-            $launchDiscountEndDate = '2025-07-10';
+            $launchDiscountEndDate = '2025-07-15';
             $isLaunchPromoActive = now()->lessThanOrEqualTo($launchDiscountEndDate);
             $originalPrice = 0;
             $discountAmount = 0;
