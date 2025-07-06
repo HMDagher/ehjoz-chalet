@@ -86,7 +86,8 @@
                                 @foreach($booking->timeSlots as $slot)
                                     @php
                                         $slotDate = \Carbon\Carbon::parse($booking->start_date);
-                                        $isWeekend = in_array($slotDate->dayOfWeek, [5, 6, 0]); // Friday, Saturday, Sunday
+                                        $weekendDays = $booking->chalet->weekend_days ?? [5, 6, 0];
+                                        $isWeekend = in_array($slotDate->dayOfWeek, $weekendDays); // Chalet-specific weekend
                                         $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
                                         
                                         // Check for custom pricing
@@ -138,7 +139,8 @@
                                 
                                 @for($i = 0; $i < $nights; $i++)
                                     @php
-                                        $isWeekend = in_array($currentDate->dayOfWeek, [5, 6, 0]); // Friday, Saturday, Sunday
+                                        $weekendDays = $booking->chalet->weekend_days ?? [5, 6, 0];
+                                        $isWeekend = in_array($currentDate->dayOfWeek, $weekendDays); // Chalet-specific weekend
                                         $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
                                         
                                         // Check for custom pricing

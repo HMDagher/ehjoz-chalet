@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare (strict_types = 1);
 
 namespace App\Filament\Resources;
 
@@ -8,20 +8,20 @@ use App\Enums\ChaletStatus;
 use App\Filament\Resources\ChaletResource\Pages;
 use App\Filament\Resources\ChaletResource\RelationManagers;
 use App\Models\Chalet;
+use Cheesegrits\FilamentGoogleMaps\Fields\Map;
 use Filament\Forms;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Form;
+use Filament\Forms\Set;
 use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 use Ysfkaya\FilamentPhoneInput\Forms\PhoneInput;
 use Ysfkaya\FilamentPhoneInput\PhoneInputNumberType;
 use Ysfkaya\FilamentPhoneInput\Tables\PhoneColumn;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
-use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
-use Filament\Forms\Set;
-use Illuminate\Support\Str;
-use Cheesegrits\FilamentGoogleMaps\Fields\Map;
 
 final class ChaletResource extends Resource
 {
@@ -42,7 +42,7 @@ final class ChaletResource extends Resource
                                 ->schema([
                                     Forms\Components\TextInput::make('name')->required()->maxLength(255)
                                         ->live(onBlur: true)
-                                        ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state))),
+                                        ->afterStateUpdated(fn(Set $set, ?string $state) => $set('slug', Str::slug($state))),
                                     Forms\Components\TextInput::make('slug')->required()->maxLength(255)->unique(ignoreRecord: true),
                                     Forms\Components\Select::make('owner_id')->relationship('owner', 'name')->searchable()->required(),
                                     Forms\Components\Select::make('status')->options(ChaletStatus::class)->native(false)->required(),
@@ -57,6 +57,20 @@ final class ChaletResource extends Resource
                                     Forms\Components\TextInput::make('max_children')->numeric(),
                                     Forms\Components\TextInput::make('bedrooms_count')->numeric(),
                                     Forms\Components\TextInput::make('bathrooms_count')->numeric(),
+                                    Forms\Components\Select::make('weekend_days')
+                                        ->label('Weekend Days')
+                                        ->multiple()
+                                        ->options([
+                                            0 => 'Sunday',
+                                            1 => 'Monday',
+                                            2 => 'Tuesday',
+                                            3 => 'Wednesday',
+                                            4 => 'Thursday',
+                                            5 => 'Friday',
+                                            6 => 'Saturday',
+                                        ])
+                                        ->required()
+                                        ->helperText('Select which days are considered weekend for this chalet.'),
                                 ])->columns(4),
 
                             Forms\Components\Section::make('Instructions & Policies')
@@ -130,12 +144,12 @@ final class ChaletResource extends Resource
                                 )
                                 ->reverseGeocode([
                                     'address' => '%n %S, %L, %A1, %z',
-                                    'city' => '%L',
+                                    'city'    => '%L',
                                 ])
                                 ->columnSpanFull(),
                         ])->columns(2),
-                    ])->columnSpanFull(),
-            ]);
+                ])->columnSpanFull(),
+        ]);
     }
 
     public static function table(Table $table): Table
@@ -201,10 +215,10 @@ final class ChaletResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListChalets::route('/'),
+            'index'  => Pages\ListChalets::route('/'),
             'create' => Pages\CreateChalet::route('/create'),
-            'view' => Pages\ViewChalet::route('/{record}'),
-            'edit' => Pages\EditChalet::route('/{record}/edit'),
+            'view'   => Pages\ViewChalet::route('/{record}'),
+            'edit'   => Pages\EditChalet::route('/{record}/edit'),
         ];
     }
 }

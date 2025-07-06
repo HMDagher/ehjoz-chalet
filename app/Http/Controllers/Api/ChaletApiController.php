@@ -129,22 +129,19 @@ class ChaletApiController extends Controller
         
         // Calculate price for each night
         $currentDate = $start->copy();
+        $weekendDays = $chalet->weekend_days ?? [5, 6, 0];
         while ($currentDate < $end) {
             $date = $currentDate->format('Y-m-d');
-            $isWeekend = in_array($currentDate->dayOfWeek, [5, 6, 0]); // Friday, Saturday, Sunday
-            
+            $isWeekend = in_array($currentDate->dayOfWeek, $weekendDays); // Chalet-specific weekend
             // Get the time slot
             $timeSlot = $chalet->timeSlots()->findOrFail($timeSlotId);
-            
             \Log::info('Processing night', [
                 'date' => $date,
                 'isWeekend' => $isWeekend,
                 'timeSlot' => $timeSlot->name
             ]);
-            
             // Get base price (weekday/weekend)
             $basePrice = $isWeekend ? $timeSlot->weekend_price : $timeSlot->weekday_price;
-            
             // Check for seasonal pricing adjustment
             $customPricing = $chalet->customPricing()
                 ->where('time_slot_id', $timeSlotId)
@@ -153,11 +150,9 @@ class ChaletApiController extends Controller
                 ->where('is_active', true)
                 ->latest('created_at')
                 ->first();
-            
             $adjustment = $customPricing ? $customPricing->custom_adjustment : 0;
             $customPricingName = $customPricing ? $customPricing->name : null;
             $finalPrice = $basePrice + $adjustment;
-            
             \Log::info('Night price details', [
                 'basePrice' => $basePrice,
                 'hasCustomPricing' => $customPricing ? true : false,
@@ -165,7 +160,6 @@ class ChaletApiController extends Controller
                 'adjustment' => $adjustment,
                 'finalPrice' => $finalPrice
             ]);
-            
             $breakdown[] = [
                 'date' => $date,
                 'is_weekend' => $isWeekend,
@@ -174,7 +168,6 @@ class ChaletApiController extends Controller
                 'custom_pricing_name' => $customPricingName,
                 'final_price' => (float)$finalPrice
             ];
-            
             $currentDate->addDay();
         }
         

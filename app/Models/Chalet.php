@@ -225,6 +225,7 @@ final class Chalet extends Model implements HasMedia
             'pending_earnings' => 'decimal:2',
             'total_withdrawn' => 'decimal:2',
             'status' => ChaletStatus::class,
+            'weekend_days' => 'array',
         ];
     }
 }

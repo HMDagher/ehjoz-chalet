@@ -301,8 +301,9 @@ final class ChaletAvailabilityChecker
         $date = Carbon::parse($date);
         $timeSlot = $this->chalet->timeSlots()->findOrFail($timeSlotId);
 
-        // Get base price (weekday/weekend)
-        $isWeekend = in_array($date->dayOfWeek, [5, 6, 0]); // Friday, Saturday, Sunday
+        // Use chalet's weekend_days, fallback to [5,6,0] if not set
+        $weekendDays = $this->chalet->weekend_days ?? [5, 6, 0];
+        $isWeekend = in_array($date->dayOfWeek, $weekendDays);
         $basePrice = $isWeekend ? $timeSlot->weekend_price : $timeSlot->weekday_price;
         
         // Check for seasonal pricing adjustment
@@ -603,4 +604,4 @@ final class ChaletAvailabilityChecker
 
         return true;
     }
-} 
+}

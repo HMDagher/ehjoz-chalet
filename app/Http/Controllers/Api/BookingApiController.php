@@ -77,7 +77,8 @@ class BookingApiController extends Controller
                 foreach ($slotIds as $slotId) {
                     $slot = $chalet->timeSlots()->find($slotId);
                     $date = Carbon::parse($startDate);
-                    $isWeekend = in_array($date->dayOfWeek, [5, 6, 0]);
+                    $weekendDays = $chalet->weekend_days ?? [5, 6, 0];
+                    $isWeekend = in_array($date->dayOfWeek, $weekendDays);
                     $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
                     $baseSlotPrice += $basePrice;
                     // Custom adjustment
@@ -131,7 +132,8 @@ class BookingApiController extends Controller
                 $currentDate = $start->copy();
                 while ($currentDate < $end) {
                     $slot = $chalet->timeSlots()->find($slotId);
-                    $isWeekend = in_array($currentDate->dayOfWeek, [5, 6, 0]);
+                    $weekendDays = $chalet->weekend_days ?? [5, 6, 0];
+                    $isWeekend = in_array($currentDate->dayOfWeek, $weekendDays);
                     $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
                     $baseSlotPrice += $basePrice;
                     $customPricing = $chalet->customPricing()
@@ -365,4 +367,4 @@ class BookingApiController extends Controller
             'data' => $combinations
         ]);
     }
-} 
+}
