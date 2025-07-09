@@ -298,30 +298,25 @@ final class ChaletAvailabilityChecker
      */
     public function calculateDayUsePrice(string $date, int $timeSlotId): float
     {
-        // Check slot availability first
-        if (!$this->isDayUseSlotAvailable($date, $timeSlotId)) {
-            return null;
-        }
-
-        $dateObj = Carbon::parse($date);
+        $date = Carbon::parse($date);
         $timeSlot = $this->chalet->timeSlots()->findOrFail($timeSlotId);
 
         // Use chalet's weekend_days, fallback to [5,6,0] if not set
         $weekendDays = $this->chalet->weekend_days ?? [5, 6, 0];
-        $isWeekend = in_array($dateObj->dayOfWeek, $weekendDays);
+        $isWeekend = in_array($date->dayOfWeek, $weekendDays);
         $basePrice = $isWeekend ? $timeSlot->weekend_price : $timeSlot->weekday_price;
-
+        
         // Check for seasonal pricing adjustment
         $customPricing = $this->chalet->customPricing()
             ->where('time_slot_id', $timeSlotId)
-            ->where('start_date', '<=', $dateObj->format('Y-m-d'))
-            ->where('end_date', '>=', $dateObj->format('Y-m-d'))
+            ->where('start_date', '<=', $date->format('Y-m-d'))
+            ->where('end_date', '>=', $date->format('Y-m-d'))
             ->where('is_active', true)
             ->latest('created_at')
             ->first();
-
+        
         $adjustment = $customPricing ? $customPricing->custom_adjustment : 0;
-
+        
         return $basePrice + $adjustment;
     }
     
@@ -381,60 +376,47 @@ final class ChaletAvailabilityChecker
      */
     public function calculateOvernightPrice(string $startDate, string $endDate, int $timeSlotId): array
     {
-        // Check slot availability first
-        if (!$this->isOvernightSlotAvailable($startDate, $endDate, $timeSlotId)) {
-            return [
-                'total_price' => null,
-                'original_price' => null,
-                'discount' => null,
-                'discount_percentage' => null,
-                'has_discount' => false,
-                'nights' => null,
-                'price_per_night' => null
-            ];
-        }
-
         \Log::info('calculateOvernightPrice called', [
             'startDate' => $startDate, 
             'endDate' => $endDate, 
             'timeSlotId' => $timeSlotId
         ]);
-
+        
         $start = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
         $total = 0;
         $nights = $start->diffInDays($end);
         $nights = max(1, $nights);
-
+        
         \Log::info('Nights calculated', ['nights' => $nights]);
-
+        
         // Calculate price for each night
         $currentDate = $start->copy();
         $nightPrices = [];
-
+        
         while ($currentDate < $end) {
             $dateStr = $currentDate->format('Y-m-d');
             $nightPrice = $this->calculateDayUsePrice($dateStr, $timeSlotId);
             $total += $nightPrice;
-
+            
             \Log::info('Night price calculated', [
                 'date' => $dateStr,
                 'price' => $nightPrice,
                 'running_total' => $total
             ]);
-
+            
             $nightPrices[] = [
                 'date' => $dateStr,
                 'price' => $nightPrice
             ];
-
+            
             $currentDate->addDay();
         }
-
+        
         // Apply launch discount
         $priceData = $this->applyLaunchDiscount($total);
         $finalTotal = $priceData['final_price'];
-
+        
         \Log::info('Total overnight price calculated', [
             'subtotal' => $total,
             'final_total' => $finalTotal,
@@ -444,7 +426,7 @@ final class ChaletAvailabilityChecker
             'price_per_night' => $finalTotal / $nights,
             'night_prices' => $nightPrices
         ]);
-
+        
         return [
             'total_price' => $finalTotal,
             'original_price' => $priceData['original_price'],
