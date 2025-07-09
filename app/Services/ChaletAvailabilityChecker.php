@@ -300,8 +300,7 @@ final class ChaletAvailabilityChecker
     {
         // Check slot availability first
         if (!$this->isDayUseSlotAvailable($date, $timeSlotId)) {
-            // Return a special float value to indicate unavailability (e.g., -1)
-            return -1.0;
+            return null;
         }
 
         $dateObj = Carbon::parse($date);

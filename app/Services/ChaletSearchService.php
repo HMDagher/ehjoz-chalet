@@ -63,7 +63,7 @@ final class ChaletSearchService
                     ->where('is_overnight', false)
                     ->map(function($slot) use ($availabilityChecker, $startDate, &$hasAvailableSlot) {
                         $price = $availabilityChecker->calculateDayUsePrice($startDate, $slot->id);
-                        if ($price !== null && $price !== -1.0) {
+                        if ($price !== null) {
                             $hasAvailableSlot = true;
                         }
                         return [
@@ -72,7 +72,7 @@ final class ChaletSearchService
                             'start_time' => $slot->start_time,
                             'end_time' => $slot->end_time,
                             'duration_hours' => $slot->duration_hours,
-                            'price' => ($price === -1.0 ? null : $price),
+                            'price' => $price,
                             'booking_type' => 'day-use'
                         ];
                     })
