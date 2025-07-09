@@ -52,6 +52,26 @@ final class ChaletSearchService
                 \Log::info('SearchService: chalet has no active time slots', ['chalet_id' => $chalet->id]);
                 continue;
             }
+            
+            // Check if any date in the range is fully blocked
+            $checkDate = ($bookingType === 'overnight' && $endDate) ? $endDate : $startDate;
+            $fullyBlocked = $chalet->blockedDates()
+                ->whereNull('time_slot_id')
+                ->whereDate('date', '=', $startDate)
+                ->when($bookingType === 'overnight' && $endDate, function($query) use ($startDate, $endDate) {
+                    return $query->orWhereBetween('date', [$startDate, $endDate]);
+                })
+                ->exists();
+                
+            if ($fullyBlocked) {
+                \Log::info('SearchService: chalet has fully blocked dates in range', [
+                    'chalet_id' => $chalet->id,
+                    'start_date' => $startDate,
+                    'end_date' => $bookingType === 'overnight' ? $endDate : null,
+                    'booking_type' => $bookingType
+                ]);
+                continue;
+            }
 
             $availabilityChecker = new \App\Services\ChaletAvailabilityChecker($chalet);
             $allSlots = [];
