@@ -135,6 +135,7 @@
             slidesPerView: 3,
             spaceBetween: 30,
             loop: true,
+            loopAdditionalSlides: 20, // Ensures all slides are included in loop mode
             speed: 1000,
             centeredSlides: true,
             autoplay: false,
