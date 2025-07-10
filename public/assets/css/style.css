@@ -12937,6 +12937,7 @@ If you love our template, please give us a star on https://themeforest.net/user/
   border-radius: 8px;
   border: 1px solid #dee2e6;
   font-family: inherit;
+  background-color: #fff;
 }
 
 .ui-datepicker .ui-datepicker-header {
@@ -12945,21 +12946,22 @@ If you love our template, please give us a star on https://themeforest.net/user/
   margin: -10px -10px 10px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
+  position: relative;
 }
 
+/* Fix positioning for prev/next buttons */
 .ui-datepicker .ui-datepicker-prev, 
 .ui-datepicker .ui-datepicker-next {
+  position: absolute;
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  top: 5px;
+  top: 50%;
+  transform: translateY(-50%);
   cursor: pointer;
   transition: all 0.2s ease;
   background-color: #e9ecef !important;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 1px solid #dee2e6;
 }
 
 .ui-datepicker .ui-datepicker-prev {
@@ -12972,61 +12974,62 @@ If you love our template, please give us a star on https://themeforest.net/user/
 
 .ui-datepicker .ui-datepicker-prev-hover,
 .ui-datepicker .ui-datepicker-next-hover {
-  top: 5px;
   background: #007bff !important;
-  border: none !important;
-}
-
-.ui-datepicker .ui-datepicker-prev-hover {
-  left: 5px;
-}
-
-.ui-datepicker .ui-datepicker-next-hover {
-  right: 5px;
+  border-color: #0062cc !important;
 }
 
 /* Hide default icons */
 .ui-datepicker .ui-datepicker-prev span, 
 .ui-datepicker .ui-datepicker-next span {
-  display: none;
+  display: none !important;
 }
 
-/* Add custom arrow icons */
-.ui-datepicker .ui-datepicker-prev:before,
-.ui-datepicker .ui-datepicker-next:before {
-  font-family: "FontAwesome";
-  font-size: 16px;
-  color: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
+/* Add custom arrow icons using CSS */
+.ui-datepicker .ui-datepicker-prev:after,
+.ui-datepicker .ui-datepicker-next:after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
 }
 
-.ui-datepicker .ui-datepicker-prev:before {
-  content: "\f104"; /* FontAwesome left arrow */
+.ui-datepicker .ui-datepicker-prev:after {
+  border-width: 6px 10px 6px 0;
+  border-color: transparent #000 transparent transparent;
+  margin-left: -2px;
 }
 
-.ui-datepicker .ui-datepicker-next:before {
-  content: "\f105"; /* FontAwesome right arrow */
+.ui-datepicker .ui-datepicker-next:after {
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent #000;
+  margin-left: 2px;
 }
 
-/* Change icon color on hover */
-.ui-datepicker .ui-datepicker-prev-hover:before,
-.ui-datepicker .ui-datepicker-next-hover:before {
-  color: #fff;
+/* Change arrow color on hover */
+.ui-datepicker .ui-datepicker-prev-hover:after {
+  border-color: transparent #fff transparent transparent;
+}
+
+.ui-datepicker .ui-datepicker-next-hover:after {
+  border-color: transparent transparent transparent #fff;
 }
 
 .ui-datepicker .ui-datepicker-title {
   line-height: 30px;
   font-weight: 600;
   color: #212529;
+  text-align: center;
+  margin: 0 35px;
 }
 
 .ui-datepicker table {
   margin-bottom: 5px;
   width: 100%;
+  border-collapse: collapse;
 }
 
 .ui-datepicker th {
@@ -13034,21 +13037,24 @@ If you love our template, please give us a star on https://themeforest.net/user/
   color: #495057;
   padding: 7px;
   text-align: center;
+  font-size: 12px;
+  text-transform: uppercase;
 }
 
 .ui-datepicker td {
-  padding: 2px;
+  padding: 1px;
   text-align: center;
 }
 
 .ui-datepicker td span, 
 .ui-datepicker td a {
   text-align: center;
-  padding: 7px;
+  padding: 6px;
   border-radius: 4px;
   transition: all 0.2s ease;
   display: block;
   text-decoration: none;
+  font-size: 14px;
 }
 
 .ui-datepicker td a.ui-state-default {
@@ -13072,4 +13078,14 @@ If you love our template, please give us a star on https://themeforest.net/user/
   background: #fff3cd;
   border-color: #ffeeba;
   color: #856404;
+}
+
+/* Fix for disabled dates */
+.ui-datepicker td.ui-state-disabled {
+  opacity: 0.35;
+}
+
+/* Fix any other missing UI icons */
+.ui-icon {
+  display: none !important;
 }
