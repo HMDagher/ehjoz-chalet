@@ -595,23 +595,65 @@
                 console.log('Check-in changed:', $("#check__in").val());
                 var checkInDate = $("#check__in").datepicker('getDate');
                 if (checkInDate) {
-                    // For overnight bookings, checkout must be at least one day after check-in
-                    var minCheckout = new Date(checkInDate.getTime());
-                    minCheckout.setDate(minCheckout.getDate() + 1);
-                    
-                    // Update checkout datepicker's minDate
-                    $('#check__out').datepicker('option', 'minDate', minCheckout);
-                    
-                    // If checkout is before or same as check-in, clear it
-                    var checkOutDate = $('#check__out').datepicker('getDate');
-                    if (!checkOutDate || checkOutDate <= checkInDate) {
-                        $('#check__out').val('');
-                    }
-                    
-                    // For day-use bookings, checkout is not needed, so we don't set minDate
                     const bookingType = $("#booking_type").val();
-                    if (bookingType === 'day-use') {
-                    $('#check__out').datepicker('option', 'minDate', null);
+                    
+                    if (bookingType === 'overnight') {
+                        // Format the selected date as yyyy-mm-dd to check availability
+                        const year = checkInDate.getFullYear();
+                        const month = String(checkInDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(checkInDate.getDate()).padStart(2, '0');
+                        const selectedDateStr = `${year}-${month}-${day}`;
+                        
+                        // Get the next day to check if it's available
+                        var nextDay = new Date(checkInDate.getTime());
+                        nextDay.setDate(nextDay.getDate() + 1);
+                        const nextYear = nextDay.getFullYear();
+                        const nextMonth = String(nextDay.getMonth() + 1).padStart(2, '0');
+                        const nextDayStr = String(nextDay.getDate()).padStart(2, '0');
+                        const nextDateStr = `${nextYear}-${nextMonth}-${nextDayStr}`;
+                        
+                        // Check if next day is unavailable
+                        const isNextDayUnavailable = unavailableDates && 
+                            Array.isArray(unavailableDates) && 
+                            unavailableDates.indexOf(nextDateStr) !== -1;
+                        
+                        console.log('Next day availability check:', {
+                            nextDateStr,
+                            isUnavailable: isNextDayUnavailable,
+                            unavailableDates: unavailableDates
+                        });
+                        
+                        if (isNextDayUnavailable) {
+                            // If next day is unavailable, allow same-day checkout
+                            console.log('Next day is unavailable, allowing same-day checkout');
+                            $('#check__out').datepicker('option', 'minDate', checkInDate);
+                            
+                            // Show a notification to the user
+                            showDatepickerStatus('Next day is unavailable. You can book for same-day checkout.', 'info');
+                            
+                            // Update legend text
+                            $('#availability-legend').text('Next day is unavailable. You can book for same-day checkout.');
+                        } else {
+                            // For overnight bookings with available next day, checkout must be at least one day after check-in
+                            var minCheckout = new Date(checkInDate.getTime());
+                            minCheckout.setDate(minCheckout.getDate() + 1);
+                            
+                            // Update checkout datepicker's minDate
+                            $('#check__out').datepicker('option', 'minDate', minCheckout);
+                            
+                            // Update legend text back to normal
+                            updateAvailabilityLegend();
+                        }
+                        
+                        // If checkout is before minDate, clear it
+                        var checkOutDate = $('#check__out').datepicker('getDate');
+                        var minDate = $('#check__out').datepicker('option', 'minDate');
+                        if (!checkOutDate || checkOutDate < minDate) {
+                            $('#check__out').val('');
+                        }
+                    } else if (bookingType === 'day-use') {
+                        // For day-use bookings, checkout is not needed
+                        $('#check__out').datepicker('option', 'minDate', null);
                     }
                 } else {
                     // If no check-in, allow any checkout (but still respect past dates)
@@ -626,7 +668,7 @@
                 
                 // Check availability if we have valid dates
                 if (validateSelectedDates()) {
-                checkAvailability();
+                    checkAvailability();
                 }
             }
 
@@ -764,8 +806,19 @@
                 // Convert date format from dd-mm-yyyy to yyyy-mm-dd
                 const formattedStartDate = convertDateFormat(startDate);
                 const formattedEndDate = endDate ? convertDateFormat(endDate) : null;
+                
+                // Special handling for same-day checkout in overnight bookings
+                let isSameDayCheckout = false;
+                if (bookingType === 'overnight' && formattedStartDate === formattedEndDate) {
+                    console.log('Same-day checkout detected for overnight booking in checkAvailability');
+                    isSameDayCheckout = true;
+                }
 
-                console.log('Formatted dates:', { formattedStartDate, formattedEndDate }); // Debug log
+                console.log('Formatted dates:', { 
+                    formattedStartDate, 
+                    formattedEndDate,
+                    isSameDayCheckout 
+                }); // Debug log
 
                 $("#book-button").prop("disabled", true).text("Checking...");
 
@@ -1102,6 +1155,33 @@
                     endDate = startDate; // For day-use, end date is same as start date
                 } else {
                     endDate = $("#check__out").val() ? convertDateFormat($("#check__out").val()) : null;
+                    
+                    // For overnight bookings with same-day checkout (special case)
+                    if (endDate === startDate) {
+                        console.log('Same-day checkout detected for overnight booking');
+                        
+                        // Get the next day to check if it's available
+                        const checkIn = new Date(startDate);
+                        const nextDay = new Date(checkIn.getTime());
+                        nextDay.setDate(nextDay.getDate() + 1);
+                        const nextYear = nextDay.getFullYear();
+                        const nextMonth = String(nextDay.getMonth() + 1).padStart(2, '0');
+                        const nextDayStr = String(nextDay.getDate()).padStart(2, '0');
+                        const nextDateStr = `${nextYear}-${nextMonth}-${nextDayStr}`;
+                        
+                        // Check if next day is unavailable
+                        const isNextDayUnavailable = unavailableDates && 
+                            Array.isArray(unavailableDates) && 
+                            unavailableDates.indexOf(nextDateStr) !== -1;
+                            
+                        if (isNextDayUnavailable) {
+                            // This is a special case - we're allowing same-day checkout
+                            console.log('Confirmed: next day is unavailable, proceeding with same-day checkout');
+                        } else {
+                            showError("Same-day checkout is only allowed when next day is unavailable");
+                            return;
+                        }
+                    }
                 }
 
                 if (bookingType === 'day-use' && selectedSlots.length === 0) {
@@ -1179,6 +1259,12 @@
             function calculateNights(startDate, endDate) {
                 const start = new Date(startDate);
                 const end = new Date(endDate);
+                
+                // If start and end are the same day, return 1 night
+                if (start.getTime() === end.getTime()) {
+                    return 1;
+                }
+                
                 return Math.ceil((end - start) / (1000 * 60 * 60 * 24));
             }
 
@@ -1283,7 +1369,7 @@
                 const bookingType = $("#booking_type").val();
                 const legendText = bookingType === 'day-use' 
                     ? 'Calendar shows available dates only (past dates disabled)'
-                    : 'Calendar shows available dates only (past dates disabled, checkout must be after check-in)';
+                    : 'Calendar shows available dates only (past dates disabled, checkout must be after check-in or same day if next day unavailable)';
                 
                 $('#availability-legend').text(legendText);
             }
@@ -1309,6 +1395,26 @@
                     const checkIn = new Date(convertDateFormat(checkInDate));
                     const checkOut = new Date(convertDateFormat(checkOutDate));
                     
+                    // Get the next day to check if it's available
+                    const nextDay = new Date(checkIn.getTime());
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    const nextYear = nextDay.getFullYear();
+                    const nextMonth = String(nextDay.getMonth() + 1).padStart(2, '0');
+                    const nextDayStr = String(nextDay.getDate()).padStart(2, '0');
+                    const nextDateStr = `${nextYear}-${nextMonth}-${nextDayStr}`;
+                    
+                    // Check if next day is unavailable
+                    const isNextDayUnavailable = unavailableDates && 
+                        Array.isArray(unavailableDates) && 
+                        unavailableDates.indexOf(nextDateStr) !== -1;
+                    
+                    // If next day is unavailable, allow same-day checkout
+                    if (isNextDayUnavailable && checkIn.getTime() === checkOut.getTime()) {
+                        console.log('Same-day checkout allowed because next day is unavailable');
+                        return true;
+                    }
+                    
+                    // Otherwise, enforce normal validation (checkout must be after checkin)
                     if (checkOut <= checkIn) {
                         showError("Check-out date must be at least one day after check-in date");
                         return false;
@@ -1333,11 +1439,32 @@
                         buttonText = "Check Availability";
                     } else if (bookingType === 'overnight') {
                         if (checkOutDate) {
-                            // Validate that checkout is after checkin
+                            // Convert dates for comparison
                             const checkIn = new Date(convertDateFormat(checkInDate));
                             const checkOut = new Date(convertDateFormat(checkOutDate));
-                            isValid = checkOut > checkIn;
-                            buttonText = isValid ? "Check Availability" : "Invalid Date Range";
+                            
+                            // Get the next day to check if it's available
+                            const nextDay = new Date(checkIn.getTime());
+                            nextDay.setDate(nextDay.getDate() + 1);
+                            const nextYear = nextDay.getFullYear();
+                            const nextMonth = String(nextDay.getMonth() + 1).padStart(2, '0');
+                            const nextDayStr = String(nextDay.getDate()).padStart(2, '0');
+                            const nextDateStr = `${nextYear}-${nextMonth}-${nextDayStr}`;
+                            
+                            // Check if next day is unavailable
+                            const isNextDayUnavailable = unavailableDates && 
+                                Array.isArray(unavailableDates) && 
+                                unavailableDates.indexOf(nextDateStr) !== -1;
+                            
+                            // If next day is unavailable, allow same-day checkout
+                            if (isNextDayUnavailable && checkIn.getTime() === checkOut.getTime()) {
+                                isValid = true;
+                                buttonText = "Check Availability";
+                            } else {
+                                // Otherwise, enforce normal validation (checkout must be after checkin)
+                                isValid = checkOut > checkIn;
+                                buttonText = isValid ? "Check Availability" : "Invalid Date Range";
+                            }
                         } else {
                             buttonText = "Select Check-out Date";
                         }
