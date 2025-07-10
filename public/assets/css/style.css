@@ -12929,3 +12929,133 @@ For example:
 If you love our template, please give us a star on https://themeforest.net/user/reacthemes
 */
 /*# sourceMappingURL=../maps/style.css.map */
+
+/* Custom Datepicker Styles */
+.ui-datepicker {
+  padding: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  font-family: inherit;
+}
+
+.ui-datepicker .ui-datepicker-header {
+  border-radius: 6px 6px 0 0;
+  padding: 8px;
+  margin: -10px -10px 10px;
+}
+
+.ui-datepicker .ui-datepicker-prev, 
+.ui-datepicker .ui-datepicker-next {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  top: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #e9ecef !important;
+}
+
+.ui-datepicker .ui-datepicker-prev {
+  left: 5px;
+}
+
+.ui-datepicker .ui-datepicker-next {
+  right: 5px;
+}
+
+.ui-datepicker .ui-datepicker-prev-hover,
+.ui-datepicker .ui-datepicker-next-hover {
+  top: 5px;
+  background: #007bff !important;
+  border: none !important;
+}
+
+.ui-datepicker .ui-datepicker-prev-hover {
+  left: 5px;
+}
+
+.ui-datepicker .ui-datepicker-next-hover {
+  right: 5px;
+}
+
+.ui-datepicker .ui-datepicker-prev span, 
+.ui-datepicker .ui-datepicker-next span {
+  margin-top: -8px;
+  margin-left: -8px;
+}
+
+.ui-datepicker .ui-datepicker-title {
+  line-height: 30px;
+  font-weight: 600;
+}
+
+.ui-datepicker table {
+  margin-bottom: 5px;
+}
+
+.ui-datepicker th {
+  font-weight: 600;
+  color: #495057;
+  padding: 7px;
+}
+
+.ui-datepicker td {
+  padding: 2px;
+}
+
+.ui-datepicker td span, 
+.ui-datepicker td a {
+  text-align: center;
+  padding: 7px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.ui-datepicker td a.ui-state-default {
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.ui-datepicker td a.ui-state-default:hover {
+  background: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.ui-datepicker td a.ui-state-active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.ui-datepicker td a.ui-state-highlight {
+  background: #fff3cd;
+  border-color: #ffeeba;
+  color: #856404;
+}
+
+/* Make the prev/next month arrows more visible */
+.ui-datepicker .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-datepicker .ui-icon-circle-triangle-w {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23212529' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.ui-datepicker .ui-icon-circle-triangle-e {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23212529' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.ui-datepicker .ui-datepicker-prev:hover .ui-icon-circle-triangle-w {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3E%3C/svg%3E");
+}
+
+.ui-datepicker .ui-datepicker-next:hover .ui-icon-circle-triangle-e {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+}
