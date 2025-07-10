@@ -1,0 +1,122 @@
+/* Custom Datepicker Styles */
+.ui-datepicker {
+    padding: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    font-family: inherit;
+    background-color: #fff;
+}
+
+.ui-datepicker .ui-datepicker-header {
+    border-radius: 6px 6px 0 0;
+    padding: 10px;
+    margin: -10px -10px 10px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    position: relative;
+}
+
+.ui-datepicker .ui-datepicker-prev,
+.ui-datepicker .ui-datepicker-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    text-indent: -9999px;
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+    transition: all 0.3s ease;
+}
+
+.ui-datepicker .ui-datepicker-prev {
+    left: 5px;
+}
+
+.ui-datepicker .ui-datepicker-next {
+    right: 5px;
+}
+
+.ui-datepicker .ui-datepicker-prev:hover,
+.ui-datepicker .ui-datepicker-next:hover {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.ui-datepicker .ui-datepicker-prev:hover .custom-datepicker-prev:after,
+.ui-datepicker .ui-datepicker-next:hover .custom-datepicker-next:after,
+.custom-datepicker-prev:hover:after,
+.custom-datepicker-next:hover:after {
+    filter: brightness(10); /* Make the SVG white on hover */
+}
+
+.custom-datepicker-prev:after,
+.custom-datepicker-next:after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.custom-datepicker-prev:after {
+    background-image: url('../images/icon/arrow-left-short.svg');
+    filter: brightness(0); /* Make the SVG black */
+}
+
+.custom-datepicker-next:after {
+    background-image: url('../images/icon/arrow-right-short.svg');
+    filter: brightness(0); /* Make the SVG black */
+}
+
+/* Hide default jQuery UI icons */
+.ui-icon {
+    display: none;
+}
+
+/* Make the datepicker more visible */
+.ui-datepicker .ui-datepicker-title {
+    margin: 0;
+    line-height: 1.8em;
+    text-align: center;
+    font-weight: bold;
+    color: #212529;
+}
+
+.ui-datepicker table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.ui-datepicker td {
+    border: 0;
+    padding: 1px;
+}
+
+.ui-datepicker td span, 
+.ui-datepicker td a {
+    display: block;
+    padding: 5px;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 4px;
+}
+
+.ui-datepicker td a.ui-state-active {
+    background-color: #007bff;
+    color: #fff;
+}
+
+.ui-datepicker td a.ui-state-highlight {
+    background-color: #f8f9fa;
+    border: 1px solid #007bff;
+} 

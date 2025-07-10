@@ -452,76 +452,40 @@
         $.gdprcookie.init();
       },
       datePicker: function (e) {
+        // Function to style datepicker navigation buttons
+        function styleDatapickerNavButtons() {
+          setTimeout(function() {
+            $('.ui-datepicker-prev').addClass('custom-datepicker-nav custom-datepicker-prev');
+            $('.ui-datepicker-next').addClass('custom-datepicker-nav custom-datepicker-next');
+            // Force icon display
+            $('.ui-icon').css('display', 'none');
+          }, 10);
+        }
+        
         $(function () {
-          // Add custom styles for datepicker navigation buttons
-          if (!$('#datepicker-custom-styles').length) {
-            $('head').append(`
-              <style id="datepicker-custom-styles">
-                .ui-datepicker .ui-datepicker-prev, 
-                .ui-datepicker .ui-datepicker-next {
-                  background-color: #e9ecef !important;
-                  border-radius: 50%;
-                  cursor: pointer !important;
-                  transition: all 0.3s ease;
-                }
-                
-                .ui-datepicker .ui-datepicker-prev:hover, 
-                .ui-datepicker .ui-datepicker-next:hover {
-                  background-color: #007bff !important;
-                  border-color: #007bff !important;
-                }
-                
-                .ui-datepicker .ui-datepicker-prev:hover span, 
-                .ui-datepicker .ui-datepicker-next:hover span {
-                  border-color: #ffffff !important;
-                }
-                
-                .ui-datepicker .ui-datepicker-prev span, 
-                .ui-datepicker .ui-datepicker-next span {
-                  margin-top: -5px !important;
-                  margin-left: -5px !important;
-                  border-width: 5px !important;
-                }
-                
-                .ui-datepicker .ui-datepicker-header {
-                  background-color: #f8f9fa;
-                  border-color: #dee2e6;
-                }
-                
-                .ui-datepicker .ui-datepicker-title {
-                  font-weight: bold;
-                  color: #212529;
-                }
-                
-                .ui-datepicker-trigger {
-                  margin-left: 5px;
-                }
-              </style>
-            `);
-          }
-          
-          // Common datepicker options
-          const datepickerOptions = {
-            dateFormat: "dd-mm-yy",
-            duration: "fast",
-            minDate: 0,
-            showAnim: "fadeIn",
-            beforeShow: function(input, inst) {
-              // Add a class to the datepicker for custom styling
-              setTimeout(function() {
-                inst.dpDiv.addClass('enhanced-datepicker');
-              }, 10);
-            }
-          };
-          
           // Check-in: only today or future
           $("#check__in").datepicker({
-              ...datepickerOptions
+              dateFormat: "dd-mm-yy",
+              duration: "fast",
+              minDate: 0,
+              showOn: "both",
+              beforeShow: function(input, inst) {
+                styleDatapickerNavButtons();
+              },
+              onChangeMonthYear: function() {
+                styleDatapickerNavButtons();
+              }
           });
-          
           // Checkout: minDate will be set dynamically
           $("#check__out").datepicker({
-              ...datepickerOptions
+              dateFormat: "dd-mm-yy",
+              duration: "fast",
+              beforeShow: function(input, inst) {
+                styleDatapickerNavButtons();
+              },
+              onChangeMonthYear: function() {
+                styleDatapickerNavButtons();
+              }
           });
 
           // When check-in changes, update checkout's minDate
@@ -532,15 +496,25 @@
               var minCheckout = new Date(checkInDate.getTime());
               minCheckout.setDate(minCheckout.getDate() + 1);
               $('#check__out').datepicker('option', 'minDate', minCheckout);
-              // If checkout is before or same as check-in, clear it
+              // If checkout date is less than new minDate, reset it
               var checkOutDate = $('#check__out').datepicker('getDate');
-              if (!checkOutDate || checkOutDate <= checkInDate) {
-                $('#check__out').val('');
+              if (checkOutDate && checkOutDate < minCheckout) {
+                $('#check__out').datepicker('setDate', minCheckout);
               }
-            } else {
-              // If no check-in, allow any checkout
-              $('#check__out').datepicker('option', 'minDate', null);
             }
+          });
+
+          // Initialize checkout minDate based on initial check-in value
+          var initialCheckIn = $('#check__in').datepicker('getDate');
+          if (initialCheckIn) {
+            var initialMinCheckout = new Date(initialCheckIn.getTime());
+            initialMinCheckout.setDate(initialMinCheckout.getDate() + 1);
+            $('#check__out').datepicker('option', 'minDate', initialMinCheckout);
+          }
+          
+          // Global event handler for any datepicker shown
+          $(document).on('mousedown', '.ui-datepicker-header', function() {
+            styleDatapickerNavButtons();
           });
         });
       },
