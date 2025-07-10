@@ -468,7 +468,7 @@
               dateFormat: "dd-mm-yy",
               duration: "fast",
               minDate: 0,
-              showOn: "both",
+              showOn: "focus",
               beforeShow: function(input, inst) {
                 styleDatapickerNavButtons();
               },
@@ -480,6 +480,7 @@
           $("#check__out").datepicker({
               dateFormat: "dd-mm-yy",
               duration: "fast",
+              showOn: "focus",
               beforeShow: function(input, inst) {
                 styleDatapickerNavButtons();
               },

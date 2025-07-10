@@ -8,3 +8,5 @@
 <link rel="stylesheet" href="{{asset('assets/css/style.css')}}">
 <!-- custom datepicker styles -->
 <link rel="stylesheet" href="{{asset('assets/css/datepicker-custom.css')}}">
+<!-- hide datepicker trigger button -->
+<link rel="stylesheet" href="{{asset('assets/css/custom-datepicker.css')}}">
