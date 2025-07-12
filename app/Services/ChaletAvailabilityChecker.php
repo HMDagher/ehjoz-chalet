@@ -251,7 +251,7 @@ final class ChaletAvailabilityChecker
                 ]);
                 return false;
             }
-            // Check for overlapping day-use bookings (but not blocked day-use slots)
+            // Check for overlapping day-use bookings and blocked day-use slots
             $dayUseSlots = $this->chalet->timeSlots()->where('is_overnight', false)->get();
             foreach ($dayUseSlots as $daySlot) {
                 // Booked day-use slot
@@ -274,8 +274,19 @@ final class ChaletAvailabilityChecker
                     return false;
                 }
                 
-                // We no longer check for blocked day-use slots as they shouldn't affect overnight availability
-                // Blocked day-use slots are separate from overnight slots and should not prevent overnight bookings
+                // Check for blocked day-use slots that overlap with overnight slot
+                $daySlotBlocked = $this->chalet->blockedDates()
+                    ->where('date', $currentDateStr)
+                    ->where('time_slot_id', $daySlot->id)
+                    ->exists();
+                if ($daySlotBlocked && $this->timeRangesOverlapWithGrace($slot->start_time, $slot->end_time, $daySlot->start_time, $daySlot->end_time, 15)) {
+                    \Log::info('Checker: Overlap with blocked day-use slot', [
+                        'overnight_slot_id' => $slot->id, 
+                        'day_slot_id' => $daySlot->id, 
+                        'date' => $currentDateStr
+                    ]);
+                    return false;
+                }
             }
             $currentDate->addDay();
         }
