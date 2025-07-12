@@ -269,6 +269,13 @@ final class ChaletAvailabilityChecker
         $currentDate = $start->copy();
         while ($currentDate < $end) {
             $currentDateStr = $currentDate->format('Y-m-d');
+            
+            \Log::info('Checker: Checking overnight availability for date', [
+                'overnight_slot_id' => $timeSlotId,
+                'current_date' => $currentDateStr,
+                'start_date' => $startDate,
+                'end_date' => $endDate
+            ]);
             // Entire day blocked
             $dayBlocked = $this->chalet->blockedDates()
                 ->where('date', $currentDateStr)
