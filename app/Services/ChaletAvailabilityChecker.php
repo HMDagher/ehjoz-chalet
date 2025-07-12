@@ -49,7 +49,7 @@ final class ChaletAvailabilityChecker
         if ($toMinutes($start1) > $toMinutes($end1)) {
             // Overnight slot: check overlap with the "next day" portion
             $overnightNextDayStart = 0; // 00:00
-            $overnightNextDayEnd = $e1 - (24 * 60); // Convert back to same day
+            $overnightNextDayEnd = $toMinutes($end1); // The end time in the same day (17:00 = 1020 minutes)
             
             $overlapStart = max($overnightNextDayStart, $s2);
             $overlapEnd = min($overnightNextDayEnd, $e2);
@@ -327,6 +327,7 @@ final class ChaletAvailabilityChecker
                     'overnight_start_time' => $slot->start_time,
                     'overnight_end_time' => $slot->end_time,
                     'day_slot_id' => $daySlot->id,
+                    'day_slot_name' => $daySlot->name,
                     'day_start_time' => $daySlot->start_time,
                     'day_end_time' => $daySlot->end_time,
                     'date' => $currentDateStr,
@@ -339,13 +340,15 @@ final class ChaletAvailabilityChecker
                         'overlaps' => $overlaps,
                         'overnight_slot_id' => $slot->id,
                         'day_slot_id' => $daySlot->id,
+                        'day_slot_name' => $daySlot->name,
                         'date' => $currentDateStr
                     ]);
                     
                     if ($overlaps) {
                         \Log::info('Checker: Overlap with blocked day-use slot', [
                             'overnight_slot_id' => $slot->id, 
-                            'day_slot_id' => $daySlot->id, 
+                            'day_slot_id' => $daySlot->id,
+                            'day_slot_name' => $daySlot->name,
                             'date' => $currentDateStr
                         ]);
                         return false;
