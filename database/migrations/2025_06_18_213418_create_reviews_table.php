@@ -25,6 +25,9 @@ return new class extends Migration
             $table->tinyInteger('communication_rating')->nullable();
             $table->text('comment')->nullable();
             $table->boolean('is_approved')->index()->nullable()->default(false);
+            $table->string('review_token')->unique()->nullable();
+            $table->timestamp('review_token_expires_at')->nullable();
+            $table->timestamp('review_token_used_at')->nullable();
             $table->timestamps();
         });
     }
