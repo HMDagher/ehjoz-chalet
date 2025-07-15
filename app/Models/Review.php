@@ -25,6 +25,9 @@ final class Review extends Model
         'communication_rating',
         'comment',
         'is_approved',
+        'review_token',
+        'review_token_expires_at',
+        'review_token_used_at',
     ];
 
     public function booking(): BelongsTo
@@ -56,6 +59,8 @@ final class Review extends Model
             'value_rating' => 'integer',
             'communication_rating' => 'integer',
             'is_approved' => 'boolean',
+            'review_token_expires_at' => 'datetime',
+            'review_token_used_at' => 'datetime',
         ];
     }
 }

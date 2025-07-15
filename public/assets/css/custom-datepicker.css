@@ -1,0 +1,4 @@
+/* Hide datepicker trigger button */
+.ui-datepicker-trigger {
+  display: none !important;
+} 

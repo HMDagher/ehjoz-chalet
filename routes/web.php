@@ -22,6 +22,10 @@ Route::post('/signin', [AuthController::class, 'signin'])->name('signin');
 Route::post('/signup', [AuthController::class, 'signup'])->name('signup');
 Route::get('/login', [pageController::class, 'index'])->name('login');
 
+// Review submission via secure token
+Route::get('/review/submit/{token}', [App\Http\Controllers\ReviewController::class, 'showForm'])->name('review.submit');
+Route::post('/review/submit/{token}', [App\Http\Controllers\ReviewController::class, 'submitForm']);
+
 // API routes for chalet booking
 Route::prefix('api')->group(function () {
     Route::get('/chalet/{slug}/availability', [App\Http\Controllers\Api\ChaletApiController::class, 'getAvailability']);

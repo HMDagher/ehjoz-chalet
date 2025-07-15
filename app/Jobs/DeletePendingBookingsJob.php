@@ -19,6 +19,7 @@ class DeletePendingBookingsJob implements ShouldQueue
     public function handle(): void
     {
         Booking::where('status', BookingStatus::Pending)
+            ->where('created_at', '<', now()->subMinutes(30))
             ->delete();
     }
 }

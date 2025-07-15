@@ -452,17 +452,41 @@
         $.gdprcookie.init();
       },
       datePicker: function (e) {
+        // Function to style datepicker navigation buttons
+        function styleDatapickerNavButtons() {
+          setTimeout(function() {
+            $('.ui-datepicker-prev').addClass('custom-datepicker-nav custom-datepicker-prev');
+            $('.ui-datepicker-next').addClass('custom-datepicker-nav custom-datepicker-next');
+            // Force icon display
+            $('.ui-icon').css('display', 'none');
+          }, 10);
+        }
+        
         $(function () {
           // Check-in: only today or future
           $("#check__in").datepicker({
               dateFormat: "dd-mm-yy",
               duration: "fast",
-              minDate: 0
+              minDate: 0,
+              showOn: "focus",
+              beforeShow: function(input, inst) {
+                styleDatapickerNavButtons();
+              },
+              onChangeMonthYear: function() {
+                styleDatapickerNavButtons();
+              }
           });
           // Checkout: minDate will be set dynamically
           $("#check__out").datepicker({
               dateFormat: "dd-mm-yy",
-              duration: "fast"
+              duration: "fast",
+              showOn: "focus",
+              beforeShow: function(input, inst) {
+                styleDatapickerNavButtons();
+              },
+              onChangeMonthYear: function() {
+                styleDatapickerNavButtons();
+              }
           });
 
           // When check-in changes, update checkout's minDate
@@ -473,15 +497,25 @@
               var minCheckout = new Date(checkInDate.getTime());
               minCheckout.setDate(minCheckout.getDate() + 1);
               $('#check__out').datepicker('option', 'minDate', minCheckout);
-              // If checkout is before or same as check-in, clear it
+              // If checkout date is less than new minDate, reset it
               var checkOutDate = $('#check__out').datepicker('getDate');
-              if (!checkOutDate || checkOutDate <= checkInDate) {
-                $('#check__out').val('');
+              if (checkOutDate && checkOutDate < minCheckout) {
+                $('#check__out').datepicker('setDate', minCheckout);
               }
-            } else {
-              // If no check-in, allow any checkout
-              $('#check__out').datepicker('option', 'minDate', null);
             }
+          });
+
+          // Initialize checkout minDate based on initial check-in value
+          var initialCheckIn = $('#check__in').datepicker('getDate');
+          if (initialCheckIn) {
+            var initialMinCheckout = new Date(initialCheckIn.getTime());
+            initialMinCheckout.setDate(initialMinCheckout.getDate() + 1);
+            $('#check__out').datepicker('option', 'minDate', initialMinCheckout);
+          }
+          
+          // Global event handler for any datepicker shown
+          $(document).on('mousedown', '.ui-datepicker-header', function() {
+            styleDatapickerNavButtons();
           });
         });
       },

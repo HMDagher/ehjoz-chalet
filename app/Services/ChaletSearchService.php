@@ -52,17 +52,74 @@ final class ChaletSearchService
                 \Log::info('SearchService: chalet has no active time slots', ['chalet_id' => $chalet->id]);
                 continue;
             }
+            
+            // Check if any date in the range is fully blocked (only where time_slot_id is null)
+            $fullyBlocked = false;
+            
+            // For day-use, we only need to check the single date
+            if ($bookingType === 'day-use') {
+                $fullyBlocked = $chalet->blockedDates()
+                    ->whereNull('time_slot_id')
+                    ->whereDate('date', '=', $startDate)
+                    ->exists();
+            } else {
+                // For overnight, check each date in the range
+                $currentDate = Carbon::parse($startDate);
+                $endDateCarbon = Carbon::parse($endDate);
+                
+                while ($currentDate < $endDateCarbon) {
+                    $currentDateStr = $currentDate->format('Y-m-d');
+                    
+                    $dateBlocked = $chalet->blockedDates()
+                        ->whereNull('time_slot_id')
+                        ->whereDate('date', '=', $currentDateStr)
+                        ->exists();
+                    
+                    if ($dateBlocked) {
+                        $fullyBlocked = true;
+                        break;
+                    }
+                    
+                    $currentDate->addDay();
+                }
+            }
+                
+            if ($fullyBlocked) {
+                \Log::info('SearchService: chalet has fully blocked dates in range', [
+                    'chalet_id' => $chalet->id,
+                    'start_date' => $startDate,
+                    'end_date' => $bookingType === 'overnight' ? $endDate : null,
+                    'booking_type' => $bookingType
+                ]);
+                continue;
+            }
 
             $availabilityChecker = new \App\Services\ChaletAvailabilityChecker($chalet);
             $allSlots = [];
             $hasAvailableSlot = false;
 
             if ($bookingType === 'day-use') {
+                \Log::info('SearchService: processing day-use slots for chalet', [
+                    'chalet_id' => $chalet->id,
+                    'chalet_name' => $chalet->name,
+                    'date' => $startDate
+                ]);
+                
                 // Get all day-use slots and mark their availability
                 $dayUseSlots = $chalet->timeSlots
                     ->where('is_overnight', false)
-                    ->map(function($slot) use ($availabilityChecker, $startDate, &$hasAvailableSlot) {
-                        $price = $availabilityChecker->calculateDayUsePrice($startDate, $slot->id);
+                    ->map(function($slot) use ($availabilityChecker, $startDate, &$hasAvailableSlot, $chalet) {
+                        $isAvailable = $availabilityChecker->isDayUseSlotAvailable($startDate, $slot->id);
+                        $price = $isAvailable ? $availabilityChecker->calculateDayUsePrice($startDate, $slot->id) : null;
+                        
+                        \Log::info('SearchService: day-use slot availability check', [
+                            'chalet_id' => $chalet->id,
+                            'slot_id' => $slot->id,
+                            'slot_name' => $slot->name,
+                            'is_available' => $isAvailable,
+                            'price' => $price
+                        ]);
+                        
                         if ($price !== null) {
                             $hasAvailableSlot = true;
                         }
@@ -102,17 +159,51 @@ final class ChaletSearchService
                     ];
                 }
             } else {
+                \Log::info('SearchService: processing overnight slots for chalet', [
+                    'chalet_id' => $chalet->id,
+                    'chalet_name' => $chalet->name,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ]);
+                
                 // Get all overnight slots and mark their availability
                 $overnightSlots = $chalet->timeSlots
                     ->where('is_overnight', true)
-                    ->map(function($slot) use ($availabilityChecker, $startDate, $endDate, &$hasAvailableSlot) {
+                    ->map(function($slot) use ($availabilityChecker, $startDate, $endDate, &$hasAvailableSlot, $chalet) {
+                        $isAvailable = $availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slot->id);
+                        
+                        \Log::info('SearchService: overnight slot availability check', [
+                            'chalet_id' => $chalet->id,
+                            'slot_id' => $slot->id,
+                            'slot_name' => $slot->name,
+                            'is_available' => $isAvailable,
+                            'start_date' => $startDate,
+                            'end_date' => $endDate
+                        ]);
+                        
+                        if (!$isAvailable) {
+                            return [
+                                'id' => $slot->id,
+                                'name' => $slot->name,
+                                'start_time' => $slot->start_time,
+                                'end_time' => $slot->end_time,
+                                'duration_hours' => $slot->duration_hours,
+                                'price_per_night' => null,
+                                'total_price' => null,
+                                'nights' => 0,
+                                'booking_type' => 'overnight'
+                            ];
+                        }
+                        
                         $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slot->id);
                         $nights = $priceData['nights'] ?? 1;
                         $originalTotal = $priceData['original_price'] ?? $priceData['total_price'];
                         $originalPerNight = $nights > 0 ? $originalTotal / $nights : $originalTotal;
+                        
                         if ($originalPerNight !== null) {
                             $hasAvailableSlot = true;
                         }
+                        
                         return [
                             'id' => $slot->id,
                             'name' => $slot->name,
