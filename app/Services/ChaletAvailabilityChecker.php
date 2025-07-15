@@ -41,25 +41,10 @@ final class ChaletAvailabilityChecker
             $e2 += 24 * 60; // Add 24 hours to end time
         }
         
-        // For overnight slots, we need to check if they overlap with day slots
-        // The overnight slot (19:00-17:00 next day) should overlap with day slot (10:00-18:00)
-        // This means the overnight slot's "next day" portion (00:00-17:00) overlaps with day slot (10:00-18:00)
-        
-        // If this is an overnight slot (start1 > end1 in 24-hour format), we need special handling
-        if ($toMinutes($start1) > $toMinutes($end1)) {
-            // Overnight slot: check overlap with the "next day" portion
-            $overnightNextDayStart = 0; // 00:00
-            $overnightNextDayEnd = $toMinutes($end1); // The end time in the same day (17:00 = 1020 minutes)
-            
-            $overlapStart = max($overnightNextDayStart, $s2);
-            $overlapEnd = min($overnightNextDayEnd, $e2);
-            $overlap = $overlapEnd - $overlapStart;
-        } else {
-            // Regular same-day slots
-            $overlapStart = max($s1, $s2);
-            $overlapEnd = min($e1, $e2);
-            $overlap = $overlapEnd - $overlapStart;
-        }
+        // Calculate overlap
+        $overlapStart = max($s1, $s2);
+        $overlapEnd = min($e1, $e2);
+        $overlap = $overlapEnd - $overlapStart;
         
         \Log::info('Checker: timeRangesOverlapWithGrace calculation', [
             'start1' => $start1,
@@ -74,8 +59,7 @@ final class ChaletAvailabilityChecker
             'overlap_end' => $overlapEnd,
             'overlap_minutes' => $overlap,
             'grace_minutes' => $graceMinutes,
-            'result' => $overlap > $graceMinutes,
-            'is_overnight_slot' => $toMinutes($start1) > $toMinutes($end1)
+            'result' => $overlap > $graceMinutes
         ]);
         
         return $overlap > $graceMinutes;
@@ -84,7 +68,7 @@ final class ChaletAvailabilityChecker
     /**
      * Alias for timeRangesOverlapWithGrace for backward compatibility
      */
-    private function timeRangesOverlap($start1, $end1, $start2, $end2): bool
+    public function timeRangesOverlap($start1, $end1, $start2, $end2): bool
     {
         return $this->timeRangesOverlapWithGrace($start1, $end1, $start2, $end2, 0);
     }
@@ -171,8 +155,8 @@ final class ChaletAvailabilityChecker
                 ->where('time_slot_id', $overnightSlot->id)
                 ->exists();
             
-            // If overnight slot is blocked on current date, check for overlap
-            if ($blockedOvernightCurrentDate && $this->timeRangesOverlapWithGrace($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time, 15)) {
+            // If overnight slot is blocked on current date, check for overlap (no grace period for blocking)
+            if ($blockedOvernightCurrentDate && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time)) {
                 \Log::info('Checker: Overlap with blocked overnight slot (current date)', [
                     'slot_id' => $timeSlotId, 
                     'overnight_slot_id' => $overnightSlot->id, 
@@ -184,7 +168,7 @@ final class ChaletAvailabilityChecker
             }
             
             // If overnight slot is blocked on previous date and extends to current date, check for overlap
-            if ($blockedOvernightPreviousDate && $this->timeRangesOverlapWithGrace($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time, 15)) {
+            if ($blockedOvernightPreviousDate && $this->timeRangesOverlap($slot->start_time, $slot->end_time, $overnightSlot->start_time, $overnightSlot->end_time)) {
                 \Log::info('Checker: Overlap with blocked overnight slot (previous date extending to current)', [
                     'slot_id' => $timeSlotId, 
                     'overnight_slot_id' => $overnightSlot->id, 
