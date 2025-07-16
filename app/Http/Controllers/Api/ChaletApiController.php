@@ -359,53 +359,75 @@ class ChaletApiController extends Controller
             $dayUseSlots = $chalet->timeSlots()->where('is_active', true)->where('is_overnight', false)->get();
             $overnightSlots = $chalet->timeSlots()->where('is_active', true)->where('is_overnight', true)->get();
 
-            foreach ($blockedDates as $blockedDate) {
-                $dateStr = Carbon::parse($blockedDate->date)->format('Y-m-d');
-                $blockedSlot = $blockedDate->timeSlot;
-                
-                if (!$blockedSlot || !$blockedSlot->is_active) {
-                    continue;
-                }
+            // Group blocked dates by date for easier processing
+            $blockedByDate = $blockedDates->groupBy('date');
 
-                if ($blockedSlot->is_overnight) {
+            foreach ($blockedByDate as $date => $dateBlockedSlots) {
+                $dateStr = Carbon::parse($date)->format('Y-m-d');
+                
+                $blockedDayUseSlots = [];
+                $blockedOvernightSlots = [];
+                
+                // Separate blocked slots by type
+                foreach ($dateBlockedSlots as $blockedDate) {
+                    $blockedSlot = $blockedDate->timeSlot;
+                    
+                    if (!$blockedSlot || !$blockedSlot->is_active) {
+                        continue;
+                    }
+                    
+                    if ($blockedSlot->is_overnight) {
+                        $blockedOvernightSlots[] = $blockedSlot;
+                    } else {
+                        $blockedDayUseSlots[] = $blockedSlot;
+                    }
+                }
+                
+                // Handle blocked overnight slots
+                foreach ($blockedOvernightSlots as $blockedSlot) {
                     // Blocked overnight slot affects overnight bookings directly
                     $overnightBlocked[] = $dateStr;
                     
-                    // Check if it affects day-use slots due to overlap
-                    // Only block day-use if there's actual time overlap
-                    $hasOverlapWithDayUse = false;
+                    // Check if ALL day-use slots are affected by this blocked overnight slot
+                    $availableDayUseSlots = [];
                     foreach ($dayUseSlots as $daySlot) {
-                        if ($availabilityChecker->timeRangesOverlap(
+                        $overlaps = $availabilityChecker->timeRangesOverlap(
                             $daySlot->start_time, $daySlot->end_time,
                             $blockedSlot->start_time, $blockedSlot->end_time
-                        )) {
-                            $hasOverlapWithDayUse = true;
-                            break;
+                        );
+                        
+                        // If this day-use slot doesn't overlap, it's still available
+                        if (!$overlaps) {
+                            $availableDayUseSlots[] = $daySlot->id;
                         }
                     }
                     
-                    // Only add to day-use blocked if there's actual overlap
-                    if ($hasOverlapWithDayUse) {
+                    // Only block day-use for this date if NO day-use slots are available
+                    if (count($availableDayUseSlots) === 0) {
                         $dayUseBlocked[] = $dateStr;
                     }
-                } else {
-                    // Blocked day-use slot - check if ALL day-use slots are blocked for this date
-                    $blockedSlotsForDate = $blockedDates->where('date', $blockedDate->date)->pluck('time_slot_id')->toArray();
-                    $dayUseSlotsForDate = $dayUseSlots->pluck('id')->toArray();
+                }
+                
+                // Handle blocked day-use slots
+                if (!empty($blockedDayUseSlots)) {
+                    $blockedDayUseSlotIds = collect($blockedDayUseSlots)->pluck('id')->toArray();
+                    $allDayUseSlotIds = $dayUseSlots->pluck('id')->toArray();
                     
-                    // If all day-use slots are blocked, mark date as unavailable
-                    if (count(array_intersect($blockedSlotsForDate, $dayUseSlotsForDate)) === count($dayUseSlotsForDate)) {
+                    // Only mark date as unavailable for day-use if ALL day-use slots are blocked
+                    if (count(array_intersect($blockedDayUseSlotIds, $allDayUseSlotIds)) === count($allDayUseSlotIds)) {
                         $dayUseBlocked[] = $dateStr;
                     }
                     
-                    // Check if blocked day-use slot affects overnight slots due to overlap
-                    foreach ($overnightSlots as $overnightSlot) {
-                        if ($availabilityChecker->timeRangesOverlap(
-                            $blockedSlot->start_time, $blockedSlot->end_time,
-                            $overnightSlot->start_time, $overnightSlot->end_time
-                        )) {
-                            $overnightBlocked[] = $dateStr;
-                            break; // One overlap is enough to block the date
+                    // Check if blocked day-use slots affect overnight slots due to overlap
+                    foreach ($blockedDayUseSlots as $blockedSlot) {
+                        foreach ($overnightSlots as $overnightSlot) {
+                            if ($availabilityChecker->timeRangesOverlap(
+                                $blockedSlot->start_time, $blockedSlot->end_time,
+                                $overnightSlot->start_time, $overnightSlot->end_time
+                            )) {
+                                $overnightBlocked[] = $dateStr;
+                                break 2; // Break both loops - one overlap is enough
+                            }
                         }
                     }
                 }
