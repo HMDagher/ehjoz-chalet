@@ -18,8 +18,31 @@ class DeletePendingBookingsJob implements ShouldQueue
 
     public function handle(): void
     {
-        Booking::where('status', BookingStatus::Pending)
-            ->where('created_at', '<', now()->subMinutes(30))
-            ->delete();
+        $cutoffTime = now()->subMinutes(30);
+        
+        // Get the bookings that will be deleted for logging
+        $bookingsToDelete = Booking::where('status', BookingStatus::Pending)
+            ->where('created_at', '<', $cutoffTime)
+            ->get();
+        
+        if ($bookingsToDelete->isNotEmpty()) {
+            \Log::info('DeletePendingBookingsJob: Deleting expired pending bookings', [
+                'count' => $bookingsToDelete->count(),
+                'cutoff_time' => $cutoffTime->toDateTimeString(),
+                'booking_ids' => $bookingsToDelete->pluck('id')->toArray(),
+                'booking_references' => $bookingsToDelete->pluck('booking_reference')->toArray()
+            ]);
+            
+            // Delete the bookings
+            $deletedCount = Booking::where('status', BookingStatus::Pending)
+                ->where('created_at', '<', $cutoffTime)
+                ->delete();
+            
+            \Log::info('DeletePendingBookingsJob: Completed deletion', [
+                'deleted_count' => $deletedCount
+            ]);
+        } else {
+            \Log::debug('DeletePendingBookingsJob: No expired pending bookings to delete');
+        }
     }
 }

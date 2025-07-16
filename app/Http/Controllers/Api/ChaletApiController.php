@@ -371,15 +371,22 @@ class ChaletApiController extends Controller
                     // Blocked overnight slot affects overnight bookings directly
                     $overnightBlocked[] = $dateStr;
                     
-                    // Also check if it affects day-use slots due to overlap
+                    // Check if it affects day-use slots due to overlap
+                    // Only block day-use if there's actual time overlap
+                    $hasOverlapWithDayUse = false;
                     foreach ($dayUseSlots as $daySlot) {
                         if ($availabilityChecker->timeRangesOverlap(
                             $daySlot->start_time, $daySlot->end_time,
                             $blockedSlot->start_time, $blockedSlot->end_time
                         )) {
-                            $dayUseBlocked[] = $dateStr;
-                            break; // One overlap is enough to block the date
+                            $hasOverlapWithDayUse = true;
+                            break;
                         }
+                    }
+                    
+                    // Only add to day-use blocked if there's actual overlap
+                    if ($hasOverlapWithDayUse) {
+                        $dayUseBlocked[] = $dateStr;
                     }
                 } else {
                     // Blocked day-use slot - check if ALL day-use slots are blocked for this date
