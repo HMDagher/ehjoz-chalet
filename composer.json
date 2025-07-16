@@ -12,6 +12,7 @@
         "filament/spatie-laravel-media-library-plugin": "^3.3",
         "flowframe/laravel-trend": "^0.4.0",
         "joaopaulolndev/filament-general-settings": "^1.0",
+        "joshembling/image-optimizer": "^1.6",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",

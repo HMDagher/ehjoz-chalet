@@ -30,7 +30,8 @@ final class FacilityResource extends Resource
         return $form
             ->schema([
                 SpatieMediaLibraryFileUpload::make('icon')
-                    ->image(),
+                    ->image()
+                    ->optimize('webp'),
                 ToggleButtons::make('is_active')
                     ->boolean()
                     ->default(true)
