@@ -1005,13 +1005,20 @@ class ChaletApiController extends Controller
                 continue;
             }
             
-            // Check if overnight slot affects any day-use slots on next day
+            // Count how many day-use slots are affected by this overnight slot
+            $affectedDayUseSlots = 0;
+            $totalDayUseSlots = $dayUseSlots->count();
+            
             foreach ($dayUseSlots as $daySlot) {
                 if ($this->overnightAffectsDayUse($overnightSlot, $daySlot)) {
-                    if (!in_array($nextDay, $unavailableDayUseDates)) {
-                        $unavailableDayUseDates[] = $nextDay;
-                    }
-                    break; // One overlap is enough to block the day
+                    $affectedDayUseSlots++;
+                }
+            }
+            
+            // Only block the entire day if ALL day-use slots are affected
+            if ($affectedDayUseSlots === $totalDayUseSlots && $totalDayUseSlots > 0) {
+                if (!in_array($nextDay, $unavailableDayUseDates)) {
+                    $unavailableDayUseDates[] = $nextDay;
                 }
             }
         }
