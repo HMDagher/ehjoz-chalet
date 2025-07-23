@@ -44,8 +44,7 @@ final class UserResource extends Resource
                     ->visibleOn('create'),
                 PhoneInput::make('phone'),
                 Forms\Components\DateTimePicker::make('phone_verified_at')
-                    ->default(now())
-                    ->visibleOn('create'),
+                    ->default(now()),
                 Forms\Components\Select::make('roles')
                     ->multiple()
                     ->relationship('roles', 'name')
