@@ -858,7 +858,11 @@ class ChaletApiController extends Controller
                 // Entire day is blocked
                 $fullyBlockedDates[] = $dateStr;
                 $unavailableDayUseDates[] = $dateStr;
-                $unavailableOvernightDates[] = $dateStr;
+                
+                // Only add to overnight unavailable if there are overnight slots
+                if ($overnightSlots->isNotEmpty()) {
+                    $unavailableOvernightDates[] = $dateStr;
+                }
                 
                 // Check cross-day effects for overnight slots
                 $this->addCrossDayEffects($dateStr, $overnightSlots, $dayUseSlots, $unavailableDayUseDates, $endDate);
@@ -905,10 +909,12 @@ class ChaletApiController extends Controller
             $unavailableDayUseDates[] = $dateStr;
         }
         
-        // Check overnight availability
-        $availableOvernightSlots = $overnightSlots->whereNotIn('id', $affectedSlotIds);
-        if ($availableOvernightSlots->isEmpty()) {
-            $unavailableOvernightDates[] = $dateStr;
+        // Check overnight availability - only if there are overnight slots to begin with
+        if ($overnightSlots->isNotEmpty()) {
+            $availableOvernightSlots = $overnightSlots->whereNotIn('id', $affectedSlotIds);
+            if ($availableOvernightSlots->isEmpty()) {
+                $unavailableOvernightDates[] = $dateStr;
+            }
         }
         
         // Check cross-day effects for blocked overnight slots
@@ -952,13 +958,17 @@ class ChaletApiController extends Controller
      */
     private function slotsOverlapSameDay($slot1, $slot2, ChaletAvailabilityChecker $availabilityChecker): bool
     {
-        // Handle overnight slots that cross midnight
-        if ($slot1->is_overnight || $slot2->is_overnight) {
-            // For overnight slots, we need special handling
+        // Check if either slot crosses midnight (end time < start time)
+        $slot1CrossesMidnight = $this->timeToMinutes($slot1->end_time) <= $this->timeToMinutes($slot1->start_time);
+        $slot2CrossesMidnight = $this->timeToMinutes($slot2->end_time) <= $this->timeToMinutes($slot2->start_time);
+        
+        // Handle slots that cross midnight (either overnight or day-use that crosses midnight)
+        if ($slot1->is_overnight || $slot2->is_overnight || $slot1CrossesMidnight || $slot2CrossesMidnight) {
+            // For slots that cross midnight, we need special handling
             return $this->overnightSlotsOverlap($slot1, $slot2);
         }
         
-        // Regular same-day overlap check
+        // Regular same-day overlap check for slots that don't cross midnight
         return $availabilityChecker->timeRangesOverlap(
             $slot1->start_time, 
             $slot1->end_time,
@@ -968,7 +978,7 @@ class ChaletApiController extends Controller
     }
 
     /**
-     * Check if slots overlap when one or both are overnight
+     * Check if slots overlap when one or both cross midnight
      */
     private function overnightSlotsOverlap($slot1, $slot2): bool
     {
@@ -978,11 +988,12 @@ class ChaletApiController extends Controller
         $slot2Start = $this->timeToMinutes($slot2->start_time);
         $slot2End = $this->timeToMinutes($slot2->end_time);
         
-        // Handle overnight slots (end time is next day)
-        if ($slot1->is_overnight && $slot1End <= $slot1Start) {
+        // Handle slots that cross midnight (either overnight or day-use that crosses midnight)
+        // If end time <= start time, it means the slot crosses midnight
+        if ($slot1End <= $slot1Start) {
             $slot1End += 24 * 60; // Add 24 hours
         }
-        if ($slot2->is_overnight && $slot2End <= $slot2Start) {
+        if ($slot2End <= $slot2Start) {
             $slot2End += 24 * 60; // Add 24 hours
         }
         
