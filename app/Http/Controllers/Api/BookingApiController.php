@@ -63,12 +63,13 @@ class BookingApiController extends Controller
                 if (!$availabilityChecker->areDayUseSlotIdsConsecutive($slotIds)) {
                     return response()->json(['error' => 'Selected slots are not consecutive in time. Please select consecutive slots.'], 400);
                 }
-                // Enhanced error reporting for slot availability
+                // Use the ChaletAvailabilityChecker service for proper validation
                 foreach ($slotIds as $slotId) {
                     $slotIdInt = (int) $slotId;
-                    $reason = $this->getDayUseSlotConflictReason($availabilityChecker, $startDate, $slotIdInt);
-                    if ($reason !== null) {
-                        return response()->json(['error' => $reason], 400);
+                    if (!$availabilityChecker->isDayUseSlotAvailable($startDate, $slotIdInt)) {
+                        // Get detailed error message for user feedback
+                        $reason = $this->getDayUseSlotConflictReason($availabilityChecker, $startDate, $slotIdInt);
+                        return response()->json(['error' => $reason ?: 'Selected slot is not available.'], 400);
                     }
                 }
                 // Calculate base slot price (sum of standard slot prices, no custom adjustment)
@@ -120,9 +121,10 @@ class BookingApiController extends Controller
                 }
                 
                 $slotId = (int) $slotIds[0]; // Overnight bookings use single slot - convert to int
-                $reason = $this->getOvernightSlotConflictReason($availabilityChecker, $startDate, $endDate, $slotId);
-                if ($reason !== null) {
-                    return response()->json(['error' => $reason], 400);
+                if (!$availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slotId)) {
+                    // Get detailed error message for user feedback
+                    $reason = $this->getOvernightSlotConflictReason($availabilityChecker, $startDate, $endDate, $slotId);
+                    return response()->json(['error' => $reason ?: 'Selected overnight slot is not available.'], 400);
                 }
                 
                 $start = Carbon::parse($startDate);

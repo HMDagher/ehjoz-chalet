@@ -136,6 +136,32 @@ final class ChaletAvailabilityChecker
             \Log::info('Checker: Slot already booked', ['slot_id' => $timeSlotId, 'date' => $date]);
             return false;
         }
+        // Check for overlaps with other blocked day-use slots
+        $blockedDayUseSlots = $this->chalet->blockedDates()
+            ->where('date', $date)
+            ->whereNotNull('time_slot_id')
+            ->with('timeSlot')
+            ->get();
+            
+        foreach ($blockedDayUseSlots as $blockedDate) {
+            $blockedSlot = $blockedDate->timeSlot;
+            if (!$blockedSlot || $blockedSlot->id === $timeSlotId) {
+                continue; // Skip if slot not found or it's the same slot we're checking
+            }
+            
+            // Check for time overlap with blocked day-use slot
+            if ($this->timeRangesOverlap($slot->start_time, $slot->end_time, $blockedSlot->start_time, $blockedSlot->end_time)) {
+                \Log::info('Checker: Overlap with blocked day-use slot', [
+                    'slot_id' => $timeSlotId,
+                    'blocked_slot_id' => $blockedSlot->id,
+                    'date' => $date,
+                    'slot_time' => $slot->start_time . '-' . $slot->end_time,
+                    'blocked_slot_time' => $blockedSlot->start_time . '-' . $blockedSlot->end_time
+                ]);
+                return false;
+            }
+        }
+
         // Check for blocked or booked overnight slots that overlap in time
         $overnightSlots = $this->chalet->timeSlots()->where('is_overnight', true)->get();
         foreach ($overnightSlots as $overnightSlot) {

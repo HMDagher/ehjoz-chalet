@@ -276,21 +276,46 @@ class ChaletApiController extends Controller
         $endDate = $request->get('end_date', now()->addMonths(3)->format('Y-m-d'));
 
         try {
-            // Get all time slots for this chalet
-            $allTimeSlots = $chalet->timeSlots()->where('is_active', true)->get();
+            $availabilityChecker = new ChaletAvailabilityChecker($chalet);
             
-            // Get all unavailable slots (blocked + booked)
-            $unavailableSlots = $this->getAllUnavailableSlots($chalet, $startDate, $endDate);
+            // Use the centralized validation logic instead of custom overlap calculations
+            $unavailableDayUseDates = [];
+            $unavailableOvernightDates = [];
+            $fullyBlockedDates = [];
             
-            // Calculate which dates are unavailable for each booking type
-            $unavailableDates = $this->calculateUnavailableDatesWithOverlaps($chalet, $unavailableSlots, $allTimeSlots, $startDate, $endDate);
+            $currentDate = Carbon::parse($startDate);
+            $endDateCarbon = Carbon::parse($endDate);
+            
+            while ($currentDate <= $endDateCarbon) {
+                $dateStr = $currentDate->format('Y-m-d');
+                
+                // Check day-use availability using the centralized method
+                $availableDayUseSlots = $availabilityChecker->getAvailableDayUseSlots($dateStr);
+                if ($availableDayUseSlots->isEmpty()) {
+                    $unavailableDayUseDates[] = $dateStr;
+                }
+                
+                // Check overnight availability (for single night starting on this date)
+                $nextDay = $currentDate->copy()->addDay()->format('Y-m-d');
+                $availableOvernightSlots = $availabilityChecker->getAvailableOvernightSlots($dateStr, $nextDay);
+                if ($availableOvernightSlots->isEmpty()) {
+                    $unavailableOvernightDates[] = $dateStr;
+                }
+                
+                // Check if entire day is blocked (no day-use AND no overnight slots available)
+                if ($availableDayUseSlots->isEmpty() && $availableOvernightSlots->isEmpty()) {
+                    $fullyBlockedDates[] = $dateStr;
+                }
+                
+                $currentDate->addDay();
+            }
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'unavailable_day_use_dates' => $unavailableDates['day_use'],
-                    'unavailable_overnight_dates' => $unavailableDates['overnight'],
-                    'fully_blocked_dates' => $unavailableDates['fully_blocked'],
+                    'unavailable_day_use_dates' => $unavailableDayUseDates,
+                    'unavailable_overnight_dates' => $unavailableOvernightDates,
+                    'fully_blocked_dates' => $fullyBlockedDates,
                     'date_range' => [
                         'start' => $startDate,
                         'end' => $endDate
