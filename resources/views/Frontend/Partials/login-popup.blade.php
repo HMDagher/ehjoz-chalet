@@ -103,6 +103,17 @@
                         @endif
                     </div>
                 </div>
+
+                <div class="form-group">
+                    <label for="sphone" class=" text-dark mb-3">Your Phone Number</label>
+                    <div class="position-relative">
+                        <input type="tel" name="phone" id="sphone" placeholder="e.g., +966 50 123 4567" required value="{{ old('phone') }}">
+                        <i class="fa-light fa-phone icon"></i>
+                        @if ($errors->has('phone'))
+                            <span class="text-danger" style="font-size: 13px;">{{ $errors->first('phone') }}</span>
+                        @endif
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="spassword" class=" text-dark mb-3">Password</label>
                     <div class="position-relative">
