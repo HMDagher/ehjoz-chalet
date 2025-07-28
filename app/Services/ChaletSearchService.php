@@ -53,39 +53,37 @@ final class ChaletSearchService
                 continue;
             }
             
-            // Check if any date in the range is fully blocked (only where time_slot_id is null)
-            $fullyBlocked = false;
+            // For multi-day searches, we need STRICT validation - only show chalets available for the ENTIRE duration
+            $hasFullDurationAvailability = false;
             
-            // For day-use, we only need to check the single date
             if ($bookingType === 'day-use') {
+                // For day-use, check if the single date is fully blocked
                 $fullyBlocked = $chalet->blockedDates()
                     ->whereNull('time_slot_id')
                     ->whereDate('date', '=', $startDate)
                     ->exists();
+                    
+                if (!$fullyBlocked) {
+                    $hasFullDurationAvailability = true;
+                }
             } else {
-                // For overnight, check each date in the range
-                $currentDate = Carbon::parse($startDate);
-                $endDateCarbon = Carbon::parse($endDate);
+                // For overnight bookings, we need to ensure FULL DURATION availability
+                // Use the availability checker to validate the entire date range upfront
+                $availabilityChecker = new \App\Services\ChaletAvailabilityChecker($chalet);
                 
-                while ($currentDate < $endDateCarbon) {
-                    $currentDateStr = $currentDate->format('Y-m-d');
-                    
-                    $dateBlocked = $chalet->blockedDates()
-                        ->whereNull('time_slot_id')
-                        ->whereDate('date', '=', $currentDateStr)
-                        ->exists();
-                    
-                    if ($dateBlocked) {
-                        $fullyBlocked = true;
-                        break;
+                // Check if ANY overnight slot is available for the FULL duration
+                $overnightSlots = $chalet->timeSlots->where('is_overnight', true);
+                
+                foreach ($overnightSlots as $slot) {
+                    if ($availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slot->id)) {
+                        $hasFullDurationAvailability = true;
+                        break; // Found at least one slot available for full duration
                     }
-                    
-                    $currentDate->addDay();
                 }
             }
                 
-            if ($fullyBlocked) {
-                \Log::info('SearchService: chalet has fully blocked dates in range', [
+            if (!$hasFullDurationAvailability) {
+                \Log::info('SearchService: chalet does not have full duration availability', [
                     'chalet_id' => $chalet->id,
                     'start_date' => $startDate,
                     'end_date' => $bookingType === 'overnight' ? $endDate : null,
@@ -94,7 +92,10 @@ final class ChaletSearchService
                 continue;
             }
 
-            $availabilityChecker = new \App\Services\ChaletAvailabilityChecker($chalet);
+            // Re-use the availability checker (already created for overnight validation above)
+            if ($bookingType === 'day-use') {
+                $availabilityChecker = new \App\Services\ChaletAvailabilityChecker($chalet);
+            }
             $allSlots = [];
             $hasAvailableSlot = false;
 
