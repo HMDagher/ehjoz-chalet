@@ -11,6 +11,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Navigation\MenuItem;
+use App\Filament\Customer\Pages\Auth\EditProfile;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -26,7 +27,7 @@ class CustomerPanelProvider extends PanelProvider
             ->id('customer')
             ->path('customer')
             ->emailVerification()
-            ->profile(isSimple: false)
+            ->profile(EditProfile::class, isSimple: false)
             ->unsavedChangesAlerts()
             ->databaseTransactions()
             ->topNavigation()
