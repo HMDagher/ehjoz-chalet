@@ -125,11 +125,11 @@ final class ChaletResource extends Resource
                                 ->image()
                                 ->collection('featured_image')
                                 ->required()
-                                ->optimize(),
+                                ->optimize('jpg'),
                             SpatieMediaLibraryFileUpload::make('media')
                                 ->multiple()
                                 ->image()
-                                ->optimize()
+                                ->optimize('jpg')
                                 ->reorderable(),
                         ]),
                     Forms\Components\Tabs\Tab::make('Location')
