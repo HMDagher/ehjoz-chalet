@@ -10,6 +10,7 @@ use App\Services\ChaletAvailabilityChecker;
 use App\Services\ChaletSearchService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class ChaletApiController extends Controller
@@ -263,6 +264,7 @@ class ChaletApiController extends Controller
     /**
      * Get unavailable dates for a chalet (for datepicker pre-filtering)
      * This method properly handles time slot overlaps and cross-day effects
+     * Now with caching for improved performance
      */
     public function getUnavailableDates(Request $request, string $slug): JsonResponse
     {
@@ -272,60 +274,85 @@ class ChaletApiController extends Controller
             return response()->json(['error' => 'Chalet not found'], 404);
         }
 
+        $bookingType = $request->get('booking_type', 'overnight');
         $startDate = $request->get('start_date', now()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->addMonths(3)->format('Y-m-d'));
 
+        // Create cache key based on chalet ID, booking type, and date range
+        $cacheKey = "chalet_unavailable_dates_{$chalet->id}_{$bookingType}_{$startDate}_{$endDate}";
+        
         try {
-            $availabilityChecker = new ChaletAvailabilityChecker($chalet);
-            
-            // Use the centralized validation logic instead of custom overlap calculations
-            $unavailableDayUseDates = [];
-            $unavailableOvernightDates = [];
-            $fullyBlockedDates = [];
-            
-            $currentDate = Carbon::parse($startDate);
-            $endDateCarbon = Carbon::parse($endDate);
-            
-            while ($currentDate <= $endDateCarbon) {
-                $dateStr = $currentDate->format('Y-m-d');
+            // Try to get from cache first (cache for 30 minutes)
+            $cachedData = Cache::remember($cacheKey, 1800, function () use ($chalet, $bookingType, $startDate, $endDate) {
+                \Log::info('Generating unavailable dates cache', [
+                    'chalet_id' => $chalet->id,
+                    'booking_type' => $bookingType,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ]);
                 
-                // Check day-use availability using the centralized method
-                $availableDayUseSlots = $availabilityChecker->getAvailableDayUseSlots($dateStr);
-                if ($availableDayUseSlots->isEmpty()) {
-                    $unavailableDayUseDates[] = $dateStr;
+                $availabilityChecker = new ChaletAvailabilityChecker($chalet);
+                
+                // Use the centralized validation logic instead of custom overlap calculations
+                $unavailableDayUseDates = [];
+                $unavailableOvernightDates = [];
+                $fullyBlockedDates = [];
+                
+                $currentDate = Carbon::parse($startDate);
+                $endDateCarbon = Carbon::parse($endDate);
+                
+                while ($currentDate <= $endDateCarbon) {
+                    $dateStr = $currentDate->format('Y-m-d');
+                    
+                    // Check day-use availability using the centralized method
+                    $availableDayUseSlots = $availabilityChecker->getAvailableDayUseSlots($dateStr);
+                    if ($availableDayUseSlots->isEmpty()) {
+                        $unavailableDayUseDates[] = $dateStr;
+                    }
+                    
+                    // Check overnight availability (for single night starting on this date)
+                    $nextDay = $currentDate->copy()->addDay()->format('Y-m-d');
+                    $availableOvernightSlots = $availabilityChecker->getAvailableOvernightSlots($dateStr, $nextDay);
+                    if ($availableOvernightSlots->isEmpty()) {
+                        $unavailableOvernightDates[] = $dateStr;
+                    }
+                    
+                    // Check if entire day is blocked (no day-use AND no overnight slots available)
+                    if ($availableDayUseSlots->isEmpty() && $availableOvernightSlots->isEmpty()) {
+                        $fullyBlockedDates[] = $dateStr;
+                    }
+                    
+                    $currentDate->addDay();
                 }
-                
-                // Check overnight availability (for single night starting on this date)
-                $nextDay = $currentDate->copy()->addDay()->format('Y-m-d');
-                $availableOvernightSlots = $availabilityChecker->getAvailableOvernightSlots($dateStr, $nextDay);
-                if ($availableOvernightSlots->isEmpty()) {
-                    $unavailableOvernightDates[] = $dateStr;
-                }
-                
-                // Check if entire day is blocked (no day-use AND no overnight slots available)
-                if ($availableDayUseSlots->isEmpty() && $availableOvernightSlots->isEmpty()) {
-                    $fullyBlockedDates[] = $dateStr;
-                }
-                
-                $currentDate->addDay();
-            }
 
-            return response()->json([
-                'success' => true,
-                'data' => [
+                return [
                     'unavailable_day_use_dates' => $unavailableDayUseDates,
                     'unavailable_overnight_dates' => $unavailableOvernightDates,
                     'fully_blocked_dates' => $fullyBlockedDates,
                     'date_range' => [
                         'start' => $startDate,
                         'end' => $endDate
-                    ]
-                ]
+                    ],
+                    'generated_at' => now()->toISOString()
+                ];
+            });
+
+            \Log::info('Serving unavailable dates', [
+                'chalet_id' => $chalet->id,
+                'booking_type' => $bookingType,
+                'cache_key' => $cacheKey,
+                'from_cache' => Cache::has($cacheKey)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $cachedData
             ]);
 
         } catch (\Exception $e) {
             \Log::error('Error getting unavailable dates: ' . $e->getMessage(), [
                 'chalet_slug' => $slug,
+                'booking_type' => $bookingType,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'trace' => $e->getTraceAsString()

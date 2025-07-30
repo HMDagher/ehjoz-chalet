@@ -7,8 +7,10 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\ChaletBlockedDate;
 use App\Observers\BookingObserver;
 use App\Observers\PaymentObserver;
+use App\Observers\ChaletBlockedDateObserver;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -27,5 +29,6 @@ final class AppServiceProvider extends ServiceProvider
     {
         Booking::observe(BookingObserver::class);
         Payment::observe(PaymentObserver::class);
+        ChaletBlockedDate::observe(ChaletBlockedDateObserver::class);
     }
 }
