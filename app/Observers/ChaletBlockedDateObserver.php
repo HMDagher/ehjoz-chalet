@@ -42,12 +42,14 @@ class ChaletBlockedDateObserver
         $bookingTypes = ['day-use', 'overnight'];
         
         $clearedCount = 0;
+        $regeneratedCount = 0;
         
         foreach ($bookingTypes as $bookingType) {
             $cacheKey = "chalet_availability_{$chaletId}_{$bookingType}";
             if (Cache::has($cacheKey)) {
                 Cache::forget($cacheKey);
                 $clearedCount++;
+                $regeneratedCount++;
             }
         }
         
