@@ -239,6 +239,42 @@ final class ChaletAvailabilityChecker
             }
         }
 
+        // Check for overlaps with other booked day-use slots
+        $bookedDayUseSlots = $this->chalet->bookings()
+            ->where(function ($query) use ($date) {
+                $query->where(function ($q) use ($date) {
+                    // Check if booking starts on this date (handles cross-day bookings)
+                    $q->whereDate('start_date', '=', $date);
+                })->orWhere(function ($q) use ($date) {
+                    // Also check if booking ends on this date (for overnight bookings)
+                    $q->whereDate('end_date', '=', $date);
+                });
+            })
+            ->whereIn('status', ['confirmed', 'pending'])
+            ->with('timeSlots')
+            ->get();
+            
+        foreach ($bookedDayUseSlots as $booking) {
+            foreach ($booking->timeSlots as $bookedSlot) {
+                if ($bookedSlot->is_overnight || $bookedSlot->id === $timeSlotId) {
+                    continue; // Skip overnight slots and the same slot we're checking
+                }
+                
+                // Check for time overlap with booked day-use slot
+                if ($this->timeRangesOverlap($slot->start_time, $slot->end_time, $bookedSlot->start_time, $bookedSlot->end_time)) {
+                    \Log::info('Checker: Overlap with booked day-use slot', [
+                        'slot_id' => $timeSlotId,
+                        'booked_slot_id' => $bookedSlot->id,
+                        'booking_id' => $booking->id,
+                        'date' => $date,
+                        'slot_time' => $slot->start_time . '-' . $slot->end_time,
+                        'booked_slot_time' => $bookedSlot->start_time . '-' . $bookedSlot->end_time
+                    ]);
+                    return false;
+                }
+            }
+        }
+
         // Check for blocked or booked overnight slots that overlap in time
         $overnightSlots = $this->chalet->timeSlots()->where('is_overnight', true)->get();
         foreach ($overnightSlots as $overnightSlot) {
