@@ -75,12 +75,19 @@ class TestUnavailableDates extends Command
             ->whereIn('status', ['confirmed', 'pending'])
             ->where(function($query) use ($startDate, $endDate) {
                 $query->where(function($q) use ($startDate, $endDate) {
+                    // Booking starts within the range
                     $q->whereBetween('start_date', [$startDate, $endDate]);
                 })->orWhere(function($q) use ($startDate, $endDate) {
+                    // Booking ends within the range
                     $q->whereBetween('end_date', [$startDate, $endDate]);
                 })->orWhere(function($q) use ($startDate, $endDate) {
+                    // Booking spans the entire range
                     $q->where('start_date', '<=', $startDate)
                       ->where('end_date', '>=', $endDate);
+                })->orWhere(function($q) use ($startDate, $endDate) {
+                    // For day-use bookings, also check if booking starts on any date in range
+                    $q->whereDate('start_date', '>=', $startDate)
+                      ->whereDate('start_date', '<=', $endDate);
                 });
             })
             ->with('timeSlots')

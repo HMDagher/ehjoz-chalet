@@ -109,7 +109,13 @@ class BookingApiController extends Controller
                 
                 $startDateTime = Carbon::parse($startDate)->setTimeFromTimeString($firstSlot->start_time);
                 $endDateTime = Carbon::parse($startDate)->setTimeFromTimeString($lastSlot->end_time);
-                if ($lastSlot->end_time === '00:00:00') {
+                
+                // Check if the slot spans midnight (end time is earlier than start time)
+                $startTimeMinutes = Carbon::parse($lastSlot->start_time)->hour * 60 + Carbon::parse($lastSlot->start_time)->minute;
+                $endTimeMinutes = Carbon::parse($lastSlot->end_time)->hour * 60 + Carbon::parse($lastSlot->end_time)->minute;
+                
+                if ($endTimeMinutes <= $startTimeMinutes) {
+                    // Slot spans midnight, so end time is on the next day
                     $endDateTime->addDay();
                 }
                 

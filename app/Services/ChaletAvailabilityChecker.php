@@ -197,8 +197,11 @@ final class ChaletAvailabilityChecker
         $alreadyBooked = $this->chalet->bookings()
             ->where(function ($query) use ($date) {
                 $query->where(function ($q) use ($date) {
-                    $q->whereDate('start_date', '=', $date)
-                      ->whereDate('end_date', '=', $date);
+                    // Check if booking starts on this date (handles cross-day bookings)
+                    $q->whereDate('start_date', '=', $date);
+                })->orWhere(function ($q) use ($date) {
+                    // Also check if booking ends on this date (for overnight bookings)
+                    $q->whereDate('end_date', '=', $date);
                 });
             })
             ->whereHas('timeSlots', function ($query) use ($timeSlotId) {
