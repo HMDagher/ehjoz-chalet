@@ -7,8 +7,8 @@
     @include('Frontend.Header.header')
     
         @php 
-        $headerImage = $chalet->getFirstMediaUrl('featured_image');
-        $galleryImages = $chalet->getMedia('gallery');  // Changed from 'default' to 'gallery'
+        $headerImage = $chalet->getFirstMediaUrl('featured_image', 'preview'); // Using preview conversion for header
+        $galleryImages = $chalet->getMedia('gallery');
         $title = $chalet->name;
         $desc = $chalet->description;
     @endphp
@@ -72,8 +72,8 @@
                             <div class="room__image__group gallery row row-cols-md-2 row-cols-sm-1 mt-30 mb-50 gap-4 gap-md-0">
                                 @foreach($galleryImages as $media)
                                     <div class="room__image__item" @if($loop->index >= 2) style="display: none;" @endif>
-                                        <a href="{{ $media->getUrl() }}" title="{{ $chalet->name }}" @if($loop->index == 1 && $galleryImages->count() > 2) style="position: relative; display: block;" @endif>
-                                            <img class="rounded-2" src="{{ $media->getUrl() }}" alt="{{ $chalet->name }}">
+                                        <a href="{{ $media->getUrl('preview') }}" title="{{ $chalet->name }}" @if($loop->index == 1 && $galleryImages->count() > 2) style="position: relative; display: block;" @endif>
+                                            <img class="rounded-2" src="{{ $media->getUrl('thumb') }}" alt="{{ $chalet->name }}">
                                             @if($loop->index == 1 && $galleryImages->count() > 2)
                                                 <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 0.5rem; cursor: pointer;">
                                                     <span>+{{ $galleryImages->count() - 2 }} more</span>
