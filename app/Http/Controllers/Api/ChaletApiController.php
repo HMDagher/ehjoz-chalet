@@ -278,12 +278,12 @@ class ChaletApiController extends Controller
         $startDate = $request->get('start_date', now()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->addMonths(3)->format('Y-m-d'));
 
-        // Create cache key based on chalet ID, booking type, and date range
-        $cacheKey = "chalet_unavailable_dates_{$chalet->id}_{$bookingType}_{$startDate}_{$endDate}";
+        // Create cache key based only on chalet ID and booking type
+        $cacheKey = "chalet_availability_{$chalet->id}_{$bookingType}";
         
         try {
-            // Try to get from cache first (cache for 30 minutes)
-            $cachedData = Cache::remember($cacheKey, 1800, function () use ($chalet, $bookingType, $startDate, $endDate) {
+            // Try to get from cache first (cache indefinitely until invalidated)
+            $cachedData = Cache::remember($cacheKey, now()->addYears(1), function () use ($chalet, $bookingType, $startDate, $endDate) {
                 \Log::info('Generating unavailable dates cache', [
                     'chalet_id' => $chalet->id,
                     'booking_type' => $bookingType,
