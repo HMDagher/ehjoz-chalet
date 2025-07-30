@@ -79,24 +79,44 @@ class BookingObserver
     }
 
     /**
-     * Clear availability cache for a specific chalet
+     * Clear availability cache for a specific chalet and refresh it asynchronously
      */
     private function clearChaletAvailabilityCache(int $chaletId): void
     {
-        // Clear cache by flushing all entries that start with our chalet pattern
-        // Since we can't easily pattern match in all cache drivers, we'll clear common patterns
+        // Clear existing cache immediately
+        $clearedCount = $this->clearCacheEntries($chaletId);
+        
+        // Dispatch job to refresh cache asynchronously
+        \App\Jobs\RefreshChaletAvailabilityCacheJob::dispatch($chaletId);
+        
+        \Log::info('Cleared availability cache and dispatched refresh job', [
+            'chalet_id' => $chaletId,
+            'reason' => 'booking_changed',
+            'cleared_keys_count' => $clearedCount
+        ]);
+    }
+
+    /**
+     * Clear cache entries for a specific chalet
+     */
+    private function clearCacheEntries(int $chaletId): int
+    {
         $bookingTypes = ['day-use', 'overnight'];
         $dateRanges = [
             // Common date ranges that might be cached
             [now()->format('Y-m-d'), now()->addMonths(3)->format('Y-m-d')],
             [now()->format('Y-m-d'), now()->addMonths(1)->format('Y-m-d')],
             [now()->format('Y-m-d'), now()->addDays(90)->format('Y-m-d')],
+            [now()->startOfMonth()->format('Y-m-d'), now()->endOfMonth()->format('Y-m-d')],
+            [now()->addMonth()->startOfMonth()->format('Y-m-d'), now()->addMonth()->endOfMonth()->format('Y-m-d')],
         ];
         
         $clearedCount = 0;
+        
         foreach ($bookingTypes as $bookingType) {
             foreach ($dateRanges as [$startDate, $endDate]) {
                 $cacheKey = "chalet_unavailable_dates_{$chaletId}_{$bookingType}_{$startDate}_{$endDate}";
+                
                 if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
                     \Illuminate\Support\Facades\Cache::forget($cacheKey);
                     $clearedCount++;
@@ -104,10 +124,6 @@ class BookingObserver
             }
         }
         
-        \Log::info('Cleared availability cache for chalet', [
-            'chalet_id' => $chaletId,
-            'reason' => 'booking_changed',
-            'cleared_keys_count' => $clearedCount
-        ]);
+        return $clearedCount;
     }
 } 
