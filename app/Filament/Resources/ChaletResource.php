@@ -163,7 +163,8 @@ final class ChaletResource extends Resource
         return $table
             ->columns([
                 SpatieMediaLibraryImageColumn::make('image')
-                    ->collection('featured_image'),
+                    ->collection('featured_image')
+                    ->conversion('thumb'),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
