@@ -88,11 +88,13 @@ class BookingObserver
         
         $clearedCount = 0;
         
+        $regeneratedCount = 0;
         foreach ($bookingTypes as $bookingType) {
             $cacheKey = "chalet_availability_{$chaletId}_{$bookingType}";
             if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
                 \Illuminate\Support\Facades\Cache::forget($cacheKey);
                 $clearedCount++;
+                $regeneratedCount++;
             }
         }
         
