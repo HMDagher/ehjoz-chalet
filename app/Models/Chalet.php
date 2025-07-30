@@ -17,6 +17,29 @@ final class Chalet extends Model implements HasMedia
 {
     use InteractsWithMedia;
 
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('featured_image')
+            ->singleFile();
+        
+        $this->addMediaCollection('gallery');
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->width(368)
+            ->height(232)
+            ->sharpen(10)
+            ->nonQueued();
+
+        $this->addMediaConversion('preview')
+            ->width(750)
+            ->height(500)
+            ->sharpen(10)
+            ->nonQueued();
+    }
+
     /**
      * The attributes that are mass assignable.
      *

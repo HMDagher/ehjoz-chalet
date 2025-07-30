@@ -8,7 +8,7 @@
     
         @php 
         $headerImage = $chalet->getFirstMediaUrl('featured_image');
-        $galleryImages = $chalet->getMedia('default');
+        $galleryImages = $chalet->getMedia('gallery');  // Changed from 'default' to 'gallery'
         $title = $chalet->name;
         $desc = $chalet->description;
     @endphp
