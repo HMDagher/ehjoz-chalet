@@ -75,7 +75,7 @@ final class ChaletAvailabilityChecker
 
     /**
      * Check if an overnight slot overlaps with a day-use slot on a specific date
-     * This properly handles cross-day scenarios where overnight extends to next day
+     * This properly handles cross-day scenarios where either slot extends to next day
      */
     private function overnightOverlapsDayUse($overnightSlot, $dayUseSlot, string $date, string $overnightStartDate): bool
     {
@@ -95,56 +95,94 @@ final class ChaletAvailabilityChecker
         $dayUseStartMin = $toMinutes($dayUseStart);
         $dayUseEndMin = $toMinutes($dayUseEnd);
         
-        // Check if overnight slot spans midnight (end time < start time)
+        // Check if slots span midnight (end time <= start time)
         $overnightSpansMidnight = $overnightEndMin <= $overnightStartMin;
+        $dayUseSpansMidnight = $dayUseEndMin <= $dayUseStartMin;
         
-
+        \Log::info('Checker: overnightOverlapsDayUse analysis', [
+            'overnight_slot' => $overnightSlot->name,
+            'overnight_time' => $overnightStart . '-' . $overnightEnd,
+            'overnight_spans_midnight' => $overnightSpansMidnight,
+            'dayuse_slot' => $dayUseSlot->name,
+            'dayuse_time' => $dayUseStart . '-' . $dayUseEnd,
+            'dayuse_spans_midnight' => $dayUseSpansMidnight,
+            'check_date' => $date,
+            'overnight_start_date' => $overnightStartDate
+        ]);
         
+        $actualOvernightStartDate = Carbon::parse($overnightStartDate);
+        $actualOvernightEndDate = $actualOvernightStartDate->copy()->addDay();
+        
+        // Determine the effective time ranges for both slots on the given date
+        $overnightRanges = [];
+        $dayUseRanges = [];
+        
+        // Calculate overnight slot's effective time ranges
         if ($overnightSpansMidnight) {
-            // Overnight slot spans midnight, so it affects both days
-            // On the start date: overnight runs from start_time to 23:59
-            // On the end date: overnight runs from 00:00 to end_time
-            
-            $actualOvernightStartDate = Carbon::parse($overnightStartDate);
-            $actualOvernightEndDate = $actualOvernightStartDate->copy()->addDay();
-            
-
-            
-            // Check if the day-use slot date matches either the start or end date of overnight
+            // Overnight spans midnight
             if ($date === $actualOvernightStartDate->format('Y-m-d')) {
-                // Day-use slot is on the same day overnight starts
-                // Overnight runs from start_time to midnight (1440 minutes)
-                // Check overlap: day-use vs overnight-part-1 (start_time to 1440)
-                $overlapStart = max($dayUseStartMin, $overnightStartMin);
-                $overlapEnd = min($dayUseEndMin, 1440); // 1440 = 24:00
-                $hasOverlap = $overlapEnd > $overlapStart;
-                
-
-                
-                return $hasOverlap;
-                
-            } elseif ($date === $actualOvernightEndDate->format('Y-m-d')) {
-                // Day-use slot is on the day overnight ends
-                // Overnight runs from midnight (0) to end_time
-                // Check overlap: day-use vs overnight-part-2 (0 to end_time)
-                $overlapStart = max($dayUseStartMin, 0);
-                $overlapEnd = min($dayUseEndMin, $overnightEndMin);
-                $hasOverlap = $overlapEnd > $overlapStart;
-                
-
-                
-                return $hasOverlap;
+                // On start date: from start_time to midnight
+                $overnightRanges[] = [$overnightStartMin, 1440]; // 1440 = 24:00
             }
-            
-
-            return false; // No overlap if day-use is not on overnight dates
+            if ($date === $actualOvernightEndDate->format('Y-m-d')) {
+                // On end date: from midnight to end_time
+                $overnightRanges[] = [0, $overnightEndMin];
+            }
         } else {
-            // Overnight slot doesn't span midnight (same day)
-            // Use regular overlap detection
-            $hasOverlap = $this->timeRangesOverlap($overnightStart, $overnightEnd, $dayUseStart, $dayUseEnd);
-            \Log::info('Checker: Same-day overlap check', ['has_overlap' => $hasOverlap]);
-            return $hasOverlap;
+            // Overnight doesn't span midnight
+            if ($date === $actualOvernightStartDate->format('Y-m-d')) {
+                $overnightRanges[] = [$overnightStartMin, $overnightEndMin];
+            }
         }
+        
+        // Calculate day-use slot's effective time ranges
+        $dayUseDateCarbon = Carbon::parse($date);
+        if ($dayUseSpansMidnight) {
+            // Day-use spans midnight - it affects both the date it starts and the next day
+            $dayUseNextDay = $dayUseDateCarbon->copy()->addDay();
+            
+            // Check if day-use starts on the given date
+            $dayUseRanges[] = [$dayUseStartMin, 1440]; // From start_time to midnight
+            
+            // Also check if we need to consider the next day part (from midnight to end_time)
+            // This would be relevant if we're checking the day after day-use starts
+            $dayUsePrevDay = $dayUseDateCarbon->copy()->subDay();
+            if ($date === $dayUseNextDay->format('Y-m-d')) {
+                // We're checking the day after day-use starts
+                $dayUseRanges[] = [0, $dayUseEndMin]; // From midnight to end_time
+            }
+        } else {
+            // Day-use doesn't span midnight
+            $dayUseRanges[] = [$dayUseStartMin, $dayUseEndMin];
+        }
+        
+        \Log::info('Checker: Time ranges calculated', [
+            'overnight_ranges' => $overnightRanges,
+            'dayuse_ranges' => $dayUseRanges
+        ]);
+        
+        // Check for overlap between any overnight range and any day-use range
+        foreach ($overnightRanges as $overnightRange) {
+            foreach ($dayUseRanges as $dayUseRange) {
+                $overlapStart = max($overnightRange[0], $dayUseRange[0]);
+                $overlapEnd = min($overnightRange[1], $dayUseRange[1]);
+                $hasOverlap = $overlapEnd > $overlapStart;
+                
+                \Log::info('Checker: Range overlap check', [
+                    'overnight_range' => $overnightRange,
+                    'dayuse_range' => $dayUseRange,
+                    'overlap_start' => $overlapStart,
+                    'overlap_end' => $overlapEnd,
+                    'has_overlap' => $hasOverlap
+                ]);
+                
+                if ($hasOverlap) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -470,22 +508,38 @@ final class ChaletAvailabilityChecker
             // Check for overlapping day-use bookings and blocked day-use slots
             $dayUseSlots = $this->chalet->timeSlots()->where('is_overnight', false)->get();
             foreach ($dayUseSlots as $daySlot) {
-                // Booked day-use slot
+                // Booked day-use slot - check for bookings that occur on this date
+                // This includes day-use bookings that start on this date OR bookings that span this date
                 $dayUseBooking = $this->chalet->bookings()
                     ->where(function ($query) use ($currentDateStr) {
-                        $query->whereDate('start_date', '=', $currentDateStr)
-                              ->whereDate('end_date', '=', $currentDateStr);
+                        $query->where(function ($q) use ($currentDateStr) {
+                            // Day-use bookings that start on this date
+                            $q->whereDate('start_date', '=', $currentDateStr)
+                              ->where('booking_type', 'day-use');
+                        })->orWhere(function ($q) use ($currentDateStr) {
+                            // Any booking that spans this date (start <= date < end)
+                            $q->whereDate('start_date', '<=', $currentDateStr)
+                              ->whereDate('end_date', '>', $currentDateStr);
+                        })->orWhere(function ($q) use ($currentDateStr) {
+                            // Handle edge case where end_date equals the current date for day-use
+                            $q->whereDate('start_date', '<=', $currentDateStr)
+                              ->whereDate('end_date', '=', $currentDateStr)
+                              ->where('booking_type', 'day-use');
+                        });
                     })
                     ->whereHas('timeSlots', function ($query) use ($daySlot) {
                         $query->where('chalet_time_slots.id', $daySlot->id);
                     })
                     ->whereIn('status', ['confirmed', 'pending'])
                     ->exists();
+                    
                 if ($dayUseBooking && $this->overnightOverlapsDayUse($slot, $daySlot, $currentDateStr, $start->format('Y-m-d'))) {
                     \Log::info('Checker: Overlap with day-use booking', [
                         'overnight_slot_id' => $slot->id, 
                         'day_slot_id' => $daySlot->id, 
-                        'date' => $currentDateStr
+                        'date' => $currentDateStr,
+                        'overnight_start_date' => $start->format('Y-m-d'),
+                        'overnight_end_date' => $end->format('Y-m-d')
                     ]);
                     return false;
                 }
@@ -525,6 +579,30 @@ final class ChaletAvailabilityChecker
                         ->where('time_slot_id', $daySlot->id)
                         ->exists();
                     
+                    // Check for day-use bookings on the next day
+                    $nextDaySlotBooked = $this->chalet->bookings()
+                        ->where(function ($query) use ($nextDate) {
+                            $query->where(function ($q) use ($nextDate) {
+                                // Day-use bookings that start on this date
+                                $q->whereDate('start_date', '=', $nextDate)
+                                  ->where('booking_type', 'day-use');
+                            })->orWhere(function ($q) use ($nextDate) {
+                                // Any booking that spans this date (start <= date < end)
+                                $q->whereDate('start_date', '<=', $nextDate)
+                                  ->whereDate('end_date', '>', $nextDate);
+                            })->orWhere(function ($q) use ($nextDate) {
+                                // Handle edge case where end_date equals the next date for day-use
+                                $q->whereDate('start_date', '<=', $nextDate)
+                                  ->whereDate('end_date', '=', $nextDate)
+                                  ->where('booking_type', 'day-use');
+                            });
+                        })
+                        ->whereHas('timeSlots', function ($query) use ($daySlot) {
+                            $query->where('chalet_time_slots.id', $daySlot->id);
+                        })
+                        ->whereIn('status', ['confirmed', 'pending'])
+                        ->exists();
+                    
                     \Log::info('Checker: Checking next day day-use slot for overlap', [
                         'overnight_slot_id' => $slot->id,
                         'overnight_start_time' => $slot->start_time,
@@ -535,14 +613,32 @@ final class ChaletAvailabilityChecker
                         'day_end_time' => $daySlot->end_time,
                         'current_date' => $currentDateStr,
                         'next_date' => $nextDate,
-                        'next_day_slot_blocked' => $nextDaySlotBlocked
+                        'next_day_slot_blocked' => $nextDaySlotBlocked,
+                        'next_day_slot_booked' => $nextDaySlotBooked
                     ]);
                     
+                    // Check for blocked slots
                     if ($nextDaySlotBlocked) {
                         $overlaps = $this->overnightOverlapsDayUse($slot, $daySlot, $nextDate, $start->format('Y-m-d'));
                         
                         if ($overlaps) {
                             \Log::info('Checker: Overlap with blocked day-use slot on next day', [
+                                'overnight_slot_id' => $slot->id, 
+                                'day_slot_id' => $daySlot->id,
+                                'day_slot_name' => $daySlot->name,
+                                'current_date' => $currentDateStr,
+                                'next_date' => $nextDate
+                            ]);
+                            return false;
+                        }
+                    }
+                    
+                    // Check for booked slots
+                    if ($nextDaySlotBooked) {
+                        $overlaps = $this->overnightOverlapsDayUse($slot, $daySlot, $nextDate, $start->format('Y-m-d'));
+                        
+                        if ($overlaps) {
+                            \Log::info('Checker: Overlap with booked day-use slot on next day', [
                                 'overnight_slot_id' => $slot->id, 
                                 'day_slot_id' => $daySlot->id,
                                 'day_slot_name' => $daySlot->name,
