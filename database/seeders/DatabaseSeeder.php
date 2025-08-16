@@ -16,35 +16,25 @@ final class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Create roles using Spatie permissions with default guard name
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'owner', 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
+        $roleAdmin = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $roleOwner = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'owner', 'guard_name' => 'web']);
+        $roleCustomer = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
 
         // Create an admin user
-        $admin = User::create([
+        User::factory()->create([
             'name' => 'Admin User',
             'email' => 'admin@admin.com',
-            'password' => bcrypt('password'),
-        ]);
+        ])->assignRole($roleAdmin);
 
-        // Assign admin role using Spatie permissions
-        $admin->assignRole('admin');
+        // Create owner users
+        User::factory()->count(5)->create()->each(function ($user) use ($roleOwner) {
+            $user->assignRole($roleOwner);
+        });
 
-        $owner = User::create([
-            'name' => 'Owner User',
-            'email' => 'owner@owner.com',
-            'password' => bcrypt('password'),
-        ]);
-
-        $owner->assignRole('owner');
-
-        $customer = User::create([
-            'name' => 'Customer User',
-            'email' => 'customer@customer.com',
-            'password' => bcrypt('password'),
-        ]);
-
-        $customer->assignRole('customer');
+        // Create customer users
+        User::factory()->count(10)->create()->each(function ($user) use ($roleCustomer) {
+            $user->assignRole($roleCustomer);
+        });
 
         // Seed amenities and facilities
         $this->call([
@@ -52,6 +42,7 @@ final class DatabaseSeeder extends Seeder
             FacilitySeeder::class,
             ChaletSeeder::class,
             BookingSeeder::class,
+            ChaletBlockedDateSeeder::class,
             GeneralSettingsSeeder::class,
         ]);
     }

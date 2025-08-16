@@ -95,10 +95,21 @@ class OverlapDetector
             }
 
             if ($overlaps) {
+                // Normalize enum reason to string if necessary
+                $reason = $blocked->reason;
+                if (is_object($reason)) {
+                    if (method_exists($reason, 'value')) {
+                        $reason = $reason->value;
+                    } elseif (method_exists($reason, 'name')) {
+                        $reason = $reason->name;
+                    } else {
+                        $reason = (string) json_encode($reason);
+                    }
+                }
                 $conflicts[] = [
                     'type' => 'blocked',
                     'date' => $blockedDate,
-                    'reason' => $blocked->reason,
+                    'reason' => $reason,
                     'slot_id' => $blocked->time_slot_id,
                 ];
             }

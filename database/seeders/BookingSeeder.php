@@ -10,128 +10,74 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
+use Illuminate\Support\Str;
+
 class BookingSeeder extends Seeder
 {
     public function run(): void
     {
-        $chalet = Chalet::with('timeSlots')->first();
-        $user = User::first();
-        $timeSlots = $chalet?->timeSlots ?? collect();
-        if (! $chalet || ! $user || $timeSlots->isEmpty()) {
+        $chalets = Chalet::with('timeSlots')->get();
+        $customers = User::role('customer')->get();
+
+        if ($chalets->isEmpty() || $customers->isEmpty()) {
+            $this->command->info('No chalets or customers found to create bookings.');
             return;
         }
 
-        // Booking 1: Single day, one slot
-        $booking1 = Booking::create([
-            'chalet_id' => $chalet->id,
-            'user_id' => $user->id,
-            'booking_reference' => 'BKG-0001',
-            'start_date' => Carbon::now()->addDays(1)->setTime(14, 0),
-            'end_date' => Carbon::now()->addDays(1)->setTime(22, 0),
-            'adults_count' => 2,
-            'children_count' => 1,
-            'total_guests' => 3,
-            'base_slot_price' => 500,
-            'seasonal_adjustment' => 0,
-            'extra_hours' => 0,
-            'extra_hours_amount' => 0,
-            'platform_commission' => 50,
-            'total_amount' => 550,
-            'status' => 'confirmed',
-            'payment_status' => 'paid',
-        ]);
-        $booking1->timeSlots()->sync([$timeSlots->first()->id]);
+        $bookingCount = 0;
 
-        // Booking 2: Single day, multiple slots
-        if ($timeSlots->count() > 1) {
-            $booking2 = Booking::create([
-                'chalet_id' => $chalet->id,
-                'user_id' => $user->id,
-                'booking_reference' => 'BKG-0002',
-                'start_date' => Carbon::now()->addDays(2)->setTime(8, 0),
-                'end_date' => Carbon::now()->addDays(2)->setTime(22, 0),
-                'adults_count' => 4,
-                'children_count' => 2,
-                'total_guests' => 6,
-                'base_slot_price' => 1500,
-                'seasonal_adjustment' => 100,
-                'extra_hours' => 2,
-                'extra_hours_amount' => 200,
-                'platform_commission' => 100,
-                'total_amount' => 1900,
-                'status' => 'pending',
-                'payment_status' => 'pending',
-            ]);
-            $booking2->timeSlots()->sync($timeSlots->pluck('id')->toArray());
+        foreach ($chalets as $chalet) {
+            $numberOfBookings = rand(0, 5);
+            for ($i = 0; $i < $numberOfBookings; $i++) {
+                $timeSlots = $chalet->timeSlots;
+                if ($timeSlots->isEmpty()) {
+                    continue;
+                }
+
+                $status = collect(['confirmed', 'pending', 'completed', 'cancelled'])->random();
+                $paymentStatus = collect(['paid', 'pending', 'refunded'])->random();
+                $dayOffset = rand(-30, 30);
+
+                $this->createBookingForChalet($chalet, $customers->random(), $status, $paymentStatus, $timeSlots, $dayOffset);
+                $bookingCount++;
+            }
         }
 
-        // Booking 3: Multi-day, one overnight slot
-        $overnightSlot = $timeSlots->first(fn ($slot) => $slot->is_overnight);
-        if ($overnightSlot) {
-            $booking3 = Booking::create([
-                'chalet_id' => $chalet->id,
-                'user_id' => $user->id,
-                'booking_reference' => 'BKG-0003',
-                'start_date' => Carbon::now()->addDays(3)->setTime(14, 0),
-                'end_date' => Carbon::now()->addDays(5)->setTime(12, 0),
-                'adults_count' => 2,
-                'children_count' => 1,
-                'total_guests' => 3,
-                'base_slot_price' => 2000,
-                'seasonal_adjustment' => 0,
-                'extra_hours' => 0,
-                'extra_hours_amount' => 0,
-                'platform_commission' => 200,
-                'total_amount' => 2200,
-                'status' => 'confirmed',
-                'payment_status' => 'paid',
-            ]);
-            $booking3->timeSlots()->sync([$overnightSlot->id]);
-        }
+        $this->command->info("Seeded {$bookingCount} bookings across {$chalets->count()} chalets.");
+    }
 
-        // Booking 4: Cancelled booking (single day, one slot)
-        $booking4 = Booking::create([
-            'chalet_id' => $chalet->id,
-            'user_id' => $user->id,
-            'booking_reference' => 'BKG-0004',
-            'start_date' => Carbon::now()->addDays(6)->setTime(14, 0),
-            'end_date' => Carbon::now()->addDays(6)->setTime(22, 0),
-            'adults_count' => 1,
-            'children_count' => 0,
-            'total_guests' => 1,
-            'base_slot_price' => 400,
-            'seasonal_adjustment' => 0,
-            'extra_hours' => 0,
-            'extra_hours_amount' => 0,
-            'platform_commission' => 40,
-            'total_amount' => 440,
-            'status' => 'cancelled',
-            'payment_status' => 'refunded',
-            'cancellation_reason' => 'Customer request',
-            'cancelled_at' => Carbon::now()->addDays(5),
-        ]);
-        $booking4->timeSlots()->sync([$timeSlots->first()->id]);
+    private function createBookingForChalet(Chalet $chalet, User $customer, string $status, string $paymentStatus, $timeSlots, int $dayOffset): void
+    {
+        $dayUseSlot = $timeSlots->where('is_overnight', false)->first();
+        if (!$dayUseSlot) return;
 
-        // Booking 5: Auto-completed booking (single day, last slot)
-        $booking5 = Booking::create([
+        $startDate = Carbon::now()->addDays($dayOffset);
+        $endDate = (clone $startDate)->setTimeFromTimeString($dayUseSlot->end_time);
+
+        $basePrice = $dayUseSlot->weekday_price;
+        $commission = $basePrice * 0.1;
+        $totalAmount = $basePrice + $commission;
+
+        $booking = Booking::create([
             'chalet_id' => $chalet->id,
-            'user_id' => $user->id,
-            'booking_reference' => 'BKG-0005',
-            'start_date' => Carbon::now()->subDays(3)->setTime(14, 0),
-            'end_date' => Carbon::now()->subDays(3)->setTime(22, 0),
-            'adults_count' => 3,
-            'children_count' => 2,
-            'total_guests' => 5,
-            'base_slot_price' => 600,
-            'seasonal_adjustment' => 0,
-            'extra_hours' => 1,
-            'extra_hours_amount' => 100,
-            'platform_commission' => 60,
-            'total_amount' => 760,
-            'status' => 'completed',
-            'payment_status' => 'paid',
-            'auto_completed_at' => Carbon::now()->subDays(2),
+            'user_id' => $customer->id,
+            'booking_reference' => 'BKG-' . Str::random(8),
+            'start_date' => $startDate->setTimeFromTimeString($dayUseSlot->start_time),
+            'end_date' => $endDate,
+            'booking_type' => 'day-use',
+            'adults_count' => rand(1, $chalet->max_adults),
+            'children_count' => rand(0, $chalet->max_children),
+            'total_guests' => rand(1, $chalet->max_adults + $chalet->max_children),
+            'base_slot_price' => $basePrice,
+            'platform_commission' => $commission,
+            'total_amount' => $totalAmount,
+            'status' => $status,
+            'payment_status' => $paymentStatus,
+            'cancellation_reason' => $status === 'cancelled' ? 'Customer changed plans' : null,
+            'cancelled_at' => $status === 'cancelled' ? Carbon::now() : null,
+            'auto_completed_at' => $status === 'completed' ? Carbon::now() : null,
         ]);
-        $booking5->timeSlots()->sync([$timeSlots->last()->id]);
+
+        $booking->timeSlots()->sync([$dayUseSlot->id]);
     }
 }

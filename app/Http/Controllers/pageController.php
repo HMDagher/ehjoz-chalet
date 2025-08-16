@@ -97,7 +97,8 @@ class pageController extends baseController
             }
         }
 
-        $chaletSearchService = new ChaletSearchService;
+        // Resolve the new search service from the container (it has dependencies)
+        $chaletSearchService = app(ChaletSearchService::class);
 
         if ($request->filled('check__in')) {
             $is_search = true;
@@ -109,70 +110,63 @@ class pageController extends baseController
                     'bookingType' => $bookingType,
                 ]);
 
-                // If it's a day-use booking, end date is not needed
-                if ($bookingType === 'day-use') {
-                    $results = $chaletSearchService->searchChalets(
-                        $checkin,
-                        null,
-                        'day-use'
-                    );
-                } else {
-                    // For overnight bookings, ensure checkout date is valid
-                    if ($request->filled('check__out')) {
-                        $startDate = Carbon::parse($checkin);
-                        $endDate = Carbon::parse($checkout);
+                // Build search params for the new service
+                $searchParams = [
+                    'booking_type' => $bookingType === 'day-use' ? 'day-use' : 'overnight',
+                    'start_date' => $checkin,
+                    'end_date' => $bookingType === 'overnight'
+                        ? ($checkout ?: ($checkin ? Carbon::parse($checkin)->copy()->addDay()->format('Y-m-d') : null))
+                        : null,
+                ];
 
-                        if ($startDate->gt($endDate)) {
-                            return redirect()->back()->with('error', 'Check-out date must be after check-in date.');
-                        }
+                // Call the new search
+                $searchResponse = $chaletSearchService->searchAvailableChalets($searchParams);
 
-                        $results = $chaletSearchService->searchChalets(
-                            $checkin,
-                            $checkout,
-                            'overnight'
-                        );
-                    } else {
-                        // No checkout date provided, use default (next day)
-                        $results = $chaletSearchService->searchChalets(
-                            $checkin,
-                            null,
-                            'overnight'
-                        );
-                    }
+                if (! ($searchResponse['success'] ?? false)) {
+                    $errors = implode(', ', $searchResponse['errors'] ?? []);
+                    \Log::warning('Search validation failed', ['errors' => $errors]);
+                    return redirect()->back()->with('error', $errors ?: 'Invalid search parameters');
                 }
 
-                // Debug: Log raw search results
-                \Log::info('Raw search results', [
-                    'count' => count($results),
-                    'ids' => array_map(fn ($r) => $r['chalet']['id'] ?? null, $results),
-                ]);
+                // Map new service results to the view's expected structure
+                $results = [];
+                $chaletIds = collect($searchResponse['chalets'])->pluck('chalet_id')->unique()->values();
+                $chalets = \App\Models\Chalet::with('media')->whereIn('id', $chaletIds)->get()->keyBy('id');
 
-                // For search results, we need to get the full chalet models with media
-                if (! empty($results)) {
-                    $chaletIds = collect($results)->pluck('chalet.id');
-                    $chalets = \App\Models\Chalet::with('media')->findMany($chaletIds)->keyBy('id');
+                foreach ($searchResponse['chalets'] as $item) {
+                    $chaletModel = $chalets[$item['chalet_id']] ?? null;
+                    if (! $chaletModel) {
+                        continue;
+                    }
 
-                    foreach ($results as &$result) {
-                        if (isset($result['chalet']['id']) && isset($chalets[$result['chalet']['id']])) {
-                            // Keep the slots and price data while replacing the chalet model
-                            $slots = $result['slots'] ?? [];
-                            $minPrice = $result['min_price'] ?? 0;
-                            $minTotalPrice = $result['min_total_price'] ?? 0;
-                            $nights = $result['nights'] ?? 1;
-                            $bookingType = $result['booking_type'] ?? 'overnight';
+                    // Extract pricing summary
+                    $minPrice = $item['pricing']['min_price'] ?? null;
 
-                            $result['chalet'] = $chalets[$result['chalet']['id']];
-                            $result['slots'] = $slots;
-                            $result['min_price'] = $minPrice;
-                            $result['min_total_price'] = $minTotalPrice;
-                            $result['nights'] = $nights;
-                            $result['booking_type'] = $bookingType;
+                    // Extract available slots (flatten minimal info expected by cards)
+                    $slots = [];
+                    if (! empty($item['availability']['available_slots'])) {
+                        foreach ($item['availability']['available_slots'] as $slot) {
+                            $slots[] = [
+                                'id' => $slot['slot_id'],
+                                'start_time' => $slot['start_time'],
+                                'end_time' => $slot['end_time'],
+                                'is_overnight' => $slot['is_overnight'] ?? false,
+                            ];
                         }
                     }
+
+                    $results[] = [
+                        'chalet' => $chaletModel,
+                        'slots' => $slots,
+                        'min_price' => $minPrice,
+                        'min_total_price' => null,
+                        'nights' => isset($searchParams['end_date']) && $searchParams['end_date'] ? Carbon::parse($searchParams['start_date'])->diffInDays(Carbon::parse($searchParams['end_date'])) : 1,
+                        'booking_type' => $searchParams['booking_type'],
+                    ];
                 }
 
-                // Debug: Log filtered search results
-                \Log::info('Filtered search results', [
+                // Debug: Log mapped search results
+                \Log::info('Mapped search results for view', [
                     'count' => count($results),
                     'ids' => array_map(fn ($r) => $r['chalet'] instanceof \App\Models\Chalet ? $r['chalet']->id : null, $results),
                 ]);
@@ -184,9 +178,23 @@ class pageController extends baseController
                 return redirect()->back()->with('error', 'Error in search: '.$e->getMessage());
             }
         } else {
-            // No search parameters - show all chalets with available slots
-            $results = $chaletSearchService->getAllChalets();
-            \Log::info('All chalets count', ['count' => count($results)]);
+            // No search parameters - show active chalets without availability (legacy safe fallback)
+            $allChalets = \App\Models\Chalet::where('status', \App\Enums\ChaletStatus::Active)
+                ->with('media')
+                ->get();
+
+            $results = $allChalets->map(function ($ch) use ($bookingType) {
+                return [
+                    'chalet' => $ch,
+                    'slots' => [],
+                    'min_price' => null,
+                    'min_total_price' => null,
+                    'nights' => 1,
+                    'booking_type' => $bookingType,
+                ];
+            })->values()->toArray();
+
+            \Log::info('All chalets count (fallback)', ['count' => count($results)]);
         }
 
         return $this->view('chalets', [

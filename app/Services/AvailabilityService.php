@@ -116,21 +116,23 @@ class AvailabilityService
         $errors = [];
         $dateRange = TimeSlotHelper::getDateRange($startDate, $endDate);
 
-        // Check for full day blocking first
-        foreach ($dateRange as $date) {
-            $fullDayBlocked = ChaletBlockedDate::where('chalet_id', $slots->first()->chalet_id)
-                ->whereDate('date', $date)
-                ->whereNull('time_slot_id') // Full day block has no specific time slot
-                ->exists();
+        // Check for full day blocking first (optimize with single query over range)
+        $chaletId = $slots->first()->chalet_id;
+        $fullDayBlockedDates = ChaletBlockedDate::where('chalet_id', $chaletId)
+            ->whereNull('time_slot_id') // Full day block has no specific time slot
+            ->whereDate('date', '>=', $startDate)
+            ->whereDate('date', '<=', $endDate)
+            ->pluck('date')
+            ->map(fn ($d) => \Carbon\Carbon::parse($d)->format('Y-m-d'))
+            ->toArray();
 
-            if ($fullDayBlocked) {
-                return [
-                    'available' => false,
-                    'available_slots' => [],
-                    'consecutive_combinations' => [],
-                    'errors' => ['full_day_blocked'],
-                ];
-            }
+        if (!empty($fullDayBlockedDates)) {
+            return [
+                'available' => false,
+                'available_slots' => [],
+                'consecutive_combinations' => [],
+                'errors' => ['full_day_blocked'],
+            ];
         }
 
         foreach ($slots as $slot) {
@@ -197,7 +199,18 @@ class AvailabilityService
                 $conflictReasons = [];
 
                 foreach ($conflicts['blocked'] as $blocked) {
-                    $conflictReasons[] = 'blocked: '.($blocked['reason'] ?? 'unknown reason');
+                    $reason = $blocked['reason'] ?? 'unknown reason';
+                    // Handle enum reasons (App\Enums\BlockReason) safely
+                    if (is_object($reason)) {
+                        if (method_exists($reason, 'value')) {
+                            $reason = $reason->value;
+                        } elseif (method_exists($reason, 'name')) {
+                            $reason = $reason->name;
+                        } else {
+                            $reason = (string) json_encode($reason);
+                        }
+                    }
+                    $conflictReasons[] = 'blocked: '.$reason;
                 }
 
                 foreach ($conflicts['booked'] as $booked) {
