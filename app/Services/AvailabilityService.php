@@ -136,9 +136,45 @@ class AvailabilityService
         }
 
         foreach ($slots as $slot) {
+            // Debug logging for overnight bookings
+            if ($bookingType === 'overnight' && $slot->is_overnight) {
+                Log::info('Checking overnight slot availability', [
+                    'slot_id' => $slot->id,
+                    'slot_name' => $slot->name,
+                    'available_days' => $slot->available_days,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'date_range' => $dateRange,
+                    'expected_nights' => count($dateRange)
+                ]);
+            }
+            
             $slotAvailability = $this->checkSingleSlotAvailability($slot, $dateRange, $startDate, $endDate);
 
             if ($slotAvailability['available']) {
+                // For overnight bookings, ensure ALL nights are available
+                if ($bookingType === 'overnight' && $slot->is_overnight) {
+                    $expectedNights = count($dateRange);
+                    $availableNights = count($slotAvailability['available_dates']);
+                    
+                    if ($availableNights < $expectedNights) {
+                        $missingNights = $expectedNights - $availableNights;
+                        $errors[] = "Overnight booking requires all {$expectedNights} nights to be available. Only {$availableNights} nights available. Missing: {$missingNights} night(s).";
+                        
+                        // Debug log the missing dates
+                        $missingDates = array_diff($dateRange, $slotAvailability['available_dates']);
+                        Log::info('Overnight booking rejected - missing nights', [
+                            'slot_id' => $slot->id,
+                            'expected_nights' => $expectedNights,
+                            'available_nights' => $availableNights,
+                            'missing_dates' => $missingDates,
+                            'available_dates' => $slotAvailability['available_dates']
+                        ]);
+                        
+                        continue; // Don't add this slot as available
+                    }
+                }
+                
                 $availableSlots[] = [
                     'slot_id' => $slot->id,
                     'start_time' => $slot->start_time,
@@ -184,12 +220,29 @@ class AvailabilityService
         $availableDates = [];
         $pricingInfo = [];
 
+        // For overnight bookings, we need to check each night individually
+        // The night of a date means staying from that date evening to next date morning
         foreach ($dateRange as $date) {
-            // Check if date is in slot's available_days
-            if (! TimeSlotHelper::isDateAllowed($date, $slot->available_days)) {
-                $errors[] = "Slot {$slot->id} not available on ".Carbon::parse($date)->format('l');
-
-                continue;
+            // For overnight bookings, check if the night of this date is available
+            // The night of Aug 19 means staying from Aug 19 evening to Aug 20 morning
+            if ($slot->is_overnight) {
+                // Check if the night of this date is available
+                // We need to check if the slot is available on the day the guest arrives
+                $nightDate = $date;
+                
+                // Check if date is in slot's available_days
+                if (! TimeSlotHelper::isDateAllowed($nightDate, $slot->available_days)) {
+                    $dayName = Carbon::parse($nightDate)->format('l');
+                    $errors[] = "Overnight stay not available on {$dayName} night (arrival date: {$nightDate})";
+                    continue;
+                }
+            } else {
+                // For day-use, check if the date itself is available
+                if (! TimeSlotHelper::isDateAllowed($date, $slot->available_days)) {
+                    $dayName = Carbon::parse($date)->format('l');
+                    $errors[] = "Slot {$slot->id} not available on {$dayName} ({$date})";
+                    continue;
+                }
             }
 
             // Check for conflicts (blocked/booked)

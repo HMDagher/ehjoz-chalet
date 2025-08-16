@@ -214,11 +214,11 @@
                                     </div>
                                     <div id="selected-combo-summary" class="mb-3" style="display: none;">
                                         <strong>Selected:</strong> <span id="selected-combo-text"></span>
-                                        <div id="combo-original-price-container" style="display: none;">
-                                            <span class="text-decoration-line-through">Original price: $<span id="combo-original-price">0</span></span>
+                                        <div id="combo-base-price-container" style="display: none;">
+                                            <span class="text-muted">Base price: $<span id="combo-base-price">0</span></span>
                                         </div>
-                                        <div id="combo-discount-container" style="display: none;" class="text-success">
-                                            <i class="fas fa-tags me-1"></i> <span id="combo-discount-text">15% Launch Promotion</span>: -$<span id="combo-discount-amount">0</span>
+                                        <div id="combo-adjustment-container" style="display: none;" class="text-info">
+                                            <i class="fas fa-plus-circle me-1"></i> <span id="combo-adjustment-text">Custom Pricing Adjustments</span>: <span id="combo-adjustment-amount">+$0</span>
                                         </div>
                                         <strong>Total:</strong> $<span id="combo-total-price">0</span>
                                     </div>
@@ -229,12 +229,6 @@
                                     <div class="mb-3">
                                         <div id="nightly-breakdown"></div>
                                         <div class="mt-2 pt-2 border-top">
-                                            <div id="original-price-container" style="display: none;">
-                                                <span class="text-decoration-line-through">Original price: $<span id="original-price">0</span></span>
-                                            </div>
-                                            <div id="discount-container" style="display: none;" class="text-success">
-                                                <i class="fas fa-tags me-1"></i> <span id="discount-text">15% Launch Promotion</span>: -$<span id="discount-amount">0</span>
-                                            </div>
                                             <strong>Total for stay:</strong> $<span id="overnight-total-price">0</span>
                                         </div>
                                     </div>
@@ -404,6 +398,10 @@
                                         }
                                     }
                                     
+                                    // NEW: For checkout field, check if selecting this date would create an invalid range
+                                    // We'll handle this validation in the onSelect callback instead
+                                    // to avoid the complexity of determining which field is being rendered here
+                                    
                                     return [true, 'available-date', 'Available'];
                                 },
                                 onSelect: function(dateText, inst) {
@@ -411,6 +409,40 @@
                                     if (inst.id === 'check__in') {
                                         handleCheckInChange();
                                     } else if (inst.id === 'check__out') {
+                                        // NEW: Validate checkout date before allowing selection
+                                        const checkInDate = $("#check__in").val();
+                                        if (checkInDate) {
+                                            const checkIn = new Date(convertDateFormat(checkInDate));
+                                            const checkOut = new Date(convertDateFormat(dateText));
+                                            
+                                            // Check if this checkout date would span unavailable dates
+                                            if (checkOut > checkIn) {
+                                                const unavailableInRange = getUnavailableDatesInRange(checkInDate, dateText);
+                                                if (unavailableInRange.length > 0) {
+                                                    const unavailableDays = unavailableInRange.map(date => {
+                                                        const dateObj = new Date(date);
+                                                        return dateObj.toLocaleDateString('en-US', { 
+                                                            weekday: 'long', 
+                                                            month: 'short', 
+                                                            day: 'numeric' 
+                                                        });
+                                                    }).join(', ');
+                                                    
+                                                    showError(`Selected checkout date would include unavailable nights: ${unavailableDays}. Please select a different date.`);
+                                                    
+                                                    // Clear the invalid checkout date
+                                                    $("#check__out").val('');
+                                                    
+                                                    // Refresh the datepicker to show current state
+                                                    if (datepickerInitialized) {
+                                                        $("#check__out").datepicker('refresh');
+                                                    }
+                                                    
+                                                    return; // Don't proceed with the selection
+                                                }
+                                            }
+                                        }
+                                        
                                         handleCheckOutChange();
                                     }
                                 }
@@ -463,103 +495,74 @@
             // Add CSS styles for unavailable dates
             function addUnavailableDateStyles() {
                 if (!$('#unavailable-date-styles').length) {
-                    const styles = `
-                        <style id="unavailable-date-styles">
-                            .ui-datepicker .ui-state-disabled.past-date {
-                                background-color: #f8f9fa !important;
-                                color: #adb5bd !important;
-                                cursor: not-allowed !important;
-                            }
-                            .ui-datepicker .ui-state-disabled.past-date:hover {
-                                background-color: #f8f9fa !important;
-                                color: #adb5bd !important;
-                            }
-                            .ui-datepicker .ui-state-disabled.unavailable-date {
-                                background-color: #f8f9fa !important;
-                                color: #6c757d !important;
-                                text-decoration: line-through !important;
-                                cursor: not-allowed !important;
-                            }
-                            .ui-datepicker .ui-state-disabled.unavailable-date:hover {
-                                background-color: #f8f9fa !important;
-                                color: #6c757d !important;
-                            }
-                            .ui-datepicker .ui-state-disabled.loading-date {
-                                background-color: #e9ecef !important;
-                                color: #6c757d !important;
-                                cursor: wait !important;
-                                position: relative;
-                            }
-                            .ui-datepicker .ui-state-disabled.loading-date:hover {
-                                background-color: #e9ecef !important;
-                                color: #6c757d !important;
-                            }
-                            .ui-datepicker td .loading-date {
-                                position: relative;
-                            }
-                            .ui-datepicker td .loading-date:after {
-                                content: "...";
-                                position: absolute;
-                                right: 2px;
-                                bottom: 0;
-                                font-size: 10px;
-                            }
-                            .ui-datepicker .available-date {
-                                background-color: #ffffff !important;
-                                color: #000000 !important;
-                            }
-                            .ui-datepicker .available-date:hover {
-                                background-color: #e9ecef !important;
-                            }
-                            .loading {
-                                opacity: 0.6;
-                                cursor: wait !important;
-                            }
-                            .loading::after {
-                                content: "Loading...";
-                                position: absolute;
-                                top: 50%;
-                                left: 50%;
-                                transform: translate(-50%, -50%);
-                                background: rgba(0,0,0,0.8);
-                                color: white;
-                                padding: 5px 10px;
-                                border-radius: 3px;
-                                font-size: 12px;
-                                z-index: 1000;
-                            }
-                            .datepicker-status {
-                                position: fixed;
-                                top: 20px;
-                                right: 20px;
-                                z-index: 9999;
-                                max-width: 300px;
-                                padding: 10px 15px;
-                                border-radius: 5px;
-                                color: white;
-                                font-size: 14px;
-                                opacity: 0;
-                                transition: opacity 0.3s ease;
-                            }
-                            .datepicker-status.show {
-                                opacity: 1;
-                            }
-                            .datepicker-status.success {
-                                background-color: #28a745;
-                            }
-                            .datepicker-status.info {
-                                background-color: #17a2b8;
-                            }
-                            .datepicker-status.warning {
-                                background-color: #ffc107;
-                                color: #212529;
-                            }
-                            .datepicker-status.error {
-                                background-color: #dc3545;
-                            }
-                        </style>
+                    // Create a style element
+                    const styleElement = document.createElement('style');
+                    styleElement.id = 'unavailable-date-styles';
+                    styleElement.textContent = `
+                        .ui-datepicker .ui-state-disabled.past-date {
+                            background-color: #f8f9fa !important;
+                            color: #adb5bd !important;
+                            cursor: not-allowed !important;
+                        }
+                        .ui-datepicker .ui-state-disabled.past-date:hover {
+                            background-color: #f8f9fa !important;
+                            color: #adb5bd !important;
+                        }
+                        .ui-datepicker .ui-state-disabled.unavailable-date {
+                            background-color: #f8f9fa !important;
+                            color: #6c757d !important;
+                            text-decoration: line-through !important;
+                            cursor: not-allowed !important;
+                        }
+                        .ui-datepicker .ui-state-disabled.unavailable-date:hover {
+                            background-color: #f8f9fa !important;
+                            color: #6c757d !important;
+                        }
+                        .ui-datepicker .ui-state-disabled.invalid-range-date {
+                            background-color: #fff3cd !important;
+                            color: #856404 !important;
+                            text-decoration: line-through !important;
+                            cursor: not-allowed !important;
+                            border: 1px solid #ffeaa7 !important;
+                        }
+                        .ui-datepicker .ui-state-disabled.invalid-range-date:hover {
+                            background-color: #fff3cd !important;
+                            color: #856404 !important;
+                        }
+                        .ui-datepicker .ui-state-disabled.loading-date {
+                            background-color: #e9ecef !important;
+                            color: #6c757d !important;
+                            cursor: wait !important;
+                            position: relative;
+                        }
+                        .ui-datepicker .ui-state-disabled.loading-date:hover {
+                            background-color: #e9ecef !important;
+                            color: #6c757d !important;
+                        }
+                        .ui-datepicker td .loading-date {
+                            position: relative;
+                        }
+                        .ui-datepicker td .loading-date:after {
+                            content: '';
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            width: 16px;
+                            height: 16px;
+                            margin: -8px 0 0 -8px;
+                            border: 2px solid #6c757d;
+                            border-top: 2px solid transparent;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        }
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
                     `;
-                    $('head').append(styles);
+                    
+                    // Append the style element to the document head
+                    document.head.appendChild(styleElement);
                 }
             }
 
@@ -613,9 +616,48 @@
                     if (bookingType === 'day-use') {
                     $('#check__out').datepicker('option', 'minDate', null);
                     }
+                    
+                    // NEW: Refresh the checkout datepicker to update visual feedback
+                    if (datepickerInitialized) {
+                        $('#check__out').datepicker('refresh');
+                        
+                        // NEW: Show guidance about valid checkout dates for overnight bookings
+                        if (bookingType === 'overnight') {
+                            // Find the next available checkout date after check-in
+                            let nextValidCheckout = new Date(checkInDate);
+                            nextValidCheckout.setDate(nextValidCheckout.getDate() + 1);
+                            
+                            // Look for a valid checkout date (no unavailable nights in between)
+                            let foundValidCheckout = false;
+                            let attempts = 0;
+                            const maxAttempts = 30; // Don't look too far ahead
+                            
+                            while (!foundValidCheckout && attempts < maxAttempts) {
+                                const checkoutDateStr = nextValidCheckout.toISOString().split('T')[0];
+                                const unavailableInRange = getUnavailableDatesInRange(checkInDate.toISOString().split('T')[0], checkoutDateStr);
+                                
+                                if (unavailableInRange.length === 0) {
+                                    foundValidCheckout = true;
+                                    const checkoutFormatted = nextValidCheckout.toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric' 
+                                    });
+                                    showDateInfo(`Tip: You can select ${checkoutFormatted} as checkout for a 1-night stay, or choose a later date that doesn't span unavailable nights.`, 'info');
+                                } else {
+                                    nextValidCheckout.setDate(nextValidCheckout.getDate() + 1);
+                                    attempts++;
+                                }
+                            }
+                        }
+                    }
                 } else {
                     // If no check-in, allow any checkout (but still respect past dates)
                     $('#check__out').datepicker('option', 'minDate', 0);
+                    
+                    // NEW: Refresh the checkout datepicker
+                    if (datepickerInitialized) {
+                        $('#check__out').datepicker('refresh');
+                    }
                 }
                 
                 // Clear availability data when dates change
@@ -637,6 +679,28 @@
                 
                 // Update button state
                 updateBookButtonState();
+                
+                // NEW: Show success message for valid date selection
+                const checkInDate = $("#check__in").val();
+                const checkOutDate = $("#check__out").val();
+                if (checkInDate && checkOutDate) {
+                    const checkIn = new Date(convertDateFormat(checkInDate));
+                    const checkOut = new Date(convertDateFormat(checkOutDate));
+                    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+                    
+                    if (nights > 0) {
+                        const checkInFormatted = checkIn.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        const checkOutFormatted = checkOut.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        
+                        showDateSuccess(`Perfect! ${nights} night stay from ${checkInFormatted} to ${checkOutFormatted}. All dates are available.`);
+                    }
+                }
                 
                 // Check availability if we have valid dates
                 if (validateSelectedDates()) {
@@ -843,11 +907,24 @@
                             return; // Skip this slot
                         }
                         
-                        // Set price values with fallbacks
-                        const finalPrice = slot.final_price || slot.price || 0;
-                        const hasDiscount = slot.has_discount || false;
-                        const originalPrice = slot.original_price || finalPrice;
-                        const discountPercentage = slot.discount_percentage || 0;
+                        // Get pricing information from the slot data
+                        const basePrice = slot.base_price || slot.price || 0;
+                        const adjustment = slot.adjustment || 0;
+                        const finalPrice = slot.final_price || slot.total_price || basePrice;
+                        const hasCustomPricing = slot.custom_pricing_applied || (adjustment > 0);
+                        const customPricingName = slot.custom_pricing_name || null;
+                        
+                        // Create slot display HTML
+                        let priceDisplay = `$${finalPrice.toFixed(2)}`;
+                        let customPricingNote = '';
+                        
+                        if (hasCustomPricing && customPricingName) {
+                            if (adjustment > 0) {
+                                customPricingNote = ` <span class="text-info">(+$${adjustment.toFixed(2)} ${customPricingName})</span>`;
+                            } else {
+                                customPricingNote = ` <span class="text-info">(${customPricingName})</span>`;
+                            }
+                        }
                         
                         const slotHtml = `
                             <div class="form-check mb-2">
@@ -856,12 +933,10 @@
                                     id="slot_${slot.id}"
                                     data-price="${finalPrice}"
                                     data-name="${slot.name}"
-                                    data-has-discount="${hasDiscount ? 1 : 0}"
-                                    data-original-price="${originalPrice}"
-                                    data-discount-percentage="${discountPercentage}">
+                                    data-base-price="${basePrice}"
+                                    data-adjustment="${adjustment}">
                                 <label class="form-check-label" for="slot_${slot.id}">
-                                    <strong>${slot.name}</strong> - $${finalPrice}
-                                    ${hasDiscount ? ` <span class="text-success">(${discountPercentage}% off)</span>` : ''}
+                                    <strong>${slot.name}</strong> - ${priceDisplay}${customPricingNote}
                                 </label>
                             </div>
                         `;
@@ -871,8 +946,6 @@
                     console.error('Error displaying day-use slots:', error);
                     showError("Error displaying available slots");
                 }
-
-                // Removed Recommended Combinations section as requested
 
                 $("#available-slots-container").show();
             }
@@ -1015,23 +1088,6 @@
                     nightlyBreakdown.html(`<strong>Price per night:</strong> $${pricePerNight.toFixed(2)}`);
                 }
                 
-                // Handle launch promotion discount
-                if (slot.has_discount) {
-                    const originalPrice = parseFloat(slot.original_price);
-                    const discountAmount = parseFloat(slot.discount);
-                    const discountPercentage = parseInt(slot.discount_percentage);
-                    
-                    $("#original-price").text(originalPrice.toFixed(2));
-                    $("#discount-amount").text(discountAmount.toFixed(2));
-                    $("#discount-text").text(`${discountPercentage}% Launch Promotion`);
-                    
-                    $("#original-price-container").show();
-                    $("#discount-container").show();
-                } else {
-                    $("#original-price-container").hide();
-                    $("#discount-container").hide();
-                }
-                
                 $("#overnight-total-price").text(totalPrice.toFixed(2));
                 $("#overnight-price-summary").show();
 
@@ -1042,26 +1098,25 @@
             function updateSelectedSlots() {
                 selectedSlots = [];
                 let totalPrice = 0;
-                let originalPrice = 0;
+                let basePriceTotal = 0;
+                let adjustmentTotal = 0;
                 let selectedNames = [];
-                let hasDiscount = false;
-                let discountPercentage = 15; // Default discount percentage
+                let hasCustomPricing = false;
+                let customPricingNames = [];
 
                 $(".slot-checkbox:checked").each(function() {
                     const slotId = $(this).val();
                     const price = parseFloat($(this).data("price"));
                     const name = $(this).data("name");
-                    const slotHasDiscount = $(this).data("has-discount") === 1;
+                    const basePrice = parseFloat($(this).data("base-price"));
+                    const adjustment = parseFloat($(this).data("adjustment"));
                     
-                    if (slotHasDiscount) {
-                        hasDiscount = true;
-                        const slotOriginalPrice = parseFloat($(this).data("original-price"));
-                        originalPrice += slotOriginalPrice;
-                        discountPercentage = parseInt($(this).data("discount-percentage"));
-                    } else {
-                        originalPrice += price;
+                    if (adjustment > 0) {
+                        hasCustomPricing = true;
+                        adjustmentTotal += adjustment;
                     }
-
+                    
+                    basePriceTotal += basePrice;
                     selectedSlots.push(slotId);
                     totalPrice += price;
                     selectedNames.push(name);
@@ -1069,19 +1124,21 @@
 
                 if (selectedSlots.length > 0) {
                     $("#selected-combo-text").text(selectedNames.join(", "));
-                    $("#combo-original-price").text(originalPrice.toFixed(2));
-                    $("#combo-discount-amount").text((originalPrice - totalPrice).toFixed(2));
-                    $("#combo-discount-text").text(`${discountPercentage}% Launch Promotion`);
-                    $("#combo-total-price").text(totalPrice.toFixed(2));
                     
-                    if (hasDiscount) {
-                        $("#combo-original-price-container").show();
-                        $("#combo-discount-container").show();
+                    // Show base price and adjustments if there are any
+                    if (hasCustomPricing) {
+                        $("#combo-base-price").text(basePriceTotal.toFixed(2));
+                        $("#combo-adjustment-amount").text(`+$${adjustmentTotal.toFixed(2)}`);
+                        $("#combo-adjustment-text").text("Custom Pricing Adjustments");
+                        
+                        $("#combo-base-price-container").show();
+                        $("#combo-adjustment-container").show();
                     } else {
-                        $("#combo-original-price-container").hide();
-                        $("#combo-discount-container").hide();
+                        $("#combo-base-price-container").hide();
+                        $("#combo-adjustment-container").hide();
                     }
                     
+                    $("#combo-total-price").text(totalPrice.toFixed(2));
                     $("#selected-combo-summary").show();
                 } else {
                     $("#selected-combo-summary").hide();
@@ -1185,45 +1242,83 @@
             // Store booking data for retry after login
             let pendingBookingData = null;
 
+            // Show error message
             function showError(message) {
-                // Create a Bootstrap alert
-                const alertHtml = `
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        ${message}
+                // Remove existing error messages
+                $('.error-message').remove();
+                
+                // Create error message element
+                const errorHtml = `
+                    <div class="error-message alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Date Selection Error:</strong> ${message}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 `;
                 
-                // Remove any existing alerts
-                $('.alert').remove();
+                // Insert error message above the date fields
+                $("#date-fields-container").before(errorHtml);
                 
-                // Add the alert at the top of the booking form
-                $('#booking-form').prepend(alertHtml);
-                
-                // Auto-dismiss after 5 seconds
+                // Auto-hide after 8 seconds
                 setTimeout(() => {
-                    $('.alert').fadeOut();
-                }, 5000);
+                    $('.error-message').fadeOut(500, function() {
+                        $(this).remove();
+                    });
+                }, 8000);
+                
+                // Scroll to error message
+                $('html, body').animate({
+                    scrollTop: $('.error-message').offset().top - 100
+                }, 500);
             }
-
-            function showSuccess(message) {
-                // Create a Bootstrap alert
-                const alertHtml = `
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+            
+            // NEW: Show helpful information about date selection
+            function showDateInfo(message, type = 'info') {
+                // Remove existing info messages
+                $('.date-info-message').remove();
+                
+                // Create info message element
+                const infoHtml = `
+                    <div class="date-info-message alert alert-${type} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-info-circle"></i>
                         ${message}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 `;
                 
-                // Remove any existing alerts
-                $('.alert').remove();
+                // Insert info message above the date fields
+                $("#date-fields-container").before(infoHtml);
                 
-                // Add the alert at the top of the booking form
-                $('#booking-form').prepend(alertHtml);
-                
-                // Auto-dismiss after 5 seconds
+                // Auto-hide after 6 seconds
                 setTimeout(() => {
-                    $('.alert').fadeOut();
+                    $('.date-info-message').fadeOut(500, function() {
+                        $(this).remove();
+                    });
+                }, 6000);
+            }
+            
+            // NEW: Show success message for valid date selection
+            function showDateSuccess(message) {
+                // Remove existing success messages
+                $('.date-success-message').remove();
+                
+                // Create success message element
+                const successHtml = `
+                    <div class="date-success-message alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle"></i>
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+                
+                // Insert success message above the date fields
+                $("#date-fields-container").before(successHtml);
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    $('.date-success-message').fadeOut(500, function() {
+                        $(this).remove();
+                    });
                 }, 5000);
             }
 
@@ -1281,9 +1376,13 @@
             // Update availability legend text
             function updateAvailabilityLegend() {
                 const bookingType = $("#booking_type").val();
-                const legendText = bookingType === 'day-use' 
-                    ? 'Calendar shows available dates only (past dates disabled)'
-                    : 'Calendar shows available dates only (past dates disabled, checkout must be after check-in)';
+                let legendText = '';
+                
+                if (bookingType === 'day-use') {
+                    legendText = 'Calendar shows available dates only (past dates disabled)';
+                } else if (bookingType === 'overnight') {
+                    legendText = 'Calendar shows available dates only. Checkout dates that would span unavailable nights are highlighted in yellow.';
+                }
                 
                 $('#availability-legend').text(legendText);
             }
@@ -1313,9 +1412,54 @@
                         showError("Check-out date must be at least one day after check-in date");
                         return false;
                     }
+                    
+                    // NEW: Check if the selected date range spans any unavailable dates
+                    if (unavailableDates && Array.isArray(unavailableDates) && unavailableDates.length > 0) {
+                        const unavailableDatesInRange = getUnavailableDatesInRange(checkInDate, checkOutDate);
+                        if (unavailableDatesInRange.length > 0) {
+                            const unavailableDays = unavailableDatesInRange.map(date => {
+                                const dateObj = new Date(date);
+                                return dateObj.toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                });
+                            }).join(', ');
+                            
+                            showError(`Selected dates include unavailable nights: ${unavailableDays}. Please adjust your dates.`);
+                            return false;
+                        }
+                    }
                 }
                 
                 return true;
+            }
+            
+            // NEW: Helper function to get unavailable dates within a date range
+            function getUnavailableDatesInRange(startDate, endDate) {
+                if (!unavailableDates || !Array.isArray(unavailableDates) || unavailableDates.length === 0) {
+                    return [];
+                }
+                
+                const start = new Date(convertDateFormat(startDate));
+                const end = new Date(convertDateFormat(endDate));
+                const unavailableInRange = [];
+                
+                // Check each date in the range
+                const current = new Date(start);
+                while (current < end) {
+                    const dateStr = current.toISOString().split('T')[0]; // YYYY-MM-DD format
+                    
+                    // Check if this date is unavailable
+                    if (unavailableDates.indexOf(dateStr) !== -1) {
+                        unavailableInRange.push(dateStr);
+                    }
+                    
+                    // Move to next day
+                    current.setDate(current.getDate() + 1);
+                }
+                
+                return unavailableInRange;
             }
 
             // Update book button state based on date validation
