@@ -28,8 +28,6 @@ Route::post('/review/submit/{token}', [App\Http\Controllers\ReviewController::cl
 Route::prefix('api')->group(function () {
     Route::get('/chalet/{slug}/availability', [App\Http\Controllers\Api\ChaletApiController::class, 'getAvailability']);
     Route::get('/chalet/{slug}/unavailable-dates', [App\Http\Controllers\Api\ChaletApiController::class, 'getUnavailableDates']);
-    Route::post('/chalet/{slug}/calculate-price', [App\Http\Controllers\Api\ChaletApiController::class, 'calculatePrice']);
     Route::post('/bookings', [App\Http\Controllers\Api\BookingApiController::class, 'store']);
     Route::get('/user/check-auth', [App\Http\Controllers\Api\BookingApiController::class, 'checkAuth']);
-    Route::get('/bookings/consecutive-slot-combinations', [App\Http\Controllers\Api\BookingApiController::class, 'consecutiveSlotCombinations']);
 });

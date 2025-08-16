@@ -213,7 +213,6 @@
                                         <!-- Slot combinations will be populated here -->
                                     </div>
                                     <div id="selected-combo-summary" class="mb-3" style="display: none;">
-                                        <strong>Selected:</strong> <span id="selected-combo-text"></span>
                                         <div id="combo-base-price-container" style="display: none;">
                                             <span class="text-muted">Base price: $<span id="combo-base-price">0</span></span>
                                         </div>
@@ -765,7 +764,7 @@
             });
 
             // Handle slot selection for day-use
-            $(document).on("change", ".slot-checkbox", function() {
+            $(document).off("change", ".slot-checkbox").on("change", ".slot-radio", function() {
                 updateSelectedSlots();
             });
 
@@ -899,7 +898,7 @@
                 slotsList.empty();
                 
                 try {
-                    // Display individual slots
+                    // Display individual slots as radio buttons
                     slotsArray.forEach(slot => {
                         // Validate slot data
                         if (!slot || slot.id === undefined || !slot.name) {
@@ -920,22 +919,23 @@
                         
                         if (hasCustomPricing && customPricingName) {
                             if (adjustment > 0) {
-                                customPricingNote = ` <span class="text-info">(+$${adjustment.toFixed(2)} ${customPricingName})</span>`;
+                                customPricingNote = ` <span class=\"text-info\">(+$${adjustment.toFixed(2)} ${customPricingName})</span>`;
                             } else {
-                                customPricingNote = ` <span class="text-info">(${customPricingName})</span>`;
+                                customPricingNote = ` <span class=\"text-info\">(${customPricingName})</span>`;
                             }
                         }
                         
                         const slotHtml = `
-                            <div class="form-check mb-2">
-                                <input class="form-check-input slot-checkbox" type="checkbox" 
-                                    value="${slot.id}" 
-                                    id="slot_${slot.id}"
-                                    data-price="${finalPrice}"
-                                    data-name="${slot.name}"
-                                    data-base-price="${basePrice}"
-                                    data-adjustment="${adjustment}">
-                                <label class="form-check-label" for="slot_${slot.id}">
+                            <div class=\"form-check mb-2\">
+                                <input class=\"form-check-input slot-radio\" type=\"radio\" 
+                                    name=\"slot-radio-group\"
+                                    value=\"${slot.id}\" 
+                                    id=\"slot_${slot.id}\"
+                                    data-price=\"${finalPrice}\"
+                                    data-name=\"${slot.name}\"
+                                    data-base-price=\"${basePrice}\"
+                                    data-adjustment=\"${adjustment}\">
+                                <label class=\"form-check-label\" for=\"slot_${slot.id}\">
                                     <strong>${slot.name}</strong> - ${priceDisplay}${customPricingNote}
                                 </label>
                             </div>
@@ -950,151 +950,6 @@
                 $("#available-slots-container").show();
             }
 
-            function displayOvernightSlots(data) {
-                console.log('displayOvernightSlots called with data:', data);
-                
-                if (!data.slots || data.slots.length === 0) {
-                    showError("No overnight availability for selected dates");
-                    return;
-                }
-
-                const slot = data.slots[0]; // Overnight bookings use single slot
-                console.log('Selected slot:', slot);
-                
-                const nights = calculateNights(data.start_date, data.end_date);
-                console.log('Nights calculated:', nights);
-                
-                const totalPrice = slot.total_price;
-                console.log('Total price:', totalPrice);
-                
-                // Generate nightly breakdown
-                const nightlyBreakdown = $("#nightly-breakdown");
-                nightlyBreakdown.empty();
-                
-                console.log('Nightly breakdown data:', data.nightly_breakdown);
-                
-                if (data.nightly_breakdown && data.nightly_breakdown.length > 0) {
-                    console.log('Using nightly breakdown from API');
-                    
-                    // Group nights by weekend/weekday and track custom pricing
-                    const weekdayNights = [];
-                    const weekendNights = [];
-                    let hasCustomPricing = false;
-                    
-                    // Process all nights and group them
-                    data.nightly_breakdown.forEach(night => {
-                        const isWeekend = night.is_weekend;
-                        const basePrice = parseFloat(night.base_price);
-                        const adjustment = parseFloat(night.custom_adjustment || 0);
-                        const nightPrice = parseFloat(night.final_price);
-                        const nightDate = new Date(night.date);
-                        const customPricingName = night.custom_pricing_name || null;
-                        
-                        if (adjustment !== 0) {
-                            hasCustomPricing = true;
-                        }
-                        
-                        const nightData = {
-                            date: night.date,
-                            dateObj: nightDate,
-                            basePrice: basePrice,
-                            adjustment: adjustment,
-                            customPricingName: customPricingName,
-                            finalPrice: nightPrice
-                        };
-                        
-                        if (isWeekend) {
-                            weekendNights.push(nightData);
-                        } else {
-                            weekdayNights.push(nightData);
-                        }
-                    });
-                    
-                    // Calculate totals
-                    const weekdayTotal = weekdayNights.reduce((sum, night) => sum + night.finalPrice, 0);
-                    const weekendTotal = weekendNights.reduce((sum, night) => sum + night.finalPrice, 0);
-                    
-                    // Display weekday nights if any
-                    if (weekdayNights.length > 0) {
-                        const weekdayBasePrice = weekdayNights[0].basePrice;
-                        const hasWeekdayCustom = weekdayNights.some(n => n.adjustment !== 0);
-                        
-                        // Get unique custom pricing names for weekday nights
-                        const customPricingNames = [...new Set(
-                            weekdayNights
-                                .filter(n => n.adjustment !== 0 && n.customPricingName)
-                                .map(n => n.customPricingName)
-                        )];
-                        
-                        const customPricingText = customPricingNames.length > 0 
-                            ? `<div class="text-info small mb-1">${customPricingNames.join(', ')}</div>` 
-                            : '';
-                        
-                        const weekdayHtml = `
-                            <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
-                                <div>
-                                    <strong>Weekday Nights (${weekdayNights.length})</strong><br>
-                                    <small class="text-muted">
-                                        Base price: $${weekdayBasePrice.toFixed(2)} per night
-                                    </small>
-                                </div>
-                                <div class="text-end">
-                                    ${customPricingText}
-                                    <strong>$${weekdayTotal.toFixed(2)}</strong>
-                                </div>
-                            </div>
-                        `;
-                        nightlyBreakdown.append(weekdayHtml);
-                    }
-                    
-                    // Display weekend nights if any
-                    if (weekendNights.length > 0) {
-                        const weekendBasePrice = weekendNights[0].basePrice;
-                        const hasWeekendCustom = weekendNights.some(n => n.adjustment !== 0);
-                        
-                        // Get unique custom pricing names for weekend nights
-                        const customPricingNames = [...new Set(
-                            weekendNights
-                                .filter(n => n.adjustment !== 0 && n.customPricingName)
-                                .map(n => n.customPricingName)
-                        )];
-                        
-                        const customPricingText = customPricingNames.length > 0 
-                            ? `<div class="text-info small mb-1">${customPricingNames.join(', ')}</div>` 
-                            : '';
-                        
-                        const weekendHtml = `
-                            <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
-                                <div>
-                                    <strong>Weekend Nights (${weekendNights.length})</strong><br>
-                                    <small class="text-muted">
-                                        Base price: $${weekendBasePrice.toFixed(2)} per night
-                                    </small>
-                                </div>
-                                <div class="text-end">
-                                    ${customPricingText}
-                                    <strong>$${weekendTotal.toFixed(2)}</strong>
-                                </div>
-                            </div>
-                        `;
-                        nightlyBreakdown.append(weekendHtml);
-                    }
-                    
-                    // We no longer need the generic custom pricing note since we're showing specific names
-                } else {
-                    // Fallback if nightly breakdown not provided
-                    console.log('No nightly breakdown, using fallback');
-                    const pricePerNight = parseFloat(slot.price_per_night);
-                    nightlyBreakdown.html(`<strong>Price per night:</strong> $${pricePerNight.toFixed(2)}`);
-                }
-                
-                $("#overnight-total-price").text(totalPrice.toFixed(2));
-                $("#overnight-price-summary").show();
-
-                // Store the slot ID for booking
-                selectedSlots = [slot.id];
-            }
-
             function updateSelectedSlots() {
                 selectedSlots = [];
                 let totalPrice = 0;
@@ -1104,40 +959,37 @@
                 let hasCustomPricing = false;
                 let customPricingNames = [];
 
-                $(".slot-checkbox:checked").each(function() {
-                    const slotId = $(this).val();
-                    const price = parseFloat($(this).data("price"));
-                    const name = $(this).data("name");
-                    const basePrice = parseFloat($(this).data("base-price"));
-                    const adjustment = parseFloat($(this).data("adjustment"));
+                // Only one radio can be selected
+                const $selectedRadio = $(".slot-radio:checked");
+                if ($selectedRadio.length > 0) {
+                    const slotId = $selectedRadio.val();
+                    const price = parseFloat($selectedRadio.data("price"));
+                    const name = $selectedRadio.data("name");
+                    const basePrice = parseFloat($selectedRadio.data("base-price"));
+                    const adjustment = parseFloat($selectedRadio.data("adjustment"));
                     
                     if (adjustment > 0) {
                         hasCustomPricing = true;
                         adjustmentTotal += adjustment;
                     }
-                    
                     basePriceTotal += basePrice;
                     selectedSlots.push(slotId);
                     totalPrice += price;
                     selectedNames.push(name);
-                });
+                }
 
                 if (selectedSlots.length > 0) {
                     $("#selected-combo-text").text(selectedNames.join(", "));
-                    
-                    // Show base price and adjustments if there are any
                     if (hasCustomPricing) {
                         $("#combo-base-price").text(basePriceTotal.toFixed(2));
                         $("#combo-adjustment-amount").text(`+$${adjustmentTotal.toFixed(2)}`);
                         $("#combo-adjustment-text").text("Custom Pricing Adjustments");
-                        
                         $("#combo-base-price-container").show();
                         $("#combo-adjustment-container").show();
                     } else {
                         $("#combo-base-price-container").hide();
                         $("#combo-adjustment-container").hide();
                     }
-                    
                     $("#combo-total-price").text(totalPrice.toFixed(2));
                     $("#selected-combo-summary").show();
                 } else {
@@ -1162,7 +1014,7 @@
                 }
 
                 if (bookingType === 'day-use' && selectedSlots.length === 0) {
-                    showError("Please select at least one time slot");
+                    showError("Please select a time slot");
                     return;
                 }
 
@@ -1173,19 +1025,19 @@
 
                 $("#book-button").prop("disabled", true).text("Processing...");
 
+                // Send slot_id for day-use, slot_ids for overnight
                 const bookingData = {
                     chalet_id: chaletId,
                     booking_type: bookingType,
                     start_date: startDate,
-                    slot_ids: selectedSlots,
+                    end_date: endDate,
+                    slot_id: bookingType === 'day-use' ? selectedSlots[0] : undefined,
+                    slot_ids: bookingType === 'overnight' ? selectedSlots : undefined,
                     adults_count: 1, // Default values
                     children_count: 0
                 };
-
-                // Only add end_date if it's provided (for overnight bookings)
-                if (endDate) {
-                    bookingData.end_date = endDate;
-                }
+                // Remove undefined fields
+                Object.keys(bookingData).forEach(key => bookingData[key] === undefined && delete bookingData[key]);
 
                 submitBookingWithData(bookingData);
             }
