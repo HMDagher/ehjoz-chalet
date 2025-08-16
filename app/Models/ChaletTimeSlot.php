@@ -7,9 +7,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 final class ChaletTimeSlot extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'chalet_id', 'name', 'start_time', 'end_time', 'is_overnight',
         'duration_hours', 'weekday_price', 'weekend_price',

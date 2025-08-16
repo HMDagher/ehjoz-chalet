@@ -11,11 +11,12 @@ use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 
 final class Chalet extends Model implements HasMedia
 {
-    use InteractsWithMedia;
+    use InteractsWithMedia, HasFactory;
 
     public function registerMediaCollections(): void
     {
@@ -80,6 +81,7 @@ final class Chalet extends Model implements HasMedia
         'account_number',
         'iban',
         'location',
+        'weekend_days',
     ];
 
     protected $appends = [
