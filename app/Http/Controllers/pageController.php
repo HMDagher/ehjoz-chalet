@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use App\Services\ChaletAvailabilityService;
 use App\Services\ChaletSearchService;
 use Carbon\Carbon;
-use App\Services\ChaletAvailabilityChecker;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class pageController extends baseController
 {
@@ -24,7 +22,7 @@ class pageController extends baseController
             ->where('status', \App\Enums\ChaletStatus::Active)
             ->where(function ($query) {
                 $query->whereNull('featured_until')
-                      ->orWhere('featured_until', '>=', now());
+                    ->orWhere('featured_until', '>=', now());
             })
             ->with('timeSlots')
             ->get();
@@ -33,7 +31,7 @@ class pageController extends baseController
         \Log::info('Featured chalets raw', [
             'count' => $featuredChalets->count(),
             'ids' => $featuredChalets->pluck('id')->toArray(),
-            'slots_count' => $featuredChalets->mapWithKeys(fn($c) => [$c->id => $c->timeSlots->count()])->toArray(),
+            'slots_count' => $featuredChalets->mapWithKeys(fn ($c) => [$c->id => $c->timeSlots->count()])->toArray(),
         ]);
 
         // Just send the featured chalets (with their slots) to the view, no availability check
@@ -61,16 +59,17 @@ class pageController extends baseController
 
         \Log::info('Featured chalets sent to index', [
             'count' => count($featuredChaletsWithSlots),
-            'ids' => array_map(fn($c) => $c['chalet']->id, $featuredChaletsWithSlots),
+            'ids' => array_map(fn ($c) => $c['chalet']->id, $featuredChaletsWithSlots),
         ]);
 
         return $this->view('index', [
-            'chaletCount'    => $chaletCount,
-            'bookingCount'   => $bookingCount,
-            'customerCount'  => $customerCount,
+            'chaletCount' => $chaletCount,
+            'bookingCount' => $bookingCount,
+            'customerCount' => $customerCount,
             'featuredChaletsWithSlots' => $featuredChaletsWithSlots,
         ]);
     }
+
     // room three page
     public function chalets(Request $request)
     {
@@ -98,7 +97,7 @@ class pageController extends baseController
             }
         }
 
-        $chaletSearchService = new ChaletSearchService();
+        $chaletSearchService = new ChaletSearchService;
 
         if ($request->filled('check__in')) {
             $is_search = true;
@@ -107,9 +106,9 @@ class pageController extends baseController
                 \Log::info('Search parameters', [
                     'checkin' => $checkin,
                     'checkout' => $checkout,
-                    'bookingType' => $bookingType
+                    'bookingType' => $bookingType,
                 ]);
-                
+
                 // If it's a day-use booking, end date is not needed
                 if ($bookingType === 'day-use') {
                     $results = $chaletSearchService->searchChalets(
@@ -122,10 +121,10 @@ class pageController extends baseController
                     if ($request->filled('check__out')) {
                         $startDate = Carbon::parse($checkin);
                         $endDate = Carbon::parse($checkout);
-                        
+
                         if ($startDate->gt($endDate)) {
-                    return redirect()->back()->with('error', 'Check-out date must be after check-in date.');
-                }
+                            return redirect()->back()->with('error', 'Check-out date must be after check-in date.');
+                        }
 
                         $results = $chaletSearchService->searchChalets(
                             $checkin,
@@ -141,15 +140,15 @@ class pageController extends baseController
                         );
                     }
                 }
-                
+
                 // Debug: Log raw search results
                 \Log::info('Raw search results', [
                     'count' => count($results),
-                    'ids' => array_map(fn($r) => $r['chalet']['id'] ?? null, $results),
+                    'ids' => array_map(fn ($r) => $r['chalet']['id'] ?? null, $results),
                 ]);
 
                 // For search results, we need to get the full chalet models with media
-                if (!empty($results)) {
+                if (! empty($results)) {
                     $chaletIds = collect($results)->pluck('chalet.id');
                     $chalets = \App\Models\Chalet::with('media')->findMany($chaletIds)->keyBy('id');
 
@@ -161,7 +160,7 @@ class pageController extends baseController
                             $minTotalPrice = $result['min_total_price'] ?? 0;
                             $nights = $result['nights'] ?? 1;
                             $bookingType = $result['booking_type'] ?? 'overnight';
-                            
+
                             $result['chalet'] = $chalets[$result['chalet']['id']];
                             $result['slots'] = $slots;
                             $result['min_price'] = $minPrice;
@@ -175,13 +174,14 @@ class pageController extends baseController
                 // Debug: Log filtered search results
                 \Log::info('Filtered search results', [
                     'count' => count($results),
-                    'ids' => array_map(fn($r) => $r['chalet'] instanceof \App\Models\Chalet ? $r['chalet']->id : null, $results),
+                    'ids' => array_map(fn ($r) => $r['chalet'] instanceof \App\Models\Chalet ? $r['chalet']->id : null, $results),
                 ]);
 
             } catch (\Exception $e) {
                 // Log the error for debugging
-                \Log::error('Search error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-                return redirect()->back()->with('error', 'Error in search: ' . $e->getMessage());
+                \Log::error('Search error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+                return redirect()->back()->with('error', 'Error in search: '.$e->getMessage());
             }
         } else {
             // No search parameters - show all chalets with available slots
@@ -211,6 +211,7 @@ class pageController extends baseController
                 'reviews',
             ])
             ->firstOrFail();
+
         return $this->view('chalet-details', compact('chalet'));
     }
 
@@ -229,7 +230,7 @@ class pageController extends baseController
             ->with(['chalet', 'timeSlots'])
             ->first();
 
-        if (!$booking) {
+        if (! $booking) {
             return redirect()->route('index')->with('error', 'Booking not found.');
         }
 
@@ -239,7 +240,7 @@ class pageController extends baseController
         }
 
         return $this->view('booking-confirmation', [
-            'booking' => $booking
+            'booking' => $booking,
         ]);
     }
 
@@ -256,7 +257,7 @@ class pageController extends baseController
 
         \Mail::raw($validated['msg'], function ($message) use ($validated) {
             $message->to('hadi.d.enG@gmail.com')
-                ->subject('Moonlit Contact Form ' . $validated['name'])
+                ->subject('Moonlit Contact Form '.$validated['name'])
                 ->from($validated['email'], $validated['name']);
         });
 

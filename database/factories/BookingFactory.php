@@ -19,7 +19,7 @@ class BookingFactory extends Factory
         return [
             'chalet_id' => 1, // Will be overridden in tests
             'user_id' => 1, // Will be overridden in tests
-            'booking_reference' => 'BK-' . $this->faker->unique()->numerify('######'),
+            'booking_reference' => 'BK-'.$this->faker->unique()->numerify('######'),
             'start_date' => $this->faker->dateTimeBetween('now', '+1 month'),
             'end_date' => null, // For day-use bookings
             'booking_type' => 'day-use',

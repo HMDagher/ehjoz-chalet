@@ -5,24 +5,22 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ChaletStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-
 
 final class Chalet extends Model implements HasMedia
 {
-    use InteractsWithMedia, HasFactory;
+    use HasFactory, InteractsWithMedia;
 
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('featured_image')
             ->singleFile();
-        
+
         $this->addMediaCollection('gallery');
     }
 
@@ -46,7 +44,7 @@ final class Chalet extends Model implements HasMedia
      *
      * @var array
      */
-     protected $fillable = [
+    protected $fillable = [
         'owner_id',
         'name',
         'slug',
@@ -89,39 +87,32 @@ final class Chalet extends Model implements HasMedia
     ];
 
     /**
-    * Returns the 'latitude' and 'longitude' attributes as the computed 'location' attribute,
-    * as a standard Google Maps style Point array with 'lat' and 'lng' attributes.
-    *
-    * Used by the Filament Google Maps package.
-    *
-    * Requires the 'location' attribute be included in this model's $fillable array.
-    *
-    * @return array
-    */
-
+     * Returns the 'latitude' and 'longitude' attributes as the computed 'location' attribute,
+     * as a standard Google Maps style Point array with 'lat' and 'lng' attributes.
+     *
+     * Used by the Filament Google Maps package.
+     *
+     * Requires the 'location' attribute be included in this model's $fillable array.
+     */
     public function getLocationAttribute(): array
     {
         return [
-            "lat" => (float)$this->latitude,
-            "lng" => (float)$this->longitude,
+            'lat' => (float) $this->latitude,
+            'lng' => (float) $this->longitude,
         ];
     }
 
     /**
-    * Takes a Google style Point array of 'lat' and 'lng' values and assigns them to the
-    * 'latitude' and 'longitude' attributes on this model.
-    *
-    * Used by the Filament Google Maps package.
-    *
-    * Requires the 'location' attribute be included in this model's $fillable array.
-    *
-    * @param ?array $location
-    * @return void
-    */
+     * Takes a Google style Point array of 'lat' and 'lng' values and assigns them to the
+     * 'latitude' and 'longitude' attributes on this model.
+     *
+     * Used by the Filament Google Maps package.
+     *
+     * Requires the 'location' attribute be included in this model's $fillable array.
+     */
     public function setLocationAttribute(?array $location): void
     {
-        if (is_array($location))
-        {
+        if (is_array($location)) {
             $this->attributes['latitude'] = $location['lat'];
             $this->attributes['longitude'] = $location['lng'];
             unset($this->attributes['location']);
@@ -143,13 +134,11 @@ final class Chalet extends Model implements HasMedia
         ];
     }
 
-   /**
-    * Get the name of the computed location attribute
-    *
-    * Used by the Filament Google Maps package.
-    *
-    * @return string
-    */
+    /**
+     * Get the name of the computed location attribute
+     *
+     * Used by the Filament Google Maps package.
+     */
     public static function getComputedLocation(): string
     {
         return 'location';
@@ -231,7 +220,6 @@ final class Chalet extends Model implements HasMedia
     {
         return $this->belongsTo(User::class);
     }
-
 
     /**
      * Get the attributes that should be cast.

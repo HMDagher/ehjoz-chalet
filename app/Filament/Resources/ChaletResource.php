@@ -1,6 +1,6 @@
 <?php
 
-declare (strict_types = 1);
+declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
@@ -42,7 +42,7 @@ final class ChaletResource extends Resource
                                 ->schema([
                                     Forms\Components\TextInput::make('name')->required()->maxLength(255)
                                         ->live(onBlur: true)
-                                        ->afterStateUpdated(fn(Set $set, ?string $state) => $set('slug', Str::slug($state))),
+                                        ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state))),
                                     Forms\Components\TextInput::make('slug')->required()->maxLength(255)->unique(ignoreRecord: true),
                                     Forms\Components\Select::make('owner_id')->relationship('owner', 'name')->searchable()->required(),
                                     Forms\Components\Select::make('status')->options(ChaletStatus::class)->native(false)->required(),
@@ -150,7 +150,7 @@ final class ChaletResource extends Resource
                                 )
                                 ->reverseGeocode([
                                     'address' => '%n %S, %L, %A1, %z',
-                                    'city'    => '%L',
+                                    'city' => '%L',
                                 ])
                                 ->columnSpanFull(),
                         ])->columns(2),
@@ -222,10 +222,10 @@ final class ChaletResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListChalets::route('/'),
+            'index' => Pages\ListChalets::route('/'),
             'create' => Pages\CreateChalet::route('/create'),
-            'view'   => Pages\ViewChalet::route('/{record}'),
-            'edit'   => Pages\EditChalet::route('/{record}/edit'),
+            'view' => Pages\ViewChalet::route('/{record}'),
+            'edit' => Pages\EditChalet::route('/{record}/edit'),
         ];
     }
 }

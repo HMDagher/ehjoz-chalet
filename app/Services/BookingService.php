@@ -7,16 +7,17 @@ use App\Models\Chalet;
 use App\Models\ChaletTimeSlot;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class BookingService
 {
     private AvailabilityService $availabilityService;
+
     private PricingCalculator $pricingCalculator;
-    
+
     public function __construct(
         AvailabilityService $availabilityService,
         PricingCalculator $pricingCalculator
@@ -27,20 +28,17 @@ class BookingService
 
     /**
      * Create a new booking
-     * 
-     * @param array $bookingData
-     * @return array
      */
     public function createBooking(array $bookingData): array
     {
         try {
             // Validate booking request
             $validation = $this->validateBookingRequest($bookingData);
-            if (!$validation['valid']) {
+            if (! $validation['valid']) {
                 return [
                     'success' => false,
                     'errors' => $validation['errors'],
-                    'booking' => null
+                    'booking' => null,
                 ];
             }
 
@@ -60,36 +58,33 @@ class BookingService
             Log::error('Booking creation failed', [
                 'booking_data' => $bookingData,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
                 'success' => false,
                 'errors' => ['Booking system temporarily unavailable. Please try again.'],
-                'booking' => null
+                'booking' => null,
             ];
         }
     }
 
     /**
      * Process booking creation within database transaction
-     * 
-     * @param array $data
-     * @return array
      */
     private function processBookingCreation(array $data): array
     {
         // Lock the chalet and date range to prevent race conditions
         $lockKey = $this->generateLockKey($data['chalet_id'], $data['start_date'], $data['end_date']);
-        
+
         // Get a SELECT FOR UPDATE lock on the chalet
         $chalet = Chalet::where('id', $data['chalet_id'])->lockForUpdate()->first();
-        
-        if (!$chalet) {
+
+        if (! $chalet) {
             return [
                 'success' => false,
                 'errors' => ['Chalet not found'],
-                'booking' => null
+                'booking' => null,
             ];
         }
 
@@ -102,11 +97,11 @@ class BookingService
             $data['booking_type']
         );
 
-        if (!$availabilityCheck['valid']) {
+        if (! $availabilityCheck['valid']) {
             return [
                 'success' => false,
-                'errors' => ['Slots are no longer available: ' . implode(', ', $availabilityCheck['errors'])],
-                'booking' => null
+                'errors' => ['Slots are no longer available: '.implode(', ', $availabilityCheck['errors'])],
+                'booking' => null,
             ];
         }
 
@@ -134,7 +129,7 @@ class BookingService
             'booking_reference' => $this->generateBookingReference(),
             'internal_notes' => $data['notes'] ?? null,
             'total_guests' => $data['guest_count'] ?? 1,
-            'special_requests' => $data['special_requests'] ?? null
+            'special_requests' => $data['special_requests'] ?? null,
         ]);
 
         // Attach time slots to booking
@@ -146,22 +141,18 @@ class BookingService
             'booking_reference' => $booking->booking_reference,
             'chalet_id' => $data['chalet_id'],
             'user_id' => $data['user_id'],
-            'total_amount' => $pricing['total_amount']
+            'total_amount' => $pricing['total_amount'],
         ]);
 
         return [
             'success' => true,
             'booking' => $this->formatBookingResponse($booking, $pricing),
-            'errors' => []
+            'errors' => [],
         ];
     }
 
     /**
      * Create booking start and end datetimes
-     * 
-     * @param array $data
-     * @param array $availabilityData
-     * @return array
      */
     private function createBookingDatetimes(array $data, array $availabilityData): array
     {
@@ -179,7 +170,7 @@ class BookingService
                 TimeSlotHelper::convertToDateTime($data['start_date'], $lastSlot['start_time']),
                 $lastSlot['end_time']
             );
-        } 
+        }
         // For overnight: use date range with slot times
         else {
             $startDatetime = TimeSlotHelper::convertToDateTime($data['start_date'], $firstSlot['start_time']);
@@ -188,16 +179,12 @@ class BookingService
 
         return [
             'start_datetime' => $startDatetime->format('Y-m-d H:i:s'),
-            'end_datetime' => $endDatetime->format('Y-m-d H:i:s')
+            'end_datetime' => $endDatetime->format('Y-m-d H:i:s'),
         ];
     }
 
     /**
      * Attach time slots to booking
-     * 
-     * @param Booking $booking
-     * @param array $timeSlotIds
-     * @param array $pricing
      */
     private function attachTimeSlotsToBooking(Booking $booking, array $timeSlotIds, array $pricing): void
     {
@@ -207,9 +194,6 @@ class BookingService
 
     /**
      * Validate booking request
-     * 
-     * @param array $data
-     * @return array
      */
     private function validateBookingRequest(array $data): array
     {
@@ -219,8 +203,9 @@ class BookingService
         // Validate required fields
         $requiredFields = ['chalet_id', 'user_id', 'booking_type', 'start_date', 'time_slot_ids'];
         foreach ($requiredFields as $field) {
-            if (!isset($data[$field]) || (is_array($data[$field]) && empty($data[$field]))) {
+            if (! isset($data[$field]) || (is_array($data[$field]) && empty($data[$field]))) {
                 $errors[] = "{$field} is required";
+
                 continue;
             }
             $normalized[$field] = $data[$field];
@@ -249,7 +234,7 @@ class BookingService
         }
 
         // Validate booking type
-        if (isset($normalized['booking_type']) && !in_array($normalized['booking_type'], ['day-use', 'overnight'])) {
+        if (isset($normalized['booking_type']) && ! in_array($normalized['booking_type'], ['day-use', 'overnight'])) {
             $errors[] = 'booking_type must be either "day-use" or "overnight"';
         }
 
@@ -265,16 +250,12 @@ class BookingService
         return [
             'valid' => empty($errors),
             'errors' => $errors,
-            'data' => $normalized
+            'data' => $normalized,
         ];
     }
 
     /**
      * Validate booking dates
-     * 
-     * @param array $data
-     * @param array &$normalized
-     * @param array &$errors
      */
     private function validateBookingDates(array $data, array &$normalized, array &$errors): void
     {
@@ -315,10 +296,6 @@ class BookingService
 
     /**
      * Validate time slots
-     * 
-     * @param array $data
-     * @param array &$normalized
-     * @param array &$errors
      */
     private function validateTimeSlots(array $data, array &$normalized, array &$errors): void
     {
@@ -327,6 +304,7 @@ class BookingService
             $slotIds = array_filter($data['time_slot_ids'], 'is_numeric');
             if (count($slotIds) !== count($data['time_slot_ids'])) {
                 $errors[] = 'All time_slot_ids must be valid integers';
+
                 return;
             }
 
@@ -339,8 +317,8 @@ class BookingService
                     ->toArray();
 
                 $missingSlots = array_diff($slotIds, $existingSlots);
-                if (!empty($missingSlots)) {
-                    $errors[] = 'Time slots not found or not active: ' . implode(', ', $missingSlots);
+                if (! empty($missingSlots)) {
+                    $errors[] = 'Time slots not found or not active: '.implode(', ', $missingSlots);
                 }
             }
 
@@ -350,16 +328,12 @@ class BookingService
 
     /**
      * Validate optional fields
-     * 
-     * @param array $data
-     * @param array &$normalized
-     * @param array &$errors
      */
     private function validateOptionalFields(array $data, array &$normalized, array &$errors): void
     {
         // Guest count
         if (isset($data['guest_count'])) {
-            if (!is_numeric($data['guest_count']) || $data['guest_count'] < 1) {
+            if (! is_numeric($data['guest_count']) || $data['guest_count'] < 1) {
                 $errors[] = 'guest_count must be a positive integer';
             } else {
                 $normalized['guest_count'] = (int) $data['guest_count'];
@@ -379,37 +353,26 @@ class BookingService
 
     /**
      * Generate unique booking reference
-     * 
-     * @return string
      */
     private function generateBookingReference(): string
     {
         $prefix = 'BK';
         $timestamp = Carbon::now()->format('ymdHis');
         $random = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        
-        return $prefix . $timestamp . $random;
+
+        return $prefix.$timestamp.$random;
     }
 
     /**
      * Generate lock key for preventing race conditions
-     * 
-     * @param int $chaletId
-     * @param string $startDate
-     * @param string|null $endDate
-     * @return string
      */
     private function generateLockKey(int $chaletId, string $startDate, ?string $endDate): string
     {
-        return "booking_lock_{$chaletId}_{$startDate}_" . ($endDate ?? 'null');
+        return "booking_lock_{$chaletId}_{$startDate}_".($endDate ?? 'null');
     }
 
     /**
      * Format booking response
-     * 
-     * @param Booking $booking
-     * @param array $pricing
-     * @return array
      */
     private function formatBookingResponse(Booking $booking, array $pricing): array
     {
@@ -420,12 +383,12 @@ class BookingService
             'chalet' => [
                 'id' => $booking->chalet->id,
                 'name' => $booking->chalet->name,
-                'slug' => $booking->chalet->slug
+                'slug' => $booking->chalet->slug,
             ],
             'user' => [
                 'id' => $booking->user->id,
                 'name' => $booking->user->name,
-                'email' => $booking->user->email
+                'email' => $booking->user->email,
             ],
             'booking_details' => [
                 'start_date' => $booking->start_date,
@@ -433,28 +396,24 @@ class BookingService
                 'booking_type' => $booking->booking_type,
                 'guest_count' => $booking->total_guests,
                 'notes' => $booking->internal_notes,
-                'special_requests' => $booking->special_requests
+                'special_requests' => $booking->special_requests,
             ],
-            'time_slots' => $booking->timeSlots->map(function($slot) {
+            'time_slots' => $booking->timeSlots->map(function ($slot) {
                 return [
                     'slot_id' => $slot->id,
                     'start_time' => $slot->start_time,
                     'end_time' => $slot->end_time,
-                    'is_overnight' => $slot->is_overnight
+                    'is_overnight' => $slot->is_overnight,
                 ];
             })->toArray(),
             'pricing' => $pricing,
             'created_at' => $booking->created_at,
-            'updated_at' => $booking->updated_at
+            'updated_at' => $booking->updated_at,
         ];
     }
 
     /**
      * Clear booking-related caches
-     * 
-     * @param int $chaletId
-     * @param string $startDate
-     * @param string|null $endDate
      */
     private function clearBookingRelatedCaches(int $chaletId, string $startDate, ?string $endDate): void
     {
@@ -468,35 +427,29 @@ class BookingService
 
     /**
      * Update booking status (for admin approval workflow)
-     * 
-     * @param int $bookingId
-     * @param string $status
-     * @param int $adminUserId
-     * @param string|null $reason
-     * @return array
      */
     public function updateBookingStatus(int $bookingId, string $status, int $adminUserId, ?string $reason = null): array
     {
         try {
             $booking = Booking::findOrFail($bookingId);
-            
+
             // Validate status transition
-            if (!$this->isValidStatusTransition($booking->status, $status)) {
+            if (! $this->isValidStatusTransition($booking->status, $status)) {
                 return [
                     'success' => false,
                     'errors' => ["Cannot change status from {$booking->status} to {$status}"],
-                    'booking' => null
+                    'booking' => null,
                 ];
             }
 
             return DB::transaction(function () use ($booking, $status, $adminUserId, $reason) {
                 $oldStatus = $booking->status;
-                
+
                 // Update booking status
                 $booking->update([
                     'status' => $status,
                     'internal_notes' => $reason,
-                    'updated_at' => Carbon::now()
+                    'updated_at' => Carbon::now(),
                 ]);
 
                 // Log status change
@@ -506,7 +459,7 @@ class BookingService
                     'old_status' => $oldStatus,
                     'new_status' => $status,
                     'admin_user_id' => $adminUserId,
-                    'reason' => $reason
+                    'reason' => $reason,
                 ]);
 
                 // If booking is cancelled or rejected, clear caches to make slots available again
@@ -525,9 +478,9 @@ class BookingService
                         'booking_reference' => $booking->booking_reference,
                         'status' => $booking->status,
 
-                        'status_updated_at' => $booking->updated_at
+                        'status_updated_at' => $booking->updated_at,
                     ],
-                    'errors' => []
+                    'errors' => [],
                 ];
             });
 
@@ -535,29 +488,25 @@ class BookingService
             return [
                 'success' => false,
                 'errors' => ['Booking not found'],
-                'booking' => null
+                'booking' => null,
             ];
         } catch (\Exception $e) {
             Log::error('Failed to update booking status', [
                 'booking_id' => $bookingId,
                 'status' => $status,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
                 'errors' => ['Failed to update booking status'],
-                'booking' => null
+                'booking' => null,
             ];
         }
     }
 
     /**
      * Check if status transition is valid
-     * 
-     * @param string $currentStatus
-     * @param string $newStatus
-     * @return bool
      */
     private function isValidStatusTransition(string $currentStatus, string $newStatus): bool
     {
@@ -567,7 +516,7 @@ class BookingService
             'completed' => ['refunded'],
             'cancelled' => [],
             'rejected' => [],
-            'refunded' => []
+            'refunded' => [],
         ];
 
         return in_array($newStatus, $validTransitions[$currentStatus] ?? []);
@@ -575,11 +524,6 @@ class BookingService
 
     /**
      * Cancel a booking
-     * 
-     * @param int $bookingId
-     * @param int $userId
-     * @param string|null $reason
-     * @return array
      */
     public function cancelBooking(int $bookingId, int $userId, ?string $reason = null): array
     {
@@ -589,21 +533,21 @@ class BookingService
                 ->firstOrFail();
 
             // Check if booking can be cancelled
-            if (!in_array($booking->status, ['pending', 'confirmed'])) {
+            if (! in_array($booking->status, ['pending', 'confirmed'])) {
                 return [
                     'success' => false,
                     'errors' => ['Booking cannot be cancelled in its current status'],
-                    'booking' => null
+                    'booking' => null,
                 ];
             }
 
             // Check cancellation policy (implement based on your business rules)
             $cancellationCheck = $this->checkCancellationPolicy($booking);
-            if (!$cancellationCheck['allowed']) {
+            if (! $cancellationCheck['allowed']) {
                 return [
                     'success' => false,
                     'errors' => $cancellationCheck['reasons'],
-                    'booking' => null
+                    'booking' => null,
                 ];
             }
 
@@ -613,16 +557,13 @@ class BookingService
             return [
                 'success' => false,
                 'errors' => ['Booking not found or you do not have permission to cancel it'],
-                'booking' => null
+                'booking' => null,
             ];
         }
     }
 
     /**
      * Check cancellation policy
-     * 
-     * @param Booking $booking
-     * @return array
      */
     private function checkCancellationPolicy(Booking $booking): array
     {
@@ -635,28 +576,24 @@ class BookingService
         if ($hoursUntilStart < $minimumCancellationHours) {
             return [
                 'allowed' => false,
-                'reasons' => ["Bookings can only be cancelled at least {$minimumCancellationHours} hours before the start time"]
+                'reasons' => ["Bookings can only be cancelled at least {$minimumCancellationHours} hours before the start time"],
             ];
         }
 
         return [
             'allowed' => true,
-            'reasons' => []
+            'reasons' => [],
         ];
     }
 
     /**
      * Get booking details
-     * 
-     * @param int $bookingId
-     * @param int|null $userId
-     * @return array
      */
     public function getBookingDetails(int $bookingId, ?int $userId = null): array
     {
         try {
             $query = Booking::with(['chalet', 'user', 'timeSlots']);
-            
+
             // If user ID provided, ensure they can only see their own bookings
             if ($userId) {
                 $query->where('user_id', $userId);
@@ -675,14 +612,14 @@ class BookingService
                         'name' => $booking->chalet->name,
                         'slug' => $booking->chalet->slug,
                         'address' => $booking->chalet->address,
-                        'images' => $booking->chalet->getMedia('gallery')->map(function($media) {
+                        'images' => $booking->chalet->getMedia('gallery')->map(function ($media) {
                             return $media->getUrl();
-                        })->toArray()
+                        })->toArray(),
                     ],
                     'user' => [
                         'id' => $booking->user->id,
                         'name' => $booking->user->name,
-                        'email' => $booking->user->email
+                        'email' => $booking->user->email,
                     ],
                     'booking_details' => [
                         'start_date' => $booking->start_date,
@@ -691,39 +628,35 @@ class BookingService
                         'total_amount' => $booking->total_amount,
                         'guest_count' => $booking->total_guests,
                         'notes' => $booking->internal_notes,
-                        'special_requests' => $booking->special_requests
+                        'special_requests' => $booking->special_requests,
                     ],
-                    'time_slots' => $booking->timeSlots->map(function($slot) {
+                    'time_slots' => $booking->timeSlots->map(function ($slot) {
                         return [
                             'slot_id' => $slot->id,
                             'start_time' => $slot->start_time,
                             'end_time' => $slot->end_time,
-                            'is_overnight' => $slot->is_overnight
+                            'is_overnight' => $slot->is_overnight,
                         ];
                     })->toArray(),
                     'timestamps' => [
                         'created_at' => $booking->created_at,
                         'updated_at' => $booking->updated_at,
-                        'status_updated_at' => $booking->status_updated_at
-                    ]
-                ]
+                        'status_updated_at' => $booking->status_updated_at,
+                    ],
+                ],
             ];
 
         } catch (ModelNotFoundException $e) {
             return [
                 'success' => false,
                 'errors' => ['Booking not found'],
-                'booking' => null
+                'booking' => null,
             ];
         }
     }
 
     /**
      * Get user's bookings with filters
-     * 
-     * @param int $userId
-     * @param array $filters
-     * @return array
      */
     public function getUserBookings(int $userId, array $filters = []): array
     {
@@ -753,7 +686,7 @@ class BookingService
 
             return [
                 'success' => true,
-                'bookings' => $bookings->map(function($booking) {
+                'bookings' => $bookings->map(function ($booking) {
                     return [
                         'id' => $booking->id,
                         'booking_reference' => $booking->booking_reference,
@@ -763,23 +696,23 @@ class BookingService
                         'end_date' => $booking->end_date,
                         'booking_type' => $booking->booking_type,
                         'total_amount' => $booking->total_amount,
-                        'created_at' => $booking->created_at
+                        'created_at' => $booking->created_at,
                     ];
                 })->toArray(),
-                'total_count' => $bookings->count()
+                'total_count' => $bookings->count(),
             ];
 
         } catch (\Exception $e) {
             Log::error('Failed to get user bookings', [
                 'user_id' => $userId,
                 'filters' => $filters,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
                 'errors' => ['Failed to retrieve bookings'],
-                'bookings' => []
+                'bookings' => [],
             ];
         }
     }

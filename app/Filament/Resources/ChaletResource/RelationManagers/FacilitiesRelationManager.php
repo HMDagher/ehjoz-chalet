@@ -8,8 +8,8 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
-use Filament\Tables\Table;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
+use Filament\Tables\Table;
 
 final class FacilitiesRelationManager extends RelationManager
 {
@@ -35,7 +35,7 @@ final class FacilitiesRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable(),
                 SpatieMediaLibraryImageColumn::make('icon')
-                ->circular(),
+                    ->circular(),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
             ])
             ->filters([

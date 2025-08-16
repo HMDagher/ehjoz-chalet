@@ -2,10 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Booking;
 use Filament\Widgets\ChartWidget;
 use Flowframe\Trend\Trend;
 use Flowframe\Trend\TrendValue;
-use App\Models\Booking;
 use Illuminate\Support\Carbon;
 
 class BookingChart extends ChartWidget
@@ -66,6 +66,7 @@ class BookingChart extends ChartWidget
             ],
             'labels' => $data->map(function (TrendValue $value) use ($filter) {
                 $date = Carbon::parse($value->date);
+
                 return match ($filter) {
                     'today' => $date->format('H:i'),
                     'week', 'month' => $date->format('M d'),

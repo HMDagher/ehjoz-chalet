@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('chalets', function (Blueprint $table) {
-            $table->json('weekend_days')->default(json_encode([5,6,0]));
+            $table->json('weekend_days')->default(json_encode([5, 6, 0]));
         });
     }
 

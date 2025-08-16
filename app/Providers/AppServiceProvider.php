@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
 use App\Models\Booking;
-use App\Models\Payment;
 use App\Models\ChaletBlockedDate;
+use App\Models\Payment;
 use App\Observers\BookingObserver;
-use App\Observers\PaymentObserver;
 use App\Observers\ChaletBlockedDateObserver;
+use App\Observers\PaymentObserver;
+use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
 {

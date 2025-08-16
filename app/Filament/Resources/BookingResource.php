@@ -2,19 +2,16 @@
 
 namespace App\Filament\Resources;
 
-use App\Enums\BookingStatus;
-use App\Enums\PaymentStatus;
 use App\Filament\Resources\BookingResource\Pages;
 use App\Models\Booking;
+use Filament\Infolists\Components\Grid;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\Tabs;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Forms\Components\Fieldset;
-use Filament\Infolists\Infolist;
-use Filament\Infolists\Components\Grid;
-use Filament\Infolists\Components\Tabs;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\Section;
 
 final class BookingResource extends Resource
 {
@@ -162,7 +159,7 @@ final class BookingResource extends Resource
                             'status' => $data['status'],
                             'notes' => $data['notes'] ?? null,
                         ]);
-                        
+
                         // Update booking status/payment_status
                         if (in_array($data['status'], ['paid', 'partial'])) {
                             $record->update([
@@ -174,7 +171,7 @@ final class BookingResource extends Resource
                                 'payment_status' => $data['status'],
                             ]);
                         }
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Payment added successfully!')
                             ->success()

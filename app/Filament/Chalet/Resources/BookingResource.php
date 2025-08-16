@@ -3,21 +3,16 @@
 namespace App\Filament\Chalet\Resources;
 
 use App\Filament\Chalet\Resources\BookingResource\Pages;
-use App\Filament\Chalet\Resources\BookingResource\RelationManagers;
 use App\Models\Booking;
-use Filament\Infolists;
-use Filament\Infolists\Infolist;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use App\Enums\BookingStatus;
-use App\Enums\PaymentStatus;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\Tabs;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 
 class BookingResource extends Resource

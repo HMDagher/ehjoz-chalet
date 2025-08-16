@@ -8,15 +8,14 @@ use App\Enums\SettlementStatus;
 use App\Filament\Resources\SettlementResource\Pages;
 use App\Models\Settlement;
 use Filament\Forms;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Form;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Infolists\Infolist;
-use Filament\Infolists\Components\Section;
-use Filament\Infolists\Components\Grid;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Forms\Components\Repeater;
 
 final class SettlementResource extends Resource
 {
@@ -98,14 +97,15 @@ final class SettlementResource extends Resource
         $chaletId = $get('chalet_id');
         $start = $get('period_start');
         $end = $get('period_end');
-        
-        if (!$chaletId || !$start || !$end) {
+
+        if (! $chaletId || ! $start || ! $end) {
             // Reset all fields when required data is missing
             $set('total_bookings', 0);
             $set('gross_amount', 0);
             $set('commission_amount', 0);
             $set('net_amount', 0);
             $set('included_bookings', []);
+
             return;
         }
 
@@ -119,7 +119,7 @@ final class SettlementResource extends Resource
 
         // Calculate settlement fields
         $totalBookings = $bookings->count();
-        $grossAmount = $bookings->sum(fn($b) => $b->base_slot_price + $b->seasonal_adjustment + $b->extra_hours_amount);
+        $grossAmount = $bookings->sum(fn ($b) => $b->base_slot_price + $b->seasonal_adjustment + $b->extra_hours_amount);
         $commissionAmount = $bookings->sum('platform_commission');
         $netAmount = $bookings->sum('owner_earning');
 
@@ -201,7 +201,7 @@ final class SettlementResource extends Resource
                                 TextEntry::make('remaining_payment')->label('Remaining'),
                             ])
                             ->columns(3),
-                    ])
+                    ]),
             ]);
     }
 

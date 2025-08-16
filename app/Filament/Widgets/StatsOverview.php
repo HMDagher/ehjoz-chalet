@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
-use App\Models\User;
-use App\Models\Chalet;
-use App\Models\Booking;
 use App\Enums\BookingStatus;
-use Filament\Widgets\StatsOverviewWidget\Stat;
+use App\Models\Booking;
+use App\Models\Chalet;
+use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
+use Filament\Widgets\StatsOverviewWidget\Stat;
 
 final class StatsOverview extends BaseWidget
 {
@@ -26,8 +26,8 @@ final class StatsOverview extends BaseWidget
                 ->icon('heroicon-m-calendar-days')
                 ->description('Completed bookings'),
             Stat::make('Total Booking Amount', number_format(
-                    (float) Booking::where('status', BookingStatus::Completed)->sum('total_amount'), 2
-                ) . ' USD')
+                (float) Booking::where('status', BookingStatus::Completed)->sum('total_amount'), 2
+            ).' USD')
                 ->icon('heroicon-m-banknotes')
                 ->description('Sum of completed bookings'),
         ];

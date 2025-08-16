@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Booking;
 use App\Models\Chalet;
 use App\Models\User;
-use App\Models\ChaletTimeSlot;
 use Carbon\Carbon;
-use Illuminate\Support\Arr;
+use Illuminate\Database\Seeder;
 
 class BookingSeeder extends Seeder
 {
@@ -19,7 +17,7 @@ class BookingSeeder extends Seeder
         $chalet = Chalet::with('timeSlots')->first();
         $user = User::first();
         $timeSlots = $chalet?->timeSlots ?? collect();
-        if (!$chalet || !$user || $timeSlots->isEmpty()) {
+        if (! $chalet || ! $user || $timeSlots->isEmpty()) {
             return;
         }
 
@@ -68,7 +66,7 @@ class BookingSeeder extends Seeder
         }
 
         // Booking 3: Multi-day, one overnight slot
-        $overnightSlot = $timeSlots->first(fn($slot) => $slot->is_overnight);
+        $overnightSlot = $timeSlots->first(fn ($slot) => $slot->is_overnight);
         if ($overnightSlot) {
             $booking3 = Booking::create([
                 'chalet_id' => $chalet->id,

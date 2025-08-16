@@ -14,7 +14,7 @@ class ManageChaletBlockedDates extends ManageRecords
     {
         return [
             Actions\CreateAction::make()
-            ->label('Block Date'),
+                ->label('Block Date'),
             Actions\Action::make('blockDateRange')
                 ->label('Block Entire Days (Range)')
                 ->icon('heroicon-o-calendar-days')
@@ -33,11 +33,12 @@ class ManageChaletBlockedDates extends ManageRecords
                 ->action(function (array $data) {
                     $user = auth()->user();
                     $chalet = $user?->chalet;
-                    if (!$chalet) {
+                    if (! $chalet) {
                         \Filament\Notifications\Notification::make()
                             ->title('No chalet found for user!')
                             ->danger()
                             ->send();
+
                         return;
                     }
                     $start = \Carbon\Carbon::parse($data['start_date']);
@@ -47,6 +48,7 @@ class ManageChaletBlockedDates extends ManageRecords
                             ->title('End date must be after start date!')
                             ->danger()
                             ->send();
+
                         return;
                     }
                     for ($date = $start->copy(); $date->lte($end); $date->addDay()) {

@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\Review;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
 class ReviewInvitationNotification extends Notification
 {
     use Queueable;
 
     public Review $review;
+
     public string $reviewLink;
 
     public function __construct(Review $review, string $reviewLink)
@@ -36,4 +37,4 @@ class ReviewInvitationNotification extends Notification
             ->action('Leave a Review', $this->reviewLink)
             ->line('Your feedback helps us improve our service. Thank you!');
     }
-} 
+}

@@ -2,28 +2,25 @@
 
 namespace App\Services;
 
-use App\Models\ChaletTimeSlot;
-use App\Models\ChaletBlockedDate;
 use App\Models\Booking;
+use App\Models\ChaletBlockedDate;
+use App\Models\ChaletTimeSlot;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class OverlapDetector
 {
     /**
      * Find all conflicting slots for a given time slot and date range
-     * 
-     * @param int $chaletId
-     * @param object $targetSlot
-     * @param array $dateRange Array of date strings
+     *
+     * @param  object  $targetSlot
+     * @param  array  $dateRange  Array of date strings
      * @return array ['blocked' => [...], 'booked' => [...]]
      */
     public static function findConflictingSlots(int $chaletId, $targetSlot, array $dateRange): array
     {
         $conflicts = [
             'blocked' => [],
-            'booked' => []
+            'booked' => [],
         ];
 
         foreach ($dateRange as $date) {
@@ -31,7 +28,7 @@ class OverlapDetector
             $blockedConflicts = self::getBlockedSlotsConflicts($chaletId, $targetSlot, $date);
             $conflicts['blocked'] = array_merge($conflicts['blocked'], $blockedConflicts);
 
-            // Get booked slots conflicts  
+            // Get booked slots conflicts
             $bookedConflicts = self::getBookedSlotsConflicts($chaletId, $targetSlot, $date);
             $conflicts['booked'] = array_merge($conflicts['booked'], $bookedConflicts);
         }
@@ -45,11 +42,8 @@ class OverlapDetector
 
     /**
      * Get conflicts with blocked dates/slots
-     * 
-     * @param int $chaletId
-     * @param object $targetSlot
-     * @param string $date
-     * @return array
+     *
+     * @param  object  $targetSlot
      */
     private static function getBlockedSlotsConflicts(int $chaletId, $targetSlot, string $date): array
     {
@@ -57,7 +51,7 @@ class OverlapDetector
 
         // Get blocked dates for this chalet around the target date
         $extendedDateRange = self::getExtendedDateRange($date);
-        
+
         $blockedDates = ChaletBlockedDate::where('chalet_id', $chaletId)
             ->whereDate('date', '>=', $extendedDateRange['start'])
             ->whereDate('date', '<=', $extendedDateRange['end'])
@@ -67,25 +61,28 @@ class OverlapDetector
             $blockedDate = $blocked->date->format('Y-m-d');
 
             // If no specific time slot is blocked, all slots are blocked that day
-            if (!$blocked->time_slot_id) {
+            if (! $blocked->time_slot_id) {
                 if ($blockedDate === $date) {
                     $conflicts[] = [
                         'type' => 'blocked',
                         'date' => $blockedDate,
                         'reason' => 'full_day_blocked',
-                        'slot_id' => null
+                        'slot_id' => null,
                     ];
                 }
+
                 continue;
             }
 
             // Get the blocked time slot details
             $blockedSlot = ChaletTimeSlot::find($blocked->time_slot_id);
-            if (!$blockedSlot) continue;
+            if (! $blockedSlot) {
+                continue;
+            }
 
             // Check for overlaps
             $overlaps = self::slotsOverlapOnDates($targetSlot, $date, $blockedSlot, $blockedDate);
-            
+
             // Debug logging in test environment
             if (app()->environment('testing')) {
                 \Log::info('Overlap check', [
@@ -93,16 +90,16 @@ class OverlapDetector
                     'target_date' => $date,
                     'blocked_slot' => $blockedSlot->id,
                     'blocked_date' => $blockedDate,
-                    'overlaps' => $overlaps
+                    'overlaps' => $overlaps,
                 ]);
             }
-            
+
             if ($overlaps) {
                 $conflicts[] = [
                     'type' => 'blocked',
                     'date' => $blockedDate,
                     'reason' => $blocked->reason,
-                    'slot_id' => $blocked->time_slot_id
+                    'slot_id' => $blocked->time_slot_id,
                 ];
             }
         }
@@ -112,11 +109,8 @@ class OverlapDetector
 
     /**
      * Get conflicts with existing bookings
-     * 
-     * @param int $chaletId
-     * @param object $targetSlot
-     * @param string $date
-     * @return array
+     *
+     * @param  object  $targetSlot
      */
     private static function getBookedSlotsConflicts(int $chaletId, $targetSlot, string $date): array
     {
@@ -124,23 +118,23 @@ class OverlapDetector
 
         // Get extended date range to catch overnight bookings
         $extendedDateRange = self::getExtendedDateRange($date);
-        
+
         // Get confirmed bookings that might conflict
         $bookings = Booking::where('chalet_id', $chaletId)
             ->where('status', 'confirmed')
-            ->where(function($query) use ($extendedDateRange) {
+            ->where(function ($query) use ($extendedDateRange) {
                 $query->whereBetween('start_date', [
-                    $extendedDateRange['start'] . ' 00:00:00', 
-                    $extendedDateRange['end'] . ' 23:59:59'
+                    $extendedDateRange['start'].' 00:00:00',
+                    $extendedDateRange['end'].' 23:59:59',
                 ])
-                ->orWhereBetween('end_date', [
-                    $extendedDateRange['start'] . ' 00:00:00', 
-                    $extendedDateRange['end'] . ' 23:59:59'
-                ])
-                ->orWhere(function($q) use ($extendedDateRange) {
-                    $q->where('start_date', '<=', $extendedDateRange['start'] . ' 00:00:00')
-                      ->where('end_date', '>=', $extendedDateRange['end'] . ' 23:59:59');
-                });
+                    ->orWhereBetween('end_date', [
+                        $extendedDateRange['start'].' 00:00:00',
+                        $extendedDateRange['end'].' 23:59:59',
+                    ])
+                    ->orWhere(function ($q) use ($extendedDateRange) {
+                        $q->where('start_date', '<=', $extendedDateRange['start'].' 00:00:00')
+                            ->where('end_date', '>=', $extendedDateRange['end'].' 23:59:59');
+                    });
             })
             ->with('timeSlots')
             ->get();
@@ -150,10 +144,10 @@ class OverlapDetector
                 // Get all dates this booking affects
                 $bookingStartDate = Carbon::parse($booking->start_date)->format('Y-m-d');
                 $bookingEndDate = Carbon::parse($booking->end_date)->format('Y-m-d');
-                
+
                 $bookedDates = TimeSlotHelper::getSlotsDateRange(
-                    $bookedSlot, 
-                    $bookingStartDate, 
+                    $bookedSlot,
+                    $bookingStartDate,
                     $bookingEndDate
                 );
 
@@ -163,7 +157,7 @@ class OverlapDetector
                             'type' => 'booked',
                             'date' => $bookedDate,
                             'booking_id' => $booking->id,
-                            'slot_id' => $bookedSlot->id
+                            'slot_id' => $bookedSlot->id,
                         ];
                     }
                 }
@@ -175,12 +169,9 @@ class OverlapDetector
 
     /**
      * Check if two time slots overlap on their respective dates
-     * 
-     * @param object $slot1
-     * @param string $date1
-     * @param object $slot2  
-     * @param string $date2
-     * @return bool
+     *
+     * @param  object  $slot1
+     * @param  object  $slot2
      */
     private static function slotsOverlapOnDates($slot1, string $date1, $slot2, string $date2): bool
     {
@@ -193,60 +184,51 @@ class OverlapDetector
 
     /**
      * Get extended date range to catch overnight slots from previous/next days
-     * 
-     * @param string $date
-     * @return array
      */
     private static function getExtendedDateRange(string $date): array
     {
         $targetDate = Carbon::createFromFormat('Y-m-d', $date);
-        
+
         return [
             'start' => $targetDate->copy()->subDay()->format('Y-m-d'),
-            'end' => $targetDate->copy()->addDay()->format('Y-m-d')
+            'end' => $targetDate->copy()->addDay()->format('Y-m-d'),
         ];
     }
 
     /**
      * Check if a time slot is available on a specific date
-     * 
-     * @param int $chaletId
-     * @param int $slotId
-     * @param string $date
-     * @return bool
      */
     public static function isSlotAvailableOnDate(int $chaletId, int $slotId, string $date): bool
     {
         $slot = ChaletTimeSlot::find($slotId);
-        if (!$slot) return false;
+        if (! $slot) {
+            return false;
+        }
 
         // Check if date is in available_days
-        if (!TimeSlotHelper::isDateAllowed($date, $slot->available_days)) {
+        if (! TimeSlotHelper::isDateAllowed($date, $slot->available_days)) {
             return false;
         }
 
         // Check for conflicts
         $conflicts = self::findConflictingSlots($chaletId, $slot, [$date]);
-        
+
         return empty($conflicts['blocked']) && empty($conflicts['booked']);
     }
 
     /**
      * Get all slots that would be affected if a specific slot gets blocked/booked
      * This is useful for understanding the ripple effect
-     * 
-     * @param int $chaletId
-     * @param int $targetSlotId
-     * @param string $date
-     * @return array
      */
     public static function getAffectedSlots(int $chaletId, int $targetSlotId, string $date): array
     {
         $targetSlot = ChaletTimeSlot::find($targetSlotId);
-        if (!$targetSlot) return [];
+        if (! $targetSlot) {
+            return [];
+        }
 
         $affected = [];
-        
+
         // Get all active slots for this chalet
         $allSlots = ChaletTimeSlot::where('chalet_id', $chaletId)
             ->where('is_active', true)
@@ -262,8 +244,8 @@ class OverlapDetector
                     $affected[] = [
                         'slot_id' => $slot->id,
                         'affected_date' => $checkDate,
-                        'slot_time' => $slot->start_time . ' - ' . $slot->end_time,
-                        'is_overnight' => $slot->is_overnight
+                        'slot_time' => $slot->start_time.' - '.$slot->end_time,
+                        'is_overnight' => $slot->is_overnight,
                     ];
                 }
             }

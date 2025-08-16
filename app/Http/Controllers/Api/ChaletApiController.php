@@ -8,10 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Chalet;
 use App\Services\ChaletAvailabilityChecker;
 use App\Services\ChaletSearchService;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ChaletApiController extends Controller
 {
@@ -21,8 +21,8 @@ class ChaletApiController extends Controller
     public function getAvailability(Request $request, string $slug): JsonResponse
     {
         $chalet = Chalet::where('slug', $slug)->where('status', 'active')->first();
-        
-        if (!$chalet) {
+
+        if (! $chalet) {
             return response()->json(['error' => 'Chalet not found'], 404);
         }
 
@@ -30,72 +30,72 @@ class ChaletApiController extends Controller
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
-        if (!$startDate) {
+        if (! $startDate) {
             return response()->json(['error' => 'Start date is required'], 400);
         }
 
         $availabilityChecker = new ChaletAvailabilityChecker($chalet);
-        $searchService = new ChaletSearchService();
+        $searchService = new ChaletSearchService;
 
         try {
             if ($bookingType === 'day-use') {
                 $availableSlots = $availabilityChecker->getAvailableDayUseSlots($startDate);
                 $combinations = $availabilityChecker->findConsecutiveSlotCombinations($startDate);
-                
+
                 return response()->json([
                     'success' => true,
                     'data' => [
                         'slots' => $availableSlots->toArray(),
                         'combinations' => $combinations,
-                        'booking_type' => 'day-use'
-                    ]
+                        'booking_type' => 'day-use',
+                    ],
                 ]);
             } else {
                 // For overnight, we need both start and end dates
-                if (!$endDate) {
+                if (! $endDate) {
                     $endDate = Carbon::parse($startDate)->addDay()->format('Y-m-d');
                 }
-                
+
                 \Log::info('Getting available overnight slots', [
                     'chalet_id' => $chalet->id,
                     'start_date' => $startDate,
-                    'end_date' => $endDate
+                    'end_date' => $endDate,
                 ]);
-                
+
                 // Get all time slots for debugging
                 $allTimeSlots = $chalet->timeSlots()->get();
                 \Log::info('All time slots for chalet', [
                     'chalet_id' => $chalet->id,
                     'slots_count' => $allTimeSlots->count(),
-                    'slots' => $allTimeSlots->map(function($slot) {
+                    'slots' => $allTimeSlots->map(function ($slot) {
                         return [
                             'id' => $slot->id,
                             'name' => $slot->name,
                             'is_overnight' => $slot->is_overnight,
-                            'is_active' => $slot->is_active
+                            'is_active' => $slot->is_active,
                         ];
-                    })->toArray()
+                    })->toArray(),
                 ]);
-                
+
                 $availableSlots = $availabilityChecker->getAvailableOvernightSlots($startDate, $endDate);
-                
+
                 \Log::info('Available overnight slots result', [
                     'count' => $availableSlots->count(),
-                    'slots' => $availableSlots->toArray()
+                    'slots' => $availableSlots->toArray(),
                 ]);
-                
+
                 // Generate nightly breakdown for each available slot
                 $nightlyBreakdown = [];
                 if ($availableSlots->isNotEmpty()) {
                     $slot = $availableSlots->first();
                     \Log::info('Using first available slot for nightly breakdown', [
-                        'slot' => $slot
+                        'slot' => $slot,
                     ]);
                     $nightlyBreakdown = $this->generateNightlyBreakdown($chalet, $availabilityChecker, $startDate, $endDate, $slot['id']);
                 } else {
                     \Log::warning('No available overnight slots found for nightly breakdown');
                 }
-                
+
                 return response()->json([
                     'success' => true,
                     'data' => [
@@ -103,12 +103,12 @@ class ChaletApiController extends Controller
                         'booking_type' => 'overnight',
                         'start_date' => $startDate,
                         'end_date' => $endDate,
-                        'nightly_breakdown' => $nightlyBreakdown
-                    ]
+                        'nightly_breakdown' => $nightlyBreakdown,
+                    ],
                 ]);
             }
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error checking availability: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error checking availability: '.$e->getMessage()], 500);
         }
     }
 
@@ -121,13 +121,13 @@ class ChaletApiController extends Controller
             'chalet_id' => $chalet->id,
             'startDate' => $startDate,
             'endDate' => $endDate,
-            'timeSlotId' => $timeSlotId
+            'timeSlotId' => $timeSlotId,
         ]);
-        
+
         $start = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
         $breakdown = [];
-        
+
         // Calculate price for each night
         $currentDate = $start->copy();
         $weekendDays = $chalet->weekend_days ?? [5, 6, 0];
@@ -139,7 +139,7 @@ class ChaletApiController extends Controller
             \Log::info('Processing night', [
                 'date' => $date,
                 'isWeekend' => $isWeekend,
-                'timeSlot' => $timeSlot->name
+                'timeSlot' => $timeSlot->name,
             ]);
             // Get base price (weekday/weekend)
             $basePrice = $isWeekend ? $timeSlot->weekend_price : $timeSlot->weekday_price;
@@ -159,24 +159,24 @@ class ChaletApiController extends Controller
                 'hasCustomPricing' => $customPricing ? true : false,
                 'customPricingName' => $customPricingName,
                 'adjustment' => $adjustment,
-                'finalPrice' => $finalPrice
+                'finalPrice' => $finalPrice,
             ]);
             $breakdown[] = [
                 'date' => $date,
                 'is_weekend' => $isWeekend,
-                'base_price' => (float)$basePrice,
-                'custom_adjustment' => (float)$adjustment,
+                'base_price' => (float) $basePrice,
+                'custom_adjustment' => (float) $adjustment,
                 'custom_pricing_name' => $customPricingName,
-                'final_price' => (float)$finalPrice
+                'final_price' => (float) $finalPrice,
             ];
             $currentDate->addDay();
         }
-        
+
         \Log::info('Nightly breakdown generated', [
             'nights_count' => count($breakdown),
-            'breakdown' => $breakdown
+            'breakdown' => $breakdown,
         ]);
-        
+
         return $breakdown;
     }
 
@@ -186,8 +186,8 @@ class ChaletApiController extends Controller
     public function calculatePrice(Request $request, string $slug): JsonResponse
     {
         $chalet = Chalet::where('slug', $slug)->where('status', 'active')->first();
-        
-        if (!$chalet) {
+
+        if (! $chalet) {
             return response()->json(['error' => 'Chalet not found'], 404);
         }
 
@@ -196,7 +196,7 @@ class ChaletApiController extends Controller
         $endDate = $request->get('end_date');
         $slotIds = $request->get('slot_ids', []);
 
-        if (!$bookingType || !$startDate) {
+        if (! $bookingType || ! $startDate) {
             return response()->json(['error' => 'Booking type and start date are required'], 400);
         }
 
@@ -209,23 +209,23 @@ class ChaletApiController extends Controller
                 }
 
                 // Check if slots are consecutive
-                if (!$availabilityChecker->areConsecutiveSlotsAvailable($startDate, $slotIds)) {
+                if (! $availabilityChecker->areConsecutiveSlotsAvailable($startDate, $slotIds)) {
                     return response()->json(['error' => 'Selected slots are not available or not consecutive'], 400);
                 }
 
                 $totalPrice = $availabilityChecker->calculateConsecutiveSlotsPrice($startDate, $slotIds);
-                
+
                 return response()->json([
                     'success' => true,
                     'data' => [
                         'total_price' => $totalPrice,
                         'booking_type' => 'day-use',
                         'date' => $startDate,
-                        'slot_ids' => $slotIds
-                    ]
+                        'slot_ids' => $slotIds,
+                    ],
                 ]);
             } else {
-                if (!$endDate) {
+                if (! $endDate) {
                     $endDate = Carbon::parse($startDate)->addDay()->format('Y-m-d');
                 }
 
@@ -234,14 +234,14 @@ class ChaletApiController extends Controller
                 }
 
                 $slotId = $slotIds[0]; // Overnight bookings use single slot
-                
-                if (!$availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slotId)) {
+
+                if (! $availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slotId)) {
                     return response()->json(['error' => 'Overnight slot is not available for selected dates'], 400);
                 }
 
                 $priceData = $availabilityChecker->calculateOvernightPrice($startDate, $endDate, $slotId);
                 $nightlyBreakdown = $this->generateNightlyBreakdown($chalet, $availabilityChecker, $startDate, $endDate, $slotId);
-                
+
                 return response()->json([
                     'success' => true,
                     'data' => [
@@ -252,12 +252,12 @@ class ChaletApiController extends Controller
                         'start_date' => $startDate,
                         'end_date' => $endDate,
                         'slot_id' => $slotId,
-                        'nightly_breakdown' => $nightlyBreakdown
-                    ]
+                        'nightly_breakdown' => $nightlyBreakdown,
+                    ],
                 ]);
             }
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error calculating price: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error calculating price: '.$e->getMessage()], 500);
         }
     }
 
@@ -269,8 +269,8 @@ class ChaletApiController extends Controller
     public function getUnavailableDates(Request $request, string $slug): JsonResponse
     {
         $chalet = Chalet::where('slug', $slug)->where('status', 'active')->first();
-        
-        if (!$chalet) {
+
+        if (! $chalet) {
             return response()->json(['error' => 'Chalet not found'], 404);
         }
 
@@ -280,7 +280,7 @@ class ChaletApiController extends Controller
 
         // Create cache key based only on chalet ID and booking type
         $cacheKey = "chalet_availability_{$chalet->id}_{$bookingType}";
-        
+
         try {
             // Try to get from cache first (cache indefinitely until invalidated)
             $cachedData = Cache::remember($cacheKey, now()->addYears(1), function () use ($chalet, $bookingType, $startDate, $endDate) {
@@ -288,40 +288,40 @@ class ChaletApiController extends Controller
                     'chalet_id' => $chalet->id,
                     'booking_type' => $bookingType,
                     'start_date' => $startDate,
-                    'end_date' => $endDate
+                    'end_date' => $endDate,
                 ]);
-                
+
                 $availabilityChecker = new ChaletAvailabilityChecker($chalet);
-                
+
                 // Use the centralized validation logic instead of custom overlap calculations
                 $unavailableDayUseDates = [];
                 $unavailableOvernightDates = [];
                 $fullyBlockedDates = [];
-                
+
                 $currentDate = Carbon::parse($startDate);
                 $endDateCarbon = Carbon::parse($endDate);
-                
+
                 while ($currentDate <= $endDateCarbon) {
                     $dateStr = $currentDate->format('Y-m-d');
-                    
+
                     // Check day-use availability using the centralized method
                     $availableDayUseSlots = $availabilityChecker->getAvailableDayUseSlots($dateStr);
                     if ($availableDayUseSlots->isEmpty()) {
                         $unavailableDayUseDates[] = $dateStr;
                     }
-                    
+
                     // Check overnight availability (for single night starting on this date)
                     $nextDay = $currentDate->copy()->addDay()->format('Y-m-d');
                     $availableOvernightSlots = $availabilityChecker->getAvailableOvernightSlots($dateStr, $nextDay);
                     if ($availableOvernightSlots->isEmpty()) {
                         $unavailableOvernightDates[] = $dateStr;
                     }
-                    
+
                     // Check if entire day is blocked (no day-use AND no overnight slots available)
                     if ($availableDayUseSlots->isEmpty() && $availableOvernightSlots->isEmpty()) {
                         $fullyBlockedDates[] = $dateStr;
                     }
-                    
+
                     $currentDate->addDay();
                 }
 
@@ -331,9 +331,9 @@ class ChaletApiController extends Controller
                     'fully_blocked_dates' => $fullyBlockedDates,
                     'date_range' => [
                         'start' => $startDate,
-                        'end' => $endDate
+                        'end' => $endDate,
                     ],
-                    'generated_at' => now()->toISOString()
+                    'generated_at' => now()->toISOString(),
                 ];
             });
 
@@ -341,26 +341,27 @@ class ChaletApiController extends Controller
                 'chalet_id' => $chalet->id,
                 'booking_type' => $bookingType,
                 'cache_key' => $cacheKey,
-                'from_cache' => Cache::has($cacheKey)
+                'from_cache' => Cache::has($cacheKey),
             ]);
 
             return response()->json([
                 'success' => true,
-                'data' => $cachedData
+                'data' => $cachedData,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error getting unavailable dates: ' . $e->getMessage(), [
+            \Log::error('Error getting unavailable dates: '.$e->getMessage(), [
                 'chalet_slug' => $slug,
                 'booking_type' => $bookingType,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            return response()->json(['error' => 'Error getting unavailable dates: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'Error getting unavailable dates: '.$e->getMessage()], 500);
         }
     }
-    
+
     /**
      * Get all blocked dates from the database
      */
@@ -377,13 +378,14 @@ class ChaletApiController extends Controller
                 $result[] = [
                     'date' => Carbon::parse($blockedDate->date)->format('Y-m-d'),
                     'time_slot_id' => $blockedDate->time_slot_id,
-                    'type' => 'blocked'
+                    'type' => 'blocked',
                 ];
             }
 
             return $result;
         } catch (\Exception $e) {
-            \Log::error('Error getting blocked dates: ' . $e->getMessage());
+            \Log::error('Error getting blocked dates: '.$e->getMessage());
+
             return [];
         }
     }
@@ -396,17 +398,17 @@ class ChaletApiController extends Controller
         try {
             $bookings = $chalet->bookings()
                 ->whereIn('status', ['confirmed', 'pending'])
-                ->where(function($query) use ($startDate, $endDate) {
-                    $query->where(function($q) use ($startDate, $endDate) {
+                ->where(function ($query) use ($startDate, $endDate) {
+                    $query->where(function ($q) use ($startDate, $endDate) {
                         // Booking starts within range
                         $q->whereBetween('start_date', [$startDate, $endDate]);
-                    })->orWhere(function($q) use ($startDate, $endDate) {
+                    })->orWhere(function ($q) use ($startDate, $endDate) {
                         // Booking ends within range
                         $q->whereBetween('end_date', [$startDate, $endDate]);
-                    })->orWhere(function($q) use ($startDate, $endDate) {
+                    })->orWhere(function ($q) use ($startDate, $endDate) {
                         // Booking spans the entire range
                         $q->where('start_date', '<=', $startDate)
-                          ->where('end_date', '>=', $endDate);
+                            ->where('end_date', '>=', $endDate);
                     });
                 })
                 ->with('timeSlots')
@@ -416,30 +418,31 @@ class ChaletApiController extends Controller
             foreach ($bookings as $booking) {
                 $start = Carbon::parse($booking->start_date);
                 $end = Carbon::parse($booking->end_date);
-                
+
                 // For each day in the booking range
                 $current = $start->copy();
                 while ($current <= $end) {
                     $dateStr = $current->format('Y-m-d');
-                    
+
                     // Check if date is within our query range
                     if ($dateStr >= $startDate && $dateStr <= $endDate) {
                         foreach ($booking->timeSlots as $slot) {
                             $result[] = [
                                 'date' => $dateStr,
                                 'time_slot_id' => $slot->id,
-                                'type' => 'booked'
+                                'type' => 'booked',
                             ];
                         }
                     }
-                    
+
                     $current->addDay();
                 }
             }
 
             return $result;
         } catch (\Exception $e) {
-            \Log::error('Error getting booked slots: ' . $e->getMessage());
+            \Log::error('Error getting booked slots: '.$e->getMessage());
+
             return [];
         }
     }
@@ -452,12 +455,12 @@ class ChaletApiController extends Controller
         $availabilityChecker = new ChaletAvailabilityChecker($chalet);
         $dayUseSlots = $allTimeSlots->where('is_overnight', false);
         $overnightSlots = $allTimeSlots->where('is_overnight', true);
-        
+
         // Group unavailable slots by date
         $unavailableByDate = [];
         foreach ($unavailableSlots as $unavailableSlot) {
             $date = $unavailableSlot['date'];
-            if (!isset($unavailableByDate[$date])) {
+            if (! isset($unavailableByDate[$date])) {
                 $unavailableByDate[$date] = [];
             }
             $unavailableByDate[$date][] = $unavailableSlot;
@@ -470,11 +473,11 @@ class ChaletApiController extends Controller
         // Check each date in the range
         $current = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
-        
+
         while ($current <= $end) {
             $dateStr = $current->format('Y-m-d');
             $unavailableForDate = $unavailableByDate[$dateStr] ?? [];
-            
+
             // Check if entire day is blocked (no time_slot_id specified)
             $hasFullDayBlock = false;
             foreach ($unavailableForDate as $unavailable) {
@@ -483,13 +486,13 @@ class ChaletApiController extends Controller
                     break;
                 }
             }
-            
+
             if ($hasFullDayBlock) {
                 // Entire day is blocked - affects all booking types
                 $fullyBlockedDates[] = $dateStr;
                 $unavailableDayUseDates[] = $dateStr;
                 $unavailableOvernightDates[] = $dateStr;
-                
+
                 // Also check if overnight slots affect next day's day-use slots
                 foreach ($overnightSlots as $overnightSlot) {
                     $nextDay = $current->copy()->addDay()->format('Y-m-d');
@@ -497,7 +500,7 @@ class ChaletApiController extends Controller
                         // Check if overnight slot overlaps with next day's day-use slots
                         foreach ($dayUseSlots as $daySlot) {
                             if ($this->slotsOverlapAcrossDays($overnightSlot, $daySlot, $dateStr, $nextDay)) {
-                                if (!in_array($nextDay, $unavailableDayUseDates)) {
+                                if (! in_array($nextDay, $unavailableDayUseDates)) {
                                     $unavailableDayUseDates[] = $nextDay;
                                 }
                             }
@@ -512,26 +515,26 @@ class ChaletApiController extends Controller
                         $blockedSlotIds[] = $unavailable['time_slot_id'];
                     }
                 }
-                
-                if (!empty($blockedSlotIds)) {
+
+                if (! empty($blockedSlotIds)) {
                     // Get the actual slot objects
                     $blockedSlots = $allTimeSlots->whereIn('id', $blockedSlotIds);
-                    
+
                     // Calculate which slots are affected by overlaps
                     $affectedSlotIds = $this->calculateAffectedSlots($chalet, $blockedSlots, $allTimeSlots, $dateStr, $availabilityChecker);
-                    
+
                     // Check if day-use is unavailable
                     $availableDayUseSlots = $dayUseSlots->whereNotIn('id', $affectedSlotIds);
                     if ($availableDayUseSlots->isEmpty()) {
                         $unavailableDayUseDates[] = $dateStr;
                     }
-                    
+
                     // Check if overnight is unavailable
                     $availableOvernightSlots = $overnightSlots->whereNotIn('id', $affectedSlotIds);
                     if ($availableOvernightSlots->isEmpty()) {
                         $unavailableOvernightDates[] = $dateStr;
                     }
-                    
+
                     // Check cross-day effects for overnight slots
                     foreach ($blockedSlots as $blockedSlot) {
                         if ($blockedSlot->is_overnight) {
@@ -539,7 +542,7 @@ class ChaletApiController extends Controller
                             if ($nextDay <= $endDate) {
                                 foreach ($dayUseSlots as $daySlot) {
                                     if ($this->slotsOverlapAcrossDays($blockedSlot, $daySlot, $dateStr, $nextDay)) {
-                                        if (!in_array($nextDay, $unavailableDayUseDates)) {
+                                        if (! in_array($nextDay, $unavailableDayUseDates)) {
                                             $unavailableDayUseDates[] = $nextDay;
                                         }
                                     }
@@ -549,14 +552,14 @@ class ChaletApiController extends Controller
                     }
                 }
             }
-            
+
             $current->addDay();
         }
 
         return [
             'day_use' => array_unique($unavailableDayUseDates),
             'overnight' => array_unique($unavailableOvernightDates),
-            'fully_blocked' => array_unique($fullyBlockedDates)
+            'fully_blocked' => array_unique($fullyBlockedDates),
         ];
     }
 
@@ -566,29 +569,29 @@ class ChaletApiController extends Controller
     private function calculateAffectedSlots(Chalet $chalet, $blockedSlots, $allTimeSlots, string $date, ChaletAvailabilityChecker $availabilityChecker): array
     {
         $affectedSlotIds = [];
-        
+
         foreach ($blockedSlots as $blockedSlot) {
             // The blocked slot itself is affected
             $affectedSlotIds[] = $blockedSlot->id;
-            
+
             // Check which other slots overlap with this blocked slot
             foreach ($allTimeSlots as $slot) {
                 if ($slot->id === $blockedSlot->id) {
                     continue; // Skip the blocked slot itself
                 }
-                
+
                 // Check for time overlap on the same day
                 if ($availabilityChecker->timeRangesOverlap(
-                    $blockedSlot->start_time, 
+                    $blockedSlot->start_time,
                     $blockedSlot->end_time,
-                    $slot->start_time, 
+                    $slot->start_time,
                     $slot->end_time
                 )) {
                     $affectedSlotIds[] = $slot->id;
                 }
             }
         }
-        
+
         return array_unique($affectedSlotIds);
     }
 
@@ -598,17 +601,17 @@ class ChaletApiController extends Controller
     private function slotsOverlapAcrossDays($overnightSlot, $daySlot, string $overnightDate, string $dayUseDate): bool
     {
         // For overnight slots that end the next day
-        if (!$overnightSlot->is_overnight) {
+        if (! $overnightSlot->is_overnight) {
             return false;
         }
-        
+
         // Parse times
-        $overnightStart = Carbon::parse($overnightDate . ' ' . $overnightSlot->start_time);
-        $overnightEnd = Carbon::parse($dayUseDate . ' ' . $overnightSlot->end_time); // Next day
-        
-        $dayUseStart = Carbon::parse($dayUseDate . ' ' . $daySlot->start_time);
-        $dayUseEnd = Carbon::parse($dayUseDate . ' ' . $daySlot->end_time);
-        
+        $overnightStart = Carbon::parse($overnightDate.' '.$overnightSlot->start_time);
+        $overnightEnd = Carbon::parse($dayUseDate.' '.$overnightSlot->end_time); // Next day
+
+        $dayUseStart = Carbon::parse($dayUseDate.' '.$daySlot->start_time);
+        $dayUseEnd = Carbon::parse($dayUseDate.' '.$daySlot->end_time);
+
         // Check if they overlap
         return $overnightStart < $dayUseEnd && $overnightEnd > $dayUseStart;
     }
@@ -625,14 +628,15 @@ class ChaletApiController extends Controller
                 ->where('date', '>=', $startDate)
                 ->where('date', '<=', $endDate)
                 ->pluck('date')
-                ->map(function($date) {
+                ->map(function ($date) {
                     return Carbon::parse($date)->format('Y-m-d');
                 })
                 ->toArray();
-            
+
             return array_unique($blockedDates);
         } catch (\Exception $e) {
-            \Log::error('Error getting fully blocked dates: ' . $e->getMessage());
+            \Log::error('Error getting fully blocked dates: '.$e->getMessage());
+
             return [];
         }
     }
@@ -664,30 +668,30 @@ class ChaletApiController extends Controller
 
             foreach ($blockedByDate as $date => $dateBlockedSlots) {
                 $dateStr = Carbon::parse($date)->format('Y-m-d');
-                
+
                 $blockedDayUseSlots = [];
                 $blockedOvernightSlots = [];
-                
+
                 // Separate blocked slots by type
                 foreach ($dateBlockedSlots as $blockedDate) {
                     $blockedSlot = $blockedDate->timeSlot;
-                    
-                    if (!$blockedSlot || !$blockedSlot->is_active) {
+
+                    if (! $blockedSlot || ! $blockedSlot->is_active) {
                         continue;
                     }
-                    
+
                     if ($blockedSlot->is_overnight) {
                         $blockedOvernightSlots[] = $blockedSlot;
                     } else {
                         $blockedDayUseSlots[] = $blockedSlot;
                     }
                 }
-                
+
                 // Handle blocked overnight slots
                 foreach ($blockedOvernightSlots as $blockedSlot) {
                     // Blocked overnight slot affects overnight bookings directly
                     $overnightBlocked[] = $dateStr;
-                    
+
                     // Check if ALL day-use slots are affected by this blocked overnight slot
                     $availableDayUseSlots = [];
                     foreach ($dayUseSlots as $daySlot) {
@@ -695,29 +699,29 @@ class ChaletApiController extends Controller
                             $daySlot->start_time, $daySlot->end_time,
                             $blockedSlot->start_time, $blockedSlot->end_time
                         );
-                        
+
                         // If this day-use slot doesn't overlap, it's still available
-                        if (!$overlaps) {
+                        if (! $overlaps) {
                             $availableDayUseSlots[] = $daySlot->id;
                         }
                     }
-                    
+
                     // Only block day-use for this date if NO day-use slots are available
                     if (count($availableDayUseSlots) === 0) {
                         $dayUseBlocked[] = $dateStr;
                     }
                 }
-                
+
                 // Handle blocked day-use slots
-                if (!empty($blockedDayUseSlots)) {
+                if (! empty($blockedDayUseSlots)) {
                     $blockedDayUseSlotIds = collect($blockedDayUseSlots)->pluck('id')->toArray();
                     $allDayUseSlotIds = $dayUseSlots->pluck('id')->toArray();
-                    
+
                     // Only mark date as unavailable for day-use if ALL day-use slots are blocked
                     if (count(array_intersect($blockedDayUseSlotIds, $allDayUseSlotIds)) === count($allDayUseSlotIds)) {
                         $dayUseBlocked[] = $dateStr;
                     }
-                    
+
                     // Check if blocked day-use slots affect overnight slots due to overlap
                     foreach ($blockedDayUseSlots as $blockedSlot) {
                         foreach ($overnightSlots as $overnightSlot) {
@@ -735,10 +739,11 @@ class ChaletApiController extends Controller
 
             return [
                 'day_use' => array_unique($dayUseBlocked),
-                'overnight' => array_unique($overnightBlocked)
+                'overnight' => array_unique($overnightBlocked),
             ];
         } catch (\Exception $e) {
-            \Log::error('Error getting slot blocked dates: ' . $e->getMessage());
+            \Log::error('Error getting slot blocked dates: '.$e->getMessage());
+
             return ['day_use' => [], 'overnight' => []];
         }
     }
@@ -752,17 +757,17 @@ class ChaletApiController extends Controller
             // Get all confirmed/pending bookings in the date range
             $bookings = $chalet->bookings()
                 ->whereIn('status', ['confirmed', 'pending'])
-                ->where(function($query) use ($startDate, $endDate) {
-                    $query->where(function($q) use ($startDate, $endDate) {
+                ->where(function ($query) use ($startDate, $endDate) {
+                    $query->where(function ($q) use ($startDate, $endDate) {
                         // Booking starts within range
                         $q->whereBetween('start_date', [$startDate, $endDate]);
-                    })->orWhere(function($q) use ($startDate, $endDate) {
+                    })->orWhere(function ($q) use ($startDate, $endDate) {
                         // Booking ends within range
                         $q->whereBetween('end_date', [$startDate, $endDate]);
-                    })->orWhere(function($q) use ($startDate, $endDate) {
+                    })->orWhere(function ($q) use ($startDate, $endDate) {
                         // Booking spans the entire range
                         $q->where('start_date', '<=', $startDate)
-                          ->where('end_date', '>=', $endDate);
+                            ->where('end_date', '>=', $endDate);
                     });
                 })
                 ->with('timeSlots')
@@ -774,12 +779,12 @@ class ChaletApiController extends Controller
             foreach ($bookings as $booking) {
                 $start = Carbon::parse($booking->start_date);
                 $end = Carbon::parse($booking->end_date);
-                
+
                 // Generate all dates in the booking range
                 $current = $start->copy();
                 while ($current <= $end) {
                     $dateStr = $current->format('Y-m-d');
-                    
+
                     // Check if date is within our query range
                     if ($dateStr >= $startDate && $dateStr <= $endDate) {
                         foreach ($booking->timeSlots as $slot) {
@@ -790,17 +795,18 @@ class ChaletApiController extends Controller
                             }
                         }
                     }
-                    
+
                     $current->addDay();
                 }
             }
 
             return [
                 'day_use' => array_unique($dayUseBooked),
-                'overnight' => array_unique($overnightBooked)
+                'overnight' => array_unique($overnightBooked),
             ];
         } catch (\Exception $e) {
-            \Log::error('Error getting booked dates: ' . $e->getMessage());
+            \Log::error('Error getting booked dates: '.$e->getMessage());
+
             return ['day_use' => [], 'overnight' => []];
         }
     }
@@ -822,21 +828,21 @@ class ChaletApiController extends Controller
             $unavailableSlots[] = [
                 'date' => Carbon::parse($blockedDate->date)->format('Y-m-d'),
                 'time_slot_id' => $blockedDate->time_slot_id, // null means entire day blocked
-                'type' => 'blocked'
+                'type' => 'blocked',
             ];
         }
 
         // Get booked slots from existing bookings
         $bookings = $chalet->bookings()
             ->whereIn('status', ['confirmed', 'pending'])
-            ->where(function($query) use ($startDate, $endDate) {
-                $query->where(function($q) use ($startDate, $endDate) {
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->where(function ($q) use ($startDate, $endDate) {
                     $q->whereBetween('start_date', [$startDate, $endDate]);
-                })->orWhere(function($q) use ($startDate, $endDate) {
+                })->orWhere(function ($q) use ($startDate, $endDate) {
                     $q->whereBetween('end_date', [$startDate, $endDate]);
-                })->orWhere(function($q) use ($startDate, $endDate) {
+                })->orWhere(function ($q) use ($startDate, $endDate) {
                     $q->where('start_date', '<=', $startDate)
-                      ->where('end_date', '>=', $endDate);
+                        ->where('end_date', '>=', $endDate);
                 });
             })
             ->with('timeSlots')
@@ -845,21 +851,21 @@ class ChaletApiController extends Controller
         foreach ($bookings as $booking) {
             $start = Carbon::parse($booking->start_date);
             $end = Carbon::parse($booking->end_date);
-            
+
             $current = $start->copy();
             while ($current <= $end) {
                 $dateStr = $current->format('Y-m-d');
-                
+
                 if ($dateStr >= $startDate && $dateStr <= $endDate) {
                     foreach ($booking->timeSlots as $slot) {
                         $unavailableSlots[] = [
                             'date' => $dateStr,
                             'time_slot_id' => $slot->id,
-                            'type' => 'booked'
+                            'type' => 'booked',
                         ];
                     }
                 }
-                
+
                 $current->addDay();
             }
         }
@@ -874,12 +880,12 @@ class ChaletApiController extends Controller
     {
         $dayUseSlots = $allTimeSlots->where('is_overnight', false);
         $overnightSlots = $allTimeSlots->where('is_overnight', true);
-        
+
         // Group unavailable slots by date
         $unavailableByDate = [];
         foreach ($unavailableSlots as $slot) {
             $date = $slot['date'];
-            if (!isset($unavailableByDate[$date])) {
+            if (! isset($unavailableByDate[$date])) {
                 $unavailableByDate[$date] = [];
             }
             $unavailableByDate[$date][] = $slot;
@@ -892,11 +898,11 @@ class ChaletApiController extends Controller
         // Process each date in the range
         $current = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
-        
+
         while ($current <= $end) {
             $dateStr = $current->format('Y-m-d');
             $unavailableForDate = $unavailableByDate[$dateStr] ?? [];
-            
+
             // Check for full day blocks (no time_slot_id)
             $hasFullDayBlock = false;
             foreach ($unavailableForDate as $unavailable) {
@@ -905,31 +911,31 @@ class ChaletApiController extends Controller
                     break;
                 }
             }
-            
+
             if ($hasFullDayBlock) {
                 // Entire day is blocked
                 $fullyBlockedDates[] = $dateStr;
                 $unavailableDayUseDates[] = $dateStr;
-                
+
                 // Only add to overnight unavailable if there are overnight slots
                 if ($overnightSlots->isNotEmpty()) {
                     $unavailableOvernightDates[] = $dateStr;
                 }
-                
+
                 // Check cross-day effects for overnight slots
                 $this->addCrossDayEffects($dateStr, $overnightSlots, $dayUseSlots, $unavailableDayUseDates, $endDate);
             } else {
                 // Process specific slot conflicts
                 $this->processSlotConflicts($chalet, $dateStr, $unavailableForDate, $allTimeSlots, $dayUseSlots, $overnightSlots, $unavailableDayUseDates, $unavailableOvernightDates, $endDate);
             }
-            
+
             $current->addDay();
         }
 
         return [
             'day_use' => array_values(array_unique($unavailableDayUseDates)),
             'overnight' => array_values(array_unique($unavailableOvernightDates)),
-            'fully_blocked' => array_values(array_unique($fullyBlockedDates))
+            'fully_blocked' => array_values(array_unique($fullyBlockedDates)),
         ];
     }
 
@@ -944,23 +950,23 @@ class ChaletApiController extends Controller
                 $blockedSlotIds[] = $unavailable['time_slot_id'];
             }
         }
-        
+
         if (empty($blockedSlotIds)) {
             return;
         }
 
         // Get blocked slot objects
         $blockedSlots = $allTimeSlots->whereIn('id', $blockedSlotIds);
-        
+
         // Calculate all affected slots due to overlaps
         $affectedSlotIds = $this->calculateAllAffectedSlots($chalet, $blockedSlots, $allTimeSlots);
-        
+
         // Check day-use availability
         $availableDayUseSlots = $dayUseSlots->whereNotIn('id', $affectedSlotIds);
         if ($availableDayUseSlots->isEmpty()) {
             $unavailableDayUseDates[] = $dateStr;
         }
-        
+
         // Check overnight availability - only if there are overnight slots to begin with
         if ($overnightSlots->isNotEmpty()) {
             $availableOvernightSlots = $overnightSlots->whereNotIn('id', $affectedSlotIds);
@@ -968,7 +974,7 @@ class ChaletApiController extends Controller
                 $unavailableOvernightDates[] = $dateStr;
             }
         }
-        
+
         // Check cross-day effects for blocked overnight slots
         foreach ($blockedSlots as $blockedSlot) {
             if ($blockedSlot->is_overnight) {
@@ -984,24 +990,24 @@ class ChaletApiController extends Controller
     {
         $availabilityChecker = new ChaletAvailabilityChecker($chalet);
         $affectedSlotIds = [];
-        
+
         foreach ($blockedSlots as $blockedSlot) {
             // The blocked slot itself is affected
             $affectedSlotIds[] = $blockedSlot->id;
-            
+
             // Find overlapping slots
             foreach ($allTimeSlots as $slot) {
                 if ($slot->id === $blockedSlot->id) {
                     continue;
                 }
-                
+
                 // Check for time overlap
                 if ($this->slotsOverlapSameDay($blockedSlot, $slot, $availabilityChecker)) {
                     $affectedSlotIds[] = $slot->id;
                 }
             }
         }
-        
+
         return array_unique($affectedSlotIds);
     }
 
@@ -1013,18 +1019,18 @@ class ChaletApiController extends Controller
         // Check if either slot crosses midnight (end time < start time)
         $slot1CrossesMidnight = $this->timeToMinutes($slot1->end_time) <= $this->timeToMinutes($slot1->start_time);
         $slot2CrossesMidnight = $this->timeToMinutes($slot2->end_time) <= $this->timeToMinutes($slot2->start_time);
-        
+
         // Handle slots that cross midnight (either overnight or day-use that crosses midnight)
         if ($slot1->is_overnight || $slot2->is_overnight || $slot1CrossesMidnight || $slot2CrossesMidnight) {
             // For slots that cross midnight, we need special handling
             return $this->overnightSlotsOverlap($slot1, $slot2);
         }
-        
+
         // Regular same-day overlap check for slots that don't cross midnight
         return $availabilityChecker->timeRangesOverlap(
-            $slot1->start_time, 
+            $slot1->start_time,
             $slot1->end_time,
-            $slot2->start_time, 
+            $slot2->start_time,
             $slot2->end_time
         );
     }
@@ -1039,7 +1045,7 @@ class ChaletApiController extends Controller
         $slot1End = $this->timeToMinutes($slot1->end_time);
         $slot2Start = $this->timeToMinutes($slot2->start_time);
         $slot2End = $this->timeToMinutes($slot2->end_time);
-        
+
         // Handle slots that cross midnight (either overnight or day-use that crosses midnight)
         // If end time <= start time, it means the slot crosses midnight
         if ($slot1End <= $slot1Start) {
@@ -1048,7 +1054,7 @@ class ChaletApiController extends Controller
         if ($slot2End <= $slot2Start) {
             $slot2End += 24 * 60; // Add 24 hours
         }
-        
+
         // Check for overlap
         return $slot1Start < $slot2End && $slot1End > $slot2Start;
     }
@@ -1062,25 +1068,25 @@ class ChaletApiController extends Controller
         if ($nextDay > $endDate) {
             return;
         }
-        
+
         foreach ($overnightSlots as $overnightSlot) {
-            if (!$overnightSlot->is_overnight) {
+            if (! $overnightSlot->is_overnight) {
                 continue;
             }
-            
+
             // Count how many day-use slots are affected by this overnight slot
             $affectedDayUseSlots = 0;
             $totalDayUseSlots = $dayUseSlots->count();
-            
+
             foreach ($dayUseSlots as $daySlot) {
                 if ($this->overnightAffectsDayUse($overnightSlot, $daySlot)) {
                     $affectedDayUseSlots++;
                 }
             }
-            
+
             // Only block the entire day if ALL day-use slots are affected
             if ($affectedDayUseSlots === $totalDayUseSlots && $totalDayUseSlots > 0) {
-                if (!in_array($nextDay, $unavailableDayUseDates)) {
+                if (! in_array($nextDay, $unavailableDayUseDates)) {
                     $unavailableDayUseDates[] = $nextDay;
                 }
             }
@@ -1095,7 +1101,7 @@ class ChaletApiController extends Controller
         // Overnight slot ends on next day, check if it overlaps with day-use start
         $overnightEndMinutes = $this->timeToMinutes($overnightSlot->end_time);
         $dayUseStartMinutes = $this->timeToMinutes($daySlot->start_time);
-        
+
         // If overnight ends after day-use starts, there's an overlap
         return $overnightEndMinutes > $dayUseStartMinutes;
     }
@@ -1106,6 +1112,7 @@ class ChaletApiController extends Controller
     private function timeToMinutes(string $time): int
     {
         $parts = explode(':', $time);
-        return (int)$parts[0] * 60 + (int)$parts[1];
+
+        return (int) $parts[0] * 60 + (int) $parts[1];
     }
 }

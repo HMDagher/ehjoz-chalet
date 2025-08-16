@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\ChaletTimeSlot;
-use App\Models\ChaletCustomPricing;
 use App\Models\Chalet;
+use App\Models\ChaletCustomPricing;
+use App\Models\ChaletTimeSlot;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -13,13 +13,6 @@ class PricingCalculator
 {
     /**
      * Calculate total booking price
-     * 
-     * @param int $chaletId
-     * @param array $timeSlotIds
-     * @param string $startDate
-     * @param string|null $endDate
-     * @param string $bookingType
-     * @return array
      */
     public function calculateBookingPrice(
         int $chaletId,
@@ -31,7 +24,7 @@ class PricingCalculator
         try {
             // Get chalet for weekend days configuration
             $chalet = Chalet::find($chaletId);
-            if (!$chalet) {
+            if (! $chalet) {
                 throw new \Exception("Chalet not found: {$chaletId}");
             }
 
@@ -42,7 +35,7 @@ class PricingCalculator
                 ->get();
 
             if ($timeSlots->count() !== count($timeSlotIds)) {
-                throw new \Exception("Some time slots not found or inactive");
+                throw new \Exception('Some time slots not found or inactive');
             }
 
             // Calculate pricing based on booking type
@@ -59,7 +52,7 @@ class PricingCalculator
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'booking_type' => $bookingType,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             throw $e;
@@ -70,18 +63,14 @@ class PricingCalculator
      * Calculate pricing for overnight bookings
      * Each chalet has one overnight slot (is_overnight=true)
      * Price = overnight slot price per night × number of nights
-     * 
-     * @param Chalet $chalet
-     * @param ChaletTimeSlot $timeSlot (the overnight slot)
-     * @param string $startDate
-     * @param string $endDate
-     * @return array
+     *
+     * @param  ChaletTimeSlot  $timeSlot  (the overnight slot)
      */
     private function calculateOvernightPricing(Chalet $chalet, ChaletTimeSlot $timeSlot, string $startDate, string $endDate): array
     {
         // Ensure this is an overnight slot
-        if (!$timeSlot->is_overnight) {
-            throw new \Exception("Overnight booking requires an overnight time slot");
+        if (! $timeSlot->is_overnight) {
+            throw new \Exception('Overnight booking requires an overnight time slot');
         }
 
         $dateRange = TimeSlotHelper::getDateRange($startDate, $endDate);
@@ -92,7 +81,7 @@ class PricingCalculator
         foreach ($dateRange as $date) {
             $nightPricing = $this->calculateSlotPriceForDate($chalet, $timeSlot, $date);
             $totalAmount += $nightPricing['final_price'];
-            
+
             $nightlyBreakdown[] = [
                 'date' => $date,
                 'night_number' => array_search($date, $dateRange) + 1,
@@ -100,17 +89,17 @@ class PricingCalculator
                 'adjustment' => $nightPricing['adjustment'],
                 'final_price' => $nightPricing['final_price'],
                 'is_weekend' => $nightPricing['is_weekend'],
-                'custom_pricing_applied' => !empty($nightPricing['custom_pricing_id'])
+                'custom_pricing_applied' => ! empty($nightPricing['custom_pricing_id']),
             ];
         }
 
         $slotDetails = [
             'slot_id' => $timeSlot->id,
-            'slot_name' => $timeSlot->name ?? ($timeSlot->start_time . ' - ' . $timeSlot->end_time),
+            'slot_name' => $timeSlot->name ?? ($timeSlot->start_time.' - '.$timeSlot->end_time),
             'is_overnight' => true,
             'nights' => count($dateRange),
             'total_price' => $totalAmount,
-            'nightly_breakdown' => $nightlyBreakdown
+            'nightly_breakdown' => $nightlyBreakdown,
         ];
 
         return [
@@ -119,18 +108,13 @@ class PricingCalculator
             'booking_type' => 'overnight',
             'nights_count' => count($dateRange),
             'slot_details' => [$slotDetails], // Array for consistency
-            'breakdown_summary' => $this->generateBreakdownSummary([$slotDetails])
+            'breakdown_summary' => $this->generateBreakdownSummary([$slotDetails]),
         ];
     }
 
     /**
      * Calculate pricing for day-use bookings
      * Sum of individual slot prices (weekday_price/weekend_price + custom_adjustment)
-     * 
-     * @param Chalet $chalet
-     * @param Collection $timeSlots
-     * @param string $date
-     * @return array
      */
     private function calculateDayUsePricing(Chalet $chalet, Collection $timeSlots, string $date): array
     {
@@ -141,7 +125,7 @@ class PricingCalculator
         foreach ($timeSlots as $slot) {
             // Ensure this is not an overnight slot for day-use
             if ($slot->is_overnight) {
-                throw new \Exception("Day-use booking cannot include overnight slots");
+                throw new \Exception('Day-use booking cannot include overnight slots');
             }
 
             $slotPricing = $this->calculateSlotPriceForDate($chalet, $slot, $date);
@@ -149,13 +133,13 @@ class PricingCalculator
 
             $slotDetails[] = [
                 'slot_id' => $slot->id,
-                'slot_name' => $slot->name ?? ($slot->start_time . ' - ' . $slot->end_time),
+                'slot_name' => $slot->name ?? ($slot->start_time.' - '.$slot->end_time),
                 'is_overnight' => false,
                 'base_price' => $slotPricing['base_price'],
                 'adjustment' => $slotPricing['adjustment'],
                 'total_price' => $slotPricing['final_price'],
                 'is_weekend' => $slotPricing['is_weekend'],
-                'custom_pricing_applied' => !empty($slotPricing['custom_pricing_id'])
+                'custom_pricing_applied' => ! empty($slotPricing['custom_pricing_id']),
             ];
         }
 
@@ -166,30 +150,26 @@ class PricingCalculator
             'booking_date' => $date,
             'slots_count' => $timeSlots->count(),
             'slot_details' => $slotDetails,
-            'breakdown_summary' => $this->generateBreakdownSummary($slotDetails)
+            'breakdown_summary' => $this->generateBreakdownSummary($slotDetails),
         ];
     }
 
     /**
      * Calculate slot price for a specific date
-     * 
-     * @param Chalet $chalet
-     * @param ChaletTimeSlot $slot
-     * @param string $date
-     * @return array
      */
     private function calculateSlotPriceForDate(Chalet $chalet, ChaletTimeSlot $slot, string $date): array
     {
         // Determine if it's a weekend based on chalet configuration
         $isWeekend = $this->isWeekendDate($chalet, $date);
-        
+
         // Get base price (weekday_price or weekend_price)
         $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
 
         // Check for custom pricing adjustments (custom_adjustment + base price)
         $customPricing = $this->getCustomPricingForDate($slot, $date);
-        $adjustment = $customPricing ? $customPricing->custom_adjustment : 0;
-        
+        $rawAdjustment = $customPricing ? ($customPricing->custom_adjustment ?? ($customPricing->custom_price ?? 0)) : 0;
+        $adjustment = max(0, (float) $rawAdjustment);
+
         // Calculate final price: base_price + custom_adjustment (ensure it doesn't go negative)
         $finalPrice = max(0, $basePrice + $adjustment);
 
@@ -199,48 +179,37 @@ class PricingCalculator
             'final_price' => $finalPrice,
             'is_weekend' => $isWeekend,
             'custom_pricing_id' => $customPricing?->id,
-            'custom_pricing_name' => $customPricing?->name ?? null
+            'custom_pricing_name' => $customPricing?->name ?? null,
         ];
     }
 
     /**
      * Check if a date is considered weekend for the chalet
-     * 
-     * @param Chalet $chalet
-     * @param string $date
-     * @return bool
      */
     private function isWeekendDate(Chalet $chalet, string $date): bool
     {
         $dayOfWeek = strtolower(Carbon::createFromFormat('Y-m-d', $date)->format('l'));
-        $weekendDays = $chalet->weekend_days ?? ['friday', 'saturday']; // Default weekend
-        
+        $weekendDays = $chalet->weekend_days ?? ['saturday', 'sunday']; // Default weekend
+
         return in_array($dayOfWeek, array_map('strtolower', $weekendDays));
     }
 
     /**
      * Get custom pricing for a specific date and slot
-     * 
-     * @param ChaletTimeSlot $slot
-     * @param string $date
-     * @return ChaletCustomPricing|null
      */
     private function getCustomPricingForDate(ChaletTimeSlot $slot, string $date): ?ChaletCustomPricing
     {
         return ChaletCustomPricing::where('chalet_id', $slot->chalet_id)
             ->where('time_slot_id', $slot->id)
             ->where('is_active', true)
-            ->where('start_date', '<=', $date)
-            ->where('end_date', '>=', $date)
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
             ->orderBy('created_at', 'desc') // Get most recent if multiple exist
             ->first();
     }
 
     /**
      * Generate pricing breakdown summary
-     * 
-     * @param array $slotDetails
-     * @return array
      */
     private function generateBreakdownSummary(array $slotDetails): array
     {
@@ -249,7 +218,7 @@ class PricingCalculator
             'total_adjustments' => 0,
             'weekend_slots' => 0,
             'weekday_slots' => 0,
-            'custom_pricing_applied' => false
+            'custom_pricing_applied' => false,
         ];
 
         foreach ($slotDetails as $slot) {
@@ -258,13 +227,13 @@ class PricingCalculator
                 foreach ($slot['nightly_breakdown'] as $night) {
                     $summary['subtotal'] += $night['base_price'];
                     $summary['total_adjustments'] += $night['adjustment'];
-                    
+
                     if ($night['is_weekend']) {
                         $summary['weekend_slots']++;
                     } else {
                         $summary['weekday_slots']++;
                     }
-                    
+
                     if ($night['custom_pricing_applied']) {
                         $summary['custom_pricing_applied'] = true;
                     }
@@ -273,13 +242,13 @@ class PricingCalculator
                 // Day-use booking breakdown
                 $summary['subtotal'] += $slot['base_price'];
                 $summary['total_adjustments'] += $slot['adjustment'];
-                
+
                 if ($slot['is_weekend']) {
                     $summary['weekend_slots']++;
                 } else {
                     $summary['weekday_slots']++;
                 }
-                
+
                 if ($slot['custom_pricing_applied']) {
                     $summary['custom_pricing_applied'] = true;
                 }
@@ -293,13 +262,6 @@ class PricingCalculator
 
     /**
      * Calculate estimated price for search results (quick calculation)
-     * 
-     * @param int $chaletId
-     * @param array $availableSlots
-     * @param string $startDate
-     * @param string|null $endDate
-     * @param string $bookingType
-     * @return array
      */
     public function calculateEstimatedPrice(
         int $chaletId,
@@ -310,21 +272,21 @@ class PricingCalculator
     ): array {
         try {
             $chalet = Chalet::find($chaletId);
-            if (!$chalet || empty($availableSlots)) {
+            if (! $chalet || empty($availableSlots)) {
                 return [
                     'min_price' => 0,
                     'max_price' => 0,
-                    'estimated_total' => 0
+                    'estimated_total' => 0,
                 ];
             }
 
             $prices = [];
-            
+
             if ($bookingType === 'overnight') {
                 // For overnight, calculate for the first available slot across date range
                 $slot = (object) $availableSlots[0];
                 $dateRange = TimeSlotHelper::getDateRange($startDate, $endDate ?? $startDate);
-                
+
                 foreach ($dateRange as $date) {
                     $isWeekend = $this->isWeekendDate($chalet, $date);
                     $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
@@ -341,33 +303,29 @@ class PricingCalculator
             }
 
             return [
-                'min_price' => !empty($prices) ? min($prices) : 0,
-                'max_price' => !empty($prices) ? max($prices) : 0,
-                'estimated_total' => !empty($prices) ? array_sum($prices) : 0,
+                'min_price' => ! empty($prices) ? min($prices) : 0,
+                'max_price' => ! empty($prices) ? max($prices) : 0,
+                'estimated_total' => ! empty($prices) ? array_sum($prices) : 0,
                 'price_range' => $prices,
-                'currency' => 'USD'
+                'currency' => 'USD',
             ];
 
         } catch (\Exception $e) {
             Log::error('Estimated price calculation failed', [
                 'chalet_id' => $chaletId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'min_price' => 0,
                 'max_price' => 0,
-                'estimated_total' => 0
+                'estimated_total' => 0,
             ];
         }
     }
 
     /**
      * Apply discount or promotional pricing
-     * 
-     * @param array $pricing
-     * @param array $discountConfig
-     * @return array
      */
     public function applyDiscount(array $pricing, array $discountConfig): array
     {

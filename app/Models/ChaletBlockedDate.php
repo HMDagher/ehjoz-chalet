@@ -7,7 +7,6 @@ namespace App\Models;
 use App\Enums\BlockReason;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Auth;
 
 final class ChaletBlockedDate extends Model
 {
@@ -32,7 +31,7 @@ final class ChaletBlockedDate extends Model
 
     protected static function booted(): void
     {
-        static::saving(function (self $chaletBlockedDate) {
+        self::saving(function (self $chaletBlockedDate) {
             if (auth()->check() && $userChalet = auth()->user()->chalet) {
                 // If creating, set the chalet_id
                 if (! $chaletBlockedDate->exists) {

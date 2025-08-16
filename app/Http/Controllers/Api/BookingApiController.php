@@ -8,9 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Chalet;
 use App\Services\ChaletAvailabilityChecker;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
@@ -23,7 +23,7 @@ class BookingApiController extends Controller
     {
         // Debug: Log the incoming request data
         \Log::info('Booking API request data:', $request->all());
-        
+
         // Validate request
         $request->validate([
             'chalet_id' => 'required|exists:chalets,id',
@@ -39,7 +39,7 @@ class BookingApiController extends Controller
         $availabilityChecker = new ChaletAvailabilityChecker($chalet);
 
         // Check if user is authenticated
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return response()->json(['error' => 'User must be logged in to make a booking'], 401);
         }
 
@@ -56,19 +56,20 @@ class BookingApiController extends Controller
             $originalPrice = 0;
             $discountAmount = 0;
             $discountPercentage = $isLaunchPromoActive ? 15 : 0;
-            
+
             // Validate availability
             if ($bookingType === 'day-use') {
                 // Check if slots are consecutive
-                if (!$availabilityChecker->areDayUseSlotIdsConsecutive($slotIds)) {
+                if (! $availabilityChecker->areDayUseSlotIdsConsecutive($slotIds)) {
                     return response()->json(['error' => 'Selected slots are not consecutive in time. Please select consecutive slots.'], 400);
                 }
                 // Use the ChaletAvailabilityChecker service for proper validation
                 foreach ($slotIds as $slotId) {
                     $slotIdInt = (int) $slotId;
-                    if (!$availabilityChecker->isDayUseSlotAvailable($startDate, $slotIdInt)) {
+                    if (! $availabilityChecker->isDayUseSlotAvailable($startDate, $slotIdInt)) {
                         // Get detailed error message for user feedback
                         $reason = $this->getDayUseSlotConflictReason($availabilityChecker, $startDate, $slotIdInt);
+
                         return response()->json(['error' => $reason ?: 'Selected slot is not available.'], 400);
                     }
                 }
@@ -101,38 +102,39 @@ class BookingApiController extends Controller
                     $discountAmount = 0;
                 }
                 $totalPrice = $totalBeforeDiscount - $discountAmount;
-                
+
                 // For day-use, set start and end datetime based on selected slots
                 $slots = $chalet->timeSlots()->whereIn('id', $slotIds)->orderBy('start_time')->get();
                 $firstSlot = $slots->first();
                 $lastSlot = $slots->last();
-                
+
                 $startDateTime = Carbon::parse($startDate)->setTimeFromTimeString($firstSlot->start_time);
                 $endDateTime = Carbon::parse($startDate)->setTimeFromTimeString($lastSlot->end_time);
-                
+
                 // Check if the slot spans midnight (end time is earlier than start time)
                 $startTimeMinutes = Carbon::parse($lastSlot->start_time)->hour * 60 + Carbon::parse($lastSlot->start_time)->minute;
                 $endTimeMinutes = Carbon::parse($lastSlot->end_time)->hour * 60 + Carbon::parse($lastSlot->end_time)->minute;
-                
+
                 if ($endTimeMinutes <= $startTimeMinutes) {
                     // Slot spans midnight, so end time is on the next day
                     $endDateTime->addDay();
                 }
-                
+
                 $startDate = $startDateTime->format('Y-m-d H:i:s');
                 $endDate = $endDateTime->format('Y-m-d H:i:s');
             } else {
-                if (!$endDate) {
+                if (! $endDate) {
                     return response()->json(['error' => 'End date is required for overnight bookings'], 400);
                 }
-                
+
                 $slotId = (int) $slotIds[0]; // Overnight bookings use single slot - convert to int
-                if (!$availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slotId)) {
+                if (! $availabilityChecker->isOvernightSlotAvailable($startDate, $endDate, $slotId)) {
                     // Get detailed error message for user feedback
                     $reason = $this->getOvernightSlotConflictReason($availabilityChecker, $startDate, $endDate, $slotId);
+
                     return response()->json(['error' => $reason ?: 'Selected overnight slot is not available.'], 400);
                 }
-                
+
                 $start = Carbon::parse($startDate);
                 $end = Carbon::parse($endDate);
                 $baseSlotPrice = 0;
@@ -174,7 +176,7 @@ class BookingApiController extends Controller
             $booking = Booking::create([
                 'chalet_id' => $chalet->id,
                 'user_id' => $user->id,
-                'booking_reference' => 'BKG-' . strtoupper(Str::random(8)),
+                'booking_reference' => 'BKG-'.strtoupper(Str::random(8)),
                 'start_date' => Carbon::parse($startDate),
                 'end_date' => Carbon::parse($endDate),
                 'booking_type' => $bookingType,
@@ -211,12 +213,12 @@ class BookingApiController extends Controller
                     'discount_amount' => $discountAmount,
                     'discount_percentage' => $discountPercentage,
                     'status' => $booking->status,
-                    'confirmation_url' => route('booking-confirmation', $booking->booking_reference)
-                ]
+                    'confirmation_url' => route('booking-confirmation', $booking->booking_reference),
+                ],
             ]);
 
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error creating booking: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error creating booking: '.$e->getMessage()], 500);
         }
     }
 
@@ -227,7 +229,7 @@ class BookingApiController extends Controller
     {
         return response()->json([
             'authenticated' => Auth::check(),
-            'user' => Auth::check() ? Auth::user()->only(['id', 'name', 'email']) : null
+            'user' => Auth::check() ? Auth::user()->only(['id', 'name', 'email']) : null,
         ]);
     }
 
@@ -237,11 +239,11 @@ class BookingApiController extends Controller
     private function getDayUseSlotConflictReason(ChaletAvailabilityChecker $checker, string $date, int $slotId): ?string
     {
         $slot = $checker->chalet->timeSlots()->find($slotId);
-        if (!$slot || $slot->is_overnight) {
+        if (! $slot || $slot->is_overnight) {
             return 'Selected slot does not exist or is not a day-use slot.';
         }
         $dayOfWeek = strtolower(\Carbon\Carbon::parse($date)->format('l'));
-        if (!isset($slot->available_days) || !is_array($slot->available_days) || !in_array($dayOfWeek, $slot->available_days)) {
+        if (! isset($slot->available_days) || ! is_array($slot->available_days) || ! in_array($dayOfWeek, $slot->available_days)) {
             return 'Selected slot is not available on this day.';
         }
         $dayBlocked = $checker->chalet->blockedDates()->where('date', $date)->whereNull('time_slot_id')->exists();
@@ -256,7 +258,7 @@ class BookingApiController extends Controller
             ->where(function ($query) use ($date) {
                 $query->where(function ($q) use ($date) {
                     $q->whereDate('start_date', '=', $date)
-                      ->whereDate('end_date', '=', $date);
+                        ->whereDate('end_date', '=', $date);
                 });
             })
             ->whereHas('timeSlots', function ($query) use ($slotId) {
@@ -276,7 +278,7 @@ class BookingApiController extends Controller
             $overnightBooking = $checker->chalet->bookings()
                 ->where(function ($query) use ($date) {
                     $query->where('start_date', '<=', $date)
-                          ->where('end_date', '>', $date);
+                        ->where('end_date', '>', $date);
                 })
                 ->whereHas('timeSlots', function ($query) use ($overnightSlot) {
                     $query->where('chalet_time_slots.id', $overnightSlot->id);
@@ -287,6 +289,7 @@ class BookingApiController extends Controller
                 return 'This slot overlaps with an existing overnight booking.';
             }
         }
+
         return null;
     }
 
@@ -296,24 +299,24 @@ class BookingApiController extends Controller
     private function getOvernightSlotConflictReason(ChaletAvailabilityChecker $checker, string $startDate, string $endDate, int $slotId): ?string
     {
         $slot = $checker->chalet->timeSlots()->find($slotId);
-        if (!$slot || !$slot->is_overnight) {
+        if (! $slot || ! $slot->is_overnight) {
             return 'Selected slot does not exist or is not an overnight slot.';
         }
         $checkInDayOfWeek = strtolower(\Carbon\Carbon::parse($startDate)->format('l'));
-        if (!isset($slot->available_days) || !is_array($slot->available_days) || !in_array($checkInDayOfWeek, $slot->available_days)) {
+        if (! isset($slot->available_days) || ! is_array($slot->available_days) || ! in_array($checkInDayOfWeek, $slot->available_days)) {
             return 'Selected overnight slot is not available on this check-in day.';
         }
         $conflictingBooking = $checker->chalet->bookings()
             ->where(function ($query) use ($startDate, $endDate) {
-                $query->where(function ($q) use ($startDate, $endDate) {
+                $query->where(function ($q) use ($startDate) {
                     $q->where('start_date', '<=', $startDate)
-                      ->where('end_date', '>', $startDate);
-                })->orWhere(function ($q) use ($startDate, $endDate) {
+                        ->where('end_date', '>', $startDate);
+                })->orWhere(function ($q) use ($endDate) {
                     $q->where('start_date', '<', $endDate)
-                      ->where('end_date', '>=', $endDate);
+                        ->where('end_date', '>=', $endDate);
                 })->orWhere(function ($q) use ($startDate, $endDate) {
                     $q->where('start_date', '>=', $startDate)
-                      ->where('end_date', '<', $endDate);
+                        ->where('end_date', '<', $endDate);
                 });
             })
             ->whereIn('status', ['confirmed', 'pending'])
@@ -338,7 +341,7 @@ class BookingApiController extends Controller
                 $dayUseBooking = $checker->chalet->bookings()
                     ->where(function ($query) use ($currentDateStr) {
                         $query->whereDate('start_date', '=', $currentDateStr)
-                              ->whereDate('end_date', '=', $currentDateStr);
+                            ->whereDate('end_date', '=', $currentDateStr);
                     })
                     ->whereHas('timeSlots', function ($query) use ($daySlot) {
                         $query->where('chalet_time_slots.id', $daySlot->id);
@@ -355,6 +358,7 @@ class BookingApiController extends Controller
             }
             $currentDate->addDay();
         }
+
         return null;
     }
 
@@ -370,9 +374,10 @@ class BookingApiController extends Controller
         $chalet = \App\Models\Chalet::findOrFail($request->chalet_id);
         $checker = new \App\Services\ChaletAvailabilityChecker($chalet);
         $combinations = $checker->findConsecutiveSlotCombinations($request->date);
+
         return response()->json([
             'success' => true,
-            'data' => $combinations
+            'data' => $combinations,
         ]);
     }
 }

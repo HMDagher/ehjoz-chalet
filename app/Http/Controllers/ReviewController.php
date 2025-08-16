@@ -6,8 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Review;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\View;
 
 class ReviewController extends Controller
 {
@@ -18,7 +16,7 @@ class ReviewController extends Controller
             ->where('review_token_expires_at', '>', now())
             ->first();
 
-        if (!$review) {
+        if (! $review) {
             return response()->view('Frontend.Pages.review-link-invalid', [], 404);
         }
 
@@ -35,7 +33,7 @@ class ReviewController extends Controller
             ->where('review_token_expires_at', '>', now())
             ->first();
 
-        if (!$review) {
+        if (! $review) {
             return response()->view('Frontend.Pages.review-link-invalid', [], 404);
         }
 
@@ -54,4 +52,4 @@ class ReviewController extends Controller
 
         return view('Frontend.Pages.review-thank-you');
     }
-} 
+}

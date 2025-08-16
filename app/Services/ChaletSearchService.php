@@ -3,18 +3,16 @@
 namespace App\Services;
 
 use App\Models\Chalet;
-use App\Models\ChaletTimeSlot;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 class ChaletSearchService
 {
     private AvailabilityService $availabilityService;
+
     private const SEARCH_CACHE_TTL = 1800; // 30 minutes for search results
-    
+
     public function __construct(AvailabilityService $availabilityService)
     {
         $this->availabilityService = $availabilityService;
@@ -22,21 +20,18 @@ class ChaletSearchService
 
     /**
      * Search for available chalets
-     * 
-     * @param array $searchParams
-     * @return array
      */
     public function searchAvailableChalets(array $searchParams): array
     {
         try {
             // Validate and normalize search parameters
             $validatedParams = $this->validateSearchParams($searchParams);
-            if (!$validatedParams['valid']) {
+            if (! $validatedParams['valid']) {
                 return [
                     'success' => false,
                     'errors' => $validatedParams['errors'],
                     'chalets' => [],
-                    'total_count' => 0
+                    'total_count' => 0,
                 ];
             }
 
@@ -44,10 +39,11 @@ class ChaletSearchService
 
             // Generate cache key for search
             $cacheKey = $this->generateSearchCacheKey($params);
-            
+
             // Try to get from cache
             if ($cached = Cache::get($cacheKey)) {
                 Log::info('Search results served from cache', ['cache_key' => $cacheKey]);
+
                 return $cached;
             }
 
@@ -63,29 +59,26 @@ class ChaletSearchService
             Log::error('Chalet search failed', [
                 'params' => $searchParams,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
                 'success' => false,
                 'errors' => ['Search system temporarily unavailable'],
                 'chalets' => [],
-                'total_count' => 0
+                'total_count' => 0,
             ];
         }
     }
 
     /**
      * Perform the actual search
-     * 
-     * @param array $params
-     * @return array
      */
     private function performSearch(array $params): array
     {
         // Get base chalets query
         $chalets = $this->getBaseChaletsQuery($params);
-        
+
         // Get total count before filtering by availability
         $totalPotentialChalets = $chalets->count();
 
@@ -94,7 +87,7 @@ class ChaletSearchService
 
         foreach ($chalets->get() as $chalet) {
             $processedCount++;
-            
+
             // Check availability for this chalet
             $availability = $this->availabilityService->checkAvailability(
                 $chalet->id,
@@ -109,10 +102,10 @@ class ChaletSearchService
 
             // Log progress for long searches
             if ($processedCount % 10 === 0) {
-                Log::debug("Search progress", [
+                Log::debug('Search progress', [
                     'processed' => $processedCount,
                     'total' => $totalPotentialChalets,
-                    'found_available' => count($availableChalets)
+                    'found_available' => count($availableChalets),
                 ]);
             }
         }
@@ -130,25 +123,24 @@ class ChaletSearchService
                 'booking_type' => $params['booking_type'],
                 'date_range' => [
                     'start_date' => $params['start_date'],
-                    'end_date' => $params['end_date']
+                    'end_date' => $params['end_date'],
                 ],
-                'search_timestamp' => Carbon::now()->toISOString()
-            ]
+                'search_timestamp' => Carbon::now()->toISOString(),
+            ],
         ];
     }
 
     /**
      * Get base chalets query with basic filters
-     * 
-     * @param array $params
+     *
      * @return \Illuminate\Database\Eloquent\Builder
      */
     private function getBaseChaletsQuery(array $params)
     {
         $query = Chalet::where('status', \App\Enums\ChaletStatus::Active)
-            ->whereHas('timeSlots', function($q) use ($params) {
+            ->whereHas('timeSlots', function ($q) use ($params) {
                 $q->where('is_active', true);
-                
+
                 // Filter by booking type
                 if ($params['booking_type'] === 'day-use') {
                     $q->where('is_overnight', false);
@@ -162,8 +154,8 @@ class ChaletSearchService
 
         // Add additional filters if needed (location, price range, etc.)
         // This can be extended later
-        
-        return $query->with(['timeSlots' => function($q) use ($params) {
+
+        return $query->with(['timeSlots' => function ($q) use ($params) {
             $q->where('is_active', true);
             if ($params['booking_type'] === 'day-use') {
                 $q->where('is_overnight', false);
@@ -175,31 +167,30 @@ class ChaletSearchService
 
     /**
      * Add date availability filter to time slots query
-     * 
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param array $params
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      */
     private function addDateAvailabilityFilter($query, array $params): void
     {
         $startDate = Carbon::createFromFormat('Y-m-d', $params['start_date']);
-        $endDate = $params['end_date'] 
+        $endDate = $params['end_date']
             ? Carbon::createFromFormat('Y-m-d', $params['end_date'])
             : $startDate;
 
         // Get all days of week in the date range
         $daysInRange = [];
         $current = $startDate->copy();
-        
+
         while ($current->lte($endDate)) {
             $dayName = strtolower($current->format('l')); // 'monday', 'tuesday', etc.
-            if (!in_array($dayName, $daysInRange)) {
+            if (! in_array($dayName, $daysInRange)) {
                 $daysInRange[] = $dayName;
             }
             $current->addDay();
         }
 
         // Filter slots that are available on at least one day in the range
-        $query->where(function($q) use ($daysInRange) {
+        $query->where(function ($q) use ($daysInRange) {
             foreach ($daysInRange as $day) {
                 $q->orWhereJsonContains('available_days', $day);
             }
@@ -208,11 +199,6 @@ class ChaletSearchService
 
     /**
      * Format chalet result for API response
-     * 
-     * @param Chalet $chalet
-     * @param array $availability
-     * @param array $params
-     * @return array
      */
     private function formatChaletResult(Chalet $chalet, array $availability, array $params): array
     {
@@ -229,39 +215,35 @@ class ChaletSearchService
                 'latitude' => $chalet->latitude,
                 'longitude' => $chalet->longitude,
             ],
-            'images' => $chalet->getMedia('gallery')->map(function($media) {
+            'images' => $chalet->getMedia('gallery')->map(function ($media) {
                 return [
                     'url' => $media->getUrl(),
                     'thumb' => $media->getUrl('thumb'),
-                    'preview' => $media->getUrl('preview')
+                    'preview' => $media->getUrl('preview'),
                 ];
             })->toArray(),
             'description' => $chalet->description ?? null,
             'capacity' => [
                 'max_adults' => $chalet->max_adults,
                 'max_children' => $chalet->max_children,
-                'total_capacity' => ($chalet->max_adults ?? 0) + ($chalet->max_children ?? 0)
+                'total_capacity' => ($chalet->max_adults ?? 0) + ($chalet->max_children ?? 0),
             ],
             'amenities' => $chalet->amenities->pluck('name')->toArray() ?? [],
             'availability' => [
                 'available_slots' => $availability['available_slots'],
                 'consecutive_combinations' => $availability['consecutive_combinations'] ?? [],
-                'booking_type' => $params['booking_type']
+                'booking_type' => $params['booking_type'],
             ],
             'pricing' => $pricingSummary,
             'rating' => [
                 'average' => $chalet->average_rating ?? 0,
-                'reviews_count' => $chalet->total_reviews ?? 0
-            ]
+                'reviews_count' => $chalet->total_reviews ?? 0,
+            ],
         ];
     }
 
     /**
      * Calculate pricing summary for search results
-     * 
-     * @param array $availability
-     * @param array $params
-     * @return array
      */
     private function calculatePricingSummary(array $availability, array $params): array
     {
@@ -270,7 +252,7 @@ class ChaletSearchService
                 'min_price' => 0,
                 'max_price' => 0,
                 'currency' => 'USD', // Configure this
-                'price_breakdown' => []
+                'price_breakdown' => [],
             ];
         }
 
@@ -280,39 +262,35 @@ class ChaletSearchService
         foreach ($availability['available_slots'] as $slot) {
             foreach ($slot['pricing_info'] as $date => $pricing) {
                 $allPrices[] = $pricing['final_price'];
-                
+
                 $priceBreakdown[] = [
                     'slot_id' => $slot['slot_id'],
                     'date' => $date,
-                    'time' => $slot['start_time'] . ' - ' . $slot['end_time'],
+                    'time' => $slot['start_time'].' - '.$slot['end_time'],
                     'base_price' => $pricing['base_price'],
                     'adjustment' => $pricing['adjustment'],
                     'final_price' => $pricing['final_price'],
-                    'is_weekend' => $pricing['is_weekend']
+                    'is_weekend' => $pricing['is_weekend'],
                 ];
             }
         }
 
         return [
-            'min_price' => !empty($allPrices) ? min($allPrices) : 0,
-            'max_price' => !empty($allPrices) ? max($allPrices) : 0,
+            'min_price' => ! empty($allPrices) ? min($allPrices) : 0,
+            'max_price' => ! empty($allPrices) ? max($allPrices) : 0,
             'currency' => 'USD', // Make this configurable
             'total_slots' => count($availability['available_slots']),
-            'price_breakdown' => $priceBreakdown
+            'price_breakdown' => $priceBreakdown,
         ];
     }
 
     /**
      * Sort search results
-     * 
-     * @param array $chalets
-     * @param array $params
-     * @return array
      */
     private function sortSearchResults(array $chalets, array $params): array
     {
         // Default sort by minimum price ascending
-        usort($chalets, function($a, $b) {
+        usort($chalets, function ($a, $b) {
             return $a['pricing']['min_price'] <=> $b['pricing']['min_price'];
         });
 
@@ -321,9 +299,6 @@ class ChaletSearchService
 
     /**
      * Validate search parameters
-     * 
-     * @param array $params
-     * @return array
      */
     private function validateSearchParams(array $params): array
     {
@@ -331,7 +306,7 @@ class ChaletSearchService
         $normalized = [];
 
         // Validate booking_type
-        if (empty($params['booking_type']) || !in_array($params['booking_type'], ['day-use', 'overnight'])) {
+        if (empty($params['booking_type']) || ! in_array($params['booking_type'], ['day-use', 'overnight'])) {
             $errors[] = 'booking_type is required and must be either "day-use" or "overnight"';
         } else {
             $normalized['booking_type'] = $params['booking_type'];
@@ -377,15 +352,12 @@ class ChaletSearchService
         return [
             'valid' => empty($errors),
             'errors' => $errors,
-            'params' => $normalized
+            'params' => $normalized,
         ];
     }
 
     /**
      * Generate cache key for search
-     * 
-     * @param array $params
-     * @return string
      */
     private function generateSearchCacheKey(array $params): string
     {
@@ -393,7 +365,7 @@ class ChaletSearchService
             'chalet_search',
             $params['booking_type'],
             $params['start_date'],
-            $params['end_date'] ?? 'null'
+            $params['end_date'] ?? 'null',
         ];
 
         return implode('_', $keyParts);
@@ -402,8 +374,6 @@ class ChaletSearchService
     /**
      * Clear search cache
      * Should be called when chalets, time slots, or availability changes
-     * 
-     * @param int|null $chaletId
      */
     public static function clearSearchCache(?int $chaletId = null): void
     {
@@ -412,13 +382,13 @@ class ChaletSearchService
                 // For specific chalet changes, we'd need more sophisticated cache invalidation
                 // For now, clear all search cache patterns
                 $keys = Cache::getRedis()->keys('chalet_search_*');
-                if (!empty($keys)) {
+                if (! empty($keys)) {
                     Cache::getRedis()->del($keys);
                 }
             } else {
                 // Clear all search cache patterns
                 $keys = Cache::getRedis()->keys('chalet_search_*');
-                if (!empty($keys)) {
+                if (! empty($keys)) {
                     Cache::getRedis()->del($keys);
                 }
             }
@@ -427,26 +397,23 @@ class ChaletSearchService
         } catch (\Exception $e) {
             Log::error('Failed to clear search cache', [
                 'chalet_id' => $chaletId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
 
     /**
      * Get search suggestions based on current availability
-     * 
-     * @param array $searchParams
-     * @return array
      */
     public function getSearchSuggestions(array $searchParams): array
     {
         // This can suggest alternative dates, different booking types, etc.
         // Implement based on your business needs
-        
+
         return [
             'alternative_dates' => [],
             'alternative_booking_types' => [],
-            'nearby_available_chalets' => []
+            'nearby_available_chalets' => [],
         ];
     }
 }

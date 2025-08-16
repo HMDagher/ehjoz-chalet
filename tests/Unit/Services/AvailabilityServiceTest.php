@@ -2,42 +2,42 @@
 
 namespace Tests\Unit\Services;
 
-use Tests\TestCase;
-use App\Services\TimeSlotHelper;
-use App\Services\OverlapDetector;
-use App\Services\AvailabilityService;
-use App\Models\Chalet;
-use App\Models\ChaletTimeSlot;
-use App\Models\ChaletBlockedDate;
 use App\Models\Booking;
-use Carbon\Carbon;
+use App\Models\Chalet;
+use App\Models\ChaletBlockedDate;
+use App\Models\ChaletTimeSlot;
+use App\Services\AvailabilityService;
+use App\Services\OverlapDetector;
+use App\Services\TimeSlotHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class AvailabilityServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private $chalet;
+
     private $timeSlots;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Create roles if they don't exist
-        if (!\Spatie\Permission\Models\Role::where('name', 'admin')->exists()) {
+        if (! \Spatie\Permission\Models\Role::where('name', 'admin')->exists()) {
             \Spatie\Permission\Models\Role::create(['name' => 'admin']);
         }
-        
+
         // Create test user first
         $user = \App\Models\User::factory()->create();
-        
+
         // Create test chalet
         $this->chalet = Chalet::factory()->create([
             'owner_id' => $user->id,
             'name' => 'Test Chalet',
             'slug' => 'test-chalet',
-            'weekend_days' => ['friday', 'saturday']
+            'weekend_days' => ['friday', 'saturday'],
         ]);
 
         // Create time slots matching your example
@@ -50,7 +50,7 @@ class AvailabilityServiceTest extends TestCase
                 'available_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
                 'is_active' => true,
                 'weekday_price' => 100,
-                'weekend_price' => 150
+                'weekend_price' => 150,
             ]),
             'B' => ChaletTimeSlot::factory()->create([
                 'chalet_id' => $this->chalet->id,
@@ -60,7 +60,7 @@ class AvailabilityServiceTest extends TestCase
                 'available_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
                 'is_active' => true,
                 'weekday_price' => 200,
-                'weekend_price' => 300
+                'weekend_price' => 300,
             ]),
             'C' => ChaletTimeSlot::factory()->create([
                 'chalet_id' => $this->chalet->id,
@@ -70,7 +70,7 @@ class AvailabilityServiceTest extends TestCase
                 'available_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
                 'is_active' => true,
                 'weekday_price' => 120,
-                'weekend_price' => 180
+                'weekend_price' => 180,
             ]),
             'D' => ChaletTimeSlot::factory()->create([
                 'chalet_id' => $this->chalet->id,
@@ -80,8 +80,8 @@ class AvailabilityServiceTest extends TestCase
                 'available_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
                 'is_active' => true,
                 'weekday_price' => 80,
-                'weekend_price' => 120
-            ])
+                'weekend_price' => 120,
+            ]),
         ];
     }
 
@@ -102,7 +102,7 @@ class AvailabilityServiceTest extends TestCase
         // Test overnight slot affects multiple dates
         $slotB = $this->timeSlots['B'];
         $dates = TimeSlotHelper::getSlotsDateRange($slotB, '2025-08-20', '2025-08-22');
-        
+
         $expected = ['2025-08-20', '2025-08-21', '2025-08-22'];
         $this->assertEquals($expected, $dates);
     }
@@ -124,7 +124,7 @@ class AvailabilityServiceTest extends TestCase
             'available_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
             'is_active' => true,
             'weekday_price' => 80,
-            'weekend_price' => 120
+            'weekend_price' => 120,
         ]);
 
         $consecutiveSlots = collect([$this->timeSlots['A'], $slotE]);
@@ -139,7 +139,7 @@ class AvailabilityServiceTest extends TestCase
             'chalet_id' => $this->chalet->id,
             'date' => '2025-08-20',
             'time_slot_id' => $this->timeSlots['A']->id,
-            'reason' => 'maintenance'
+            'reason' => 'maintenance',
         ]);
 
         // Test that slot B on same day is affected (overlaps 14:00-15:00)
@@ -164,8 +164,8 @@ class AvailabilityServiceTest extends TestCase
     /** @test */
     public function test_availability_service_basic_day_use()
     {
-        $availabilityService = new AvailabilityService();
-        
+        $availabilityService = new AvailabilityService;
+
         $result = $availabilityService->checkAvailability(
             $this->chalet->id,
             '2025-08-25', // Monday
@@ -175,7 +175,7 @@ class AvailabilityServiceTest extends TestCase
 
         $this->assertTrue($result['available']);
         $this->assertCount(3, $result['available_slots']); // A, C, D (B is overnight)
-        
+
         // Check that slot A is available
         $slotA = collect($result['available_slots'])->firstWhere('slot_id', $this->timeSlots['A']->id);
         $this->assertNotNull($slotA);
@@ -186,8 +186,8 @@ class AvailabilityServiceTest extends TestCase
     /** @test */
     public function test_availability_service_overnight_booking()
     {
-        $availabilityService = new AvailabilityService();
-        
+        $availabilityService = new AvailabilityService;
+
         $result = $availabilityService->checkAvailability(
             $this->chalet->id,
             '2025-08-25',
@@ -197,7 +197,7 @@ class AvailabilityServiceTest extends TestCase
 
         $this->assertTrue($result['available']);
         $this->assertCount(1, $result['available_slots']); // Only B is overnight
-        
+
         $slotB = $result['available_slots'][0];
         $this->assertEquals($this->timeSlots['B']->id, $slotB['slot_id']);
         $this->assertTrue($slotB['is_overnight']);
@@ -214,14 +214,14 @@ class AvailabilityServiceTest extends TestCase
             'end_date' => '2025-08-25 15:00:00',
             'booking_type' => 'day-use',
             'status' => 'confirmed',
-            'total_amount' => 100
+            'total_amount' => 100,
         ]);
 
         // Attach the time slot to the booking
         $existingBooking->timeSlots()->attach($this->timeSlots['A']->id);
 
-        $availabilityService = new AvailabilityService();
-        
+        $availabilityService = new AvailabilityService;
+
         $result = $availabilityService->checkAvailability(
             $this->chalet->id,
             '2025-08-25',
@@ -232,7 +232,7 @@ class AvailabilityServiceTest extends TestCase
         // Should still be available but slot A should not be in the list
         $availableSlotIds = collect($result['available_slots'])->pluck('slot_id')->toArray();
         $this->assertNotContains($this->timeSlots['A']->id, $availableSlotIds);
-        
+
         // Should contain C and D
         $this->assertContains($this->timeSlots['C']->id, $availableSlotIds);
         $this->assertContains($this->timeSlots['D']->id, $availableSlotIds);
@@ -241,8 +241,8 @@ class AvailabilityServiceTest extends TestCase
     /** @test */
     public function test_availability_with_weekend_pricing()
     {
-        $availabilityService = new AvailabilityService();
-        
+        $availabilityService = new AvailabilityService;
+
         // Test on Friday (weekend day)
         $result = $availabilityService->checkAvailability(
             $this->chalet->id,
@@ -252,10 +252,10 @@ class AvailabilityServiceTest extends TestCase
         );
 
         $this->assertTrue($result['available']);
-        
+
         $slotA = collect($result['available_slots'])->firstWhere('slot_id', $this->timeSlots['A']->id);
         $this->assertEquals(150, $slotA['weekend_price']); // Weekend price
-        
+
         // Check pricing info shows weekend pricing
         $this->assertTrue($slotA['pricing_info']['2025-08-22']['is_weekend']);
         $this->assertEquals(150, $slotA['pricing_info']['2025-08-22']['final_price']);
@@ -269,11 +269,11 @@ class AvailabilityServiceTest extends TestCase
             'chalet_id' => $this->chalet->id,
             'date' => '2025-08-20',
             'time_slot_id' => null, // Full day block
-            'reason' => 'other'
+            'reason' => 'other',
         ]);
 
-        $availabilityService = new AvailabilityService();
-        
+        $availabilityService = new AvailabilityService;
+
         $result = $availabilityService->checkAvailability(
             $this->chalet->id,
             '2025-08-20',
@@ -289,8 +289,8 @@ class AvailabilityServiceTest extends TestCase
     /** @test */
     public function test_validation_booking_request()
     {
-        $availabilityService = new AvailabilityService();
-        
+        $availabilityService = new AvailabilityService;
+
         // Test valid consecutive day-use booking
         $slotE = ChaletTimeSlot::factory()->create([
             'chalet_id' => $this->chalet->id,
@@ -300,7 +300,7 @@ class AvailabilityServiceTest extends TestCase
             'available_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
             'is_active' => true,
             'weekday_price' => 80,
-            'weekend_price' => 120
+            'weekend_price' => 120,
         ]);
 
         $validation = $availabilityService->validateBookingRequest(
@@ -312,7 +312,7 @@ class AvailabilityServiceTest extends TestCase
         );
 
         $this->assertTrue($validation['valid']);
-        
+
         // Test invalid non-consecutive booking
         $validation = $availabilityService->validateBookingRequest(
             $this->chalet->id,

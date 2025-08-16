@@ -2,19 +2,15 @@
 
 namespace App\Filament\Chalet\Resources;
 
+use App\Enums\BlockReason;
 use App\Filament\Chalet\Resources\ChaletBlockedDateResource\Pages;
-use App\Filament\Chalet\Resources\ChaletBlockedDateResource\RelationManagers;
-use App\Models\Chalet;
 use App\Models\ChaletBlockedDate;
-use App\Models\ChaletTimeSlot;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use App\Enums\BlockReason;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
@@ -47,7 +43,7 @@ class ChaletBlockedDateResource extends Resource
                     ->options(function ($get): Collection {
                         $chaletId = auth()->user()->chalet?->id;
                         $date = $get('date');
-                        if (!$chaletId || !$date) {
+                        if (! $chaletId || ! $date) {
                             return collect();
                         }
                         $allSlots = \App\Models\ChaletTimeSlot::where('chalet_id', $chaletId)->get();
@@ -72,14 +68,16 @@ class ChaletBlockedDateResource extends Resource
                         if ($allSlots->where('is_overnight', false)->count() > 0 && $allSlots->where('is_overnight', false)->pluck('id')->diff($bookedSlotIds)->isEmpty()) {
                             return collect();
                         }
+
                         // Label overnight slots
                         return $allSlots->filter(function ($slot) use ($bookedSlotIds) {
-                            return !$bookedSlotIds->contains($slot->id);
+                            return ! $bookedSlotIds->contains($slot->id);
                         })->mapWithKeys(function ($slot) {
                             $label = $slot->name;
                             if ($slot->is_overnight) {
                                 $label .= ' (Overnight)';
                             }
+
                             return [$slot->id => $label];
                         });
                     })
