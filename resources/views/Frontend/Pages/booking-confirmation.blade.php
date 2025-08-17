@@ -304,6 +304,27 @@
 </section>
 
 <script>
+// Initialize date handling
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the booking dates from PHP variables and convert them to proper Date objects
+    const initialCheckIn = new Date('{{ $booking->start_date->format('Y-m-d\TH:i:s') }}');
+    const initialCheckOut = new Date('{{ $booking->end_date->format('Y-m-d\TH:i:s') }}');
+    
+    // Make these available globally if needed
+    window.initialCheckIn = initialCheckIn;
+    window.initialCheckOut = initialCheckOut;
+    
+    // Format dates for display if needed
+    const formatDate = (date) => {
+        return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
+});
+
 function processPayment() {
     // This would integrate with your payment gateway
     alert('Payment gateway integration would go here. For now, please use bank transfer.');

@@ -1174,6 +1174,31 @@
                 }, 5000);
             }
 
+            // Show general success message
+            function showSuccess(message) {
+                // Remove existing success messages
+                $('.success-message').remove();
+                
+                // Create success message element
+                const successHtml = `
+                    <div class="success-message alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle"></i>
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+                
+                // Insert success message at the top of the form
+                $("#booking-form").before(successHtml);
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    $('.success-message').fadeOut(500, function() {
+                        $(this).remove();
+                    });
+                }, 5000);
+            }
+
             // Handle successful login and retry booking
             $(document).on('hidden.bs.modal', '#loginModal', function () {
                 // Check if user is now logged in and we have pending booking data
