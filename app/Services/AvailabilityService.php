@@ -8,12 +8,11 @@ use App\Models\ChaletBlockedDate;
 use App\Models\ChaletTimeSlot;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class AvailabilityService
 {
-    private const CACHE_TTL = 3600; // 1 hour default cache
+    
 
     /**
      * Check availability for a chalet
@@ -45,15 +44,7 @@ class AvailabilityService
                 $endDate = $startDate;
             }
 
-            // Generate cache key
-            $cacheKey = $this->generateCacheKey($chaletId, $startDate, $endDate, $bookingType, $timeSlotIds);
-
-            // Try to get from cache
-            if ($cached = Cache::get($cacheKey)) {
-                Log::info('Availability check served from cache', ['cache_key' => $cacheKey]);
-
-                return $cached;
-            }
+            
 
             // Get chalet and verify it exists
             $chalet = Chalet::find($chaletId);
@@ -79,8 +70,7 @@ class AvailabilityService
             // Check availability for each slot
             $availabilityResults = $this->checkSlotsAvailability($slotsToCheck, $startDate, $endDate, $bookingType);
 
-            // Cache the results
-            Cache::put($cacheKey, $availabilityResults, self::CACHE_TTL);
+            
 
             return $availabilityResults;
 
@@ -447,49 +437,9 @@ class AvailabilityService
         return true;
     }
 
-    /**
-     * Generate cache key for availability check
-     */
-    private function generateCacheKey(int $chaletId, string $startDate, string $endDate, string $bookingType, array $timeSlotIds): string
-    {
-        sort($timeSlotIds);
-        $slotIds = empty($timeSlotIds) ? 'all' : implode(',', $timeSlotIds);
+    
 
-        return "chalet_availability_{$chaletId}_{$startDate}_{$endDate}_{$bookingType}_{$slotIds}";
-    }
-
-    /**
-     * Clear availability cache for a chalet
-     * This should be called when bookings, blocks, or time slots change
-     *
-     * @param  array  $affectedDates  Optional array of specific dates to clear
-     */
-    public static function clearAvailabilityCache(int $chaletId, array $affectedDates = []): void
-    {
-        try {
-            // If specific dates provided, clear only those
-            if (! empty($affectedDates)) {
-                foreach ($affectedDates as $date) {
-                    $pattern = "chalet_availability_{$chaletId}_{$date}_*";
-                    Cache::forget($pattern);
-                }
-            } else {
-                // Clear all availability cache for this chalet
-                $pattern = "chalet_availability_{$chaletId}_*";
-                Cache::forget($pattern);
-            }
-
-            Log::info('Availability cache cleared', [
-                'chalet_id' => $chaletId,
-                'affected_dates' => $affectedDates,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to clear availability cache', [
-                'chalet_id' => $chaletId,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
+    
 
     /**
      * Get quick availability summary for multiple dates

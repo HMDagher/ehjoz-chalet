@@ -7,7 +7,7 @@
         </div>
     </div>
     <div class="room__card__meta">
-        <a href="{{route('chalet-details', $chalet_slug)}}" class="room__card__title h4">{{$title ?? ''}}</a>
+        <a href="{{route('chalet-details', $chalet_slug)}}" class="room__card__title h4">Chalet</a>
         <div class="room__card__meta__info">
             @if(isset($max_adults) && $max_adults > 0)
             <span><i class="flaticon-user"></i>{{ $max_adults }} {{ Str::plural('Adult', $max_adults) }}</span>

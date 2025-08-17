@@ -14,10 +14,6 @@ class pageController extends baseController
     // homepage one
     public function index()
     {
-        $chaletCount = \App\Models\Chalet::count();
-        $bookingCount = \App\Models\Booking::count();
-        $customerCount = \App\Models\User::role('customer')->count();
-
         $featuredChalets = \App\Models\Chalet::where('is_featured', true)
             ->where('status', \App\Enums\ChaletStatus::Active)
             ->where(function ($query) {
@@ -63,9 +59,6 @@ class pageController extends baseController
         ]);
 
         return $this->view('index', [
-            'chaletCount' => $chaletCount,
-            'bookingCount' => $bookingCount,
-            'customerCount' => $customerCount,
             'featuredChaletsWithSlots' => $featuredChaletsWithSlots,
         ]);
     }

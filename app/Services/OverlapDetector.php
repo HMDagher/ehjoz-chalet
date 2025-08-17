@@ -132,7 +132,7 @@ class OverlapDetector
 
         // Get confirmed bookings that might conflict
         $bookings = Booking::where('chalet_id', $chaletId)
-            ->where('status', 'confirmed')
+            ->whereIn('status', ['confirmed', 'pending'])
             ->where(function ($query) use ($extendedDateRange) {
                 $query->whereBetween('start_date', [
                     $extendedDateRange['start'].' 00:00:00',

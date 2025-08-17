@@ -1,5 +1,5 @@
 @extends('Frontend.Layouts.app')
-@section('page_title', $chalet->name ?? 'Chalet Details')
+@section('page_title', 'Chalet Details')
 
 @section('content')
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -9,11 +9,11 @@
         @php 
         $headerImage = $chalet->getFirstMediaUrl('featured_image', 'preview'); // Using preview conversion for header
         $galleryImages = $chalet->getMedia('gallery');
-        $title = $chalet->name;
+        $title = 'Chalet Details';
         $desc = $chalet->description;
     @endphp
     @include('Frontend.Components.page-hero-no-text', [
-        'title' => $title,
+        'title' => 'Chalet Details',
         'desc' => $desc,
         'headerImage' => $headerImage ? $headerImage : null
     ])
@@ -24,14 +24,14 @@
             <div class="row g-5 sticky-wrap">
                 <div class="col-xxl-8 col-xl-7">
                     <div class="room__details">
-                        <h2 class="room__title">{{ $chalet->name }}</h2>
+                        <h2 class="room__title">Chalet Details</h2>
                         <div class="room__meta">
                             <span><i class="flaticon-construction"></i>{{ $chalet->bedrooms_count ?? '-' }} Bedrooms, {{ $chalet->bathrooms_count ?? '-' }} Bathrooms</span>
                             <span><i class="flaticon-user"></i>{{ $chalet->max_adults + $chalet->max_children }} Person</span>
                         </div>
 
-                        @if($chalet->address)
-                            <div class="mb-2"><strong>Address:</strong> {{ $chalet->address }}</div>
+                        @if($chalet->description)
+                            <div class="mt-3">{!! $chalet->description !!}</div>
                         @endif
 
                         @if($chalet->check_in_instructions)
@@ -46,34 +46,13 @@
                             <div class="mb-2"><strong>Cancellation Policy:</strong> {{ $chalet->cancellation_policy }}</div>
                         @endif
 
-                        @if($chalet->facebook_url || $chalet->instagram_url || $chalet->website_url || $chalet->whatsapp_number)
-                            <div class="mb-2"><strong>Social:</strong>
-                                @if($chalet->facebook_url)
-                                    <a href="{{ $chalet->facebook_url }}" target="_blank" class="me-2">Facebook</a>
-                                @endif
-                                @if($chalet->instagram_url)
-                                    <a href="{{ $chalet->instagram_url }}" target="_blank" class="me-2">Instagram</a>
-                                @endif
-                                @if($chalet->website_url)
-                                    <a href="{{ $chalet->website_url }}" target="_blank" class="me-2">Website</a>
-                                @endif
-                                @if($chalet->whatsapp_number)
-                                    <a href="https://wa.me/{{ $chalet->whatsapp_number }}" target="_blank">WhatsApp</a>
-                                @endif
-                            </div>
-                        @endif
-
-                        @if($chalet->description)
-                            <div class="mt-3">{!! $chalet->description !!}</div>
-                        @endif
-
                         @if($galleryImages->isNotEmpty())
                             <span class="h4 d-block mb-30">Gallery</span>
                             <div class="room__image__group gallery row row-cols-md-2 row-cols-sm-1 mt-30 mb-50 gap-4 gap-md-0">
                                 @foreach($galleryImages as $media)
                                     <div class="room__image__item" @if($loop->index >= 2) style="display: none;" @endif>
-                                        <a href="{{ $media->getUrl('preview') }}" title="{{ $chalet->name }}" @if($loop->index == 1 && $galleryImages->count() > 2) style="position: relative; display: block;" @endif>
-                                            <img class="rounded-2" src="{{ $media->getUrl('thumb') }}" alt="{{ $chalet->name }}">
+                                        <a href="{{ $media->getUrl('preview') }}" title="Chalet Image" @if($loop->index == 1 && $galleryImages->count() > 2) style="position: relative; display: block;" @endif>
+                                            <img class="rounded-2" src="{{ $media->getUrl('thumb') }}" alt="Chalet Image">
                                             @if($loop->index == 1 && $galleryImages->count() > 2)
                                                 <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 0.5rem; cursor: pointer;">
                                                     <span>+{{ $galleryImages->count() - 2 }} more</span>

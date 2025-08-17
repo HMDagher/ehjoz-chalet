@@ -68,7 +68,7 @@
                                         </div>
                                         <div class="room__content">
                                             <div class="room__title">
-                                                <h5>{{ $chalet->name }}</h5>
+                                                <h5>Chalet</h5>
                                             </div>
                                             <div class="room__content__meta">
                                                 <span><i class="flaticon-construction"></i> {{ $chalet->bedrooms_count ?? '-' }} Bedrooms</span>
