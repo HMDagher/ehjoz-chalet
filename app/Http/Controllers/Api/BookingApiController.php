@@ -73,7 +73,7 @@ class BookingApiController extends Controller
                     return response()->json(['error' => 'Selected slot is not available.'], 400);
                 }
                 // Calculate base slot price (standard slot price, no custom adjustment)
-                $slot = $chalet->timeSlots()->find($slotIdInt);
+                $slot = $chalet->timeSlots()->find($slotId);
                 $date = Carbon::parse($startDate);
                 $weekendDays = $chalet->weekend_days ?? [5, 6, 0];
                 $isWeekend = in_array($date->dayOfWeek, $weekendDays);
@@ -81,7 +81,7 @@ class BookingApiController extends Controller
                 $baseSlotPrice = $basePrice;
                 // Custom adjustment
                 $customPricing = $chalet->customPricing()
-                    ->where('time_slot_id', $slotIdInt)
+                    ->where('time_slot_id', $slotId)
                     ->where('start_date', '<=', $date->format('Y-m-d'))
                     ->where('end_date', '>=', $date->format('Y-m-d'))
                     ->where('is_active', true)
