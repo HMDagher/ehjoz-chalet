@@ -342,9 +342,12 @@ class AvailabilityService
     {
         // Determine if it's a weekend based on chalet configuration (align with models)
         $chalet = Chalet::find($slot->chalet_id);
-        $dayOfWeek = strtolower(Carbon::createFromFormat('Y-m-d', $date)->format('l'));
-        $weekendDays = $chalet?->weekend_days ?? ['saturday', 'sunday'];
-        $isWeekend = in_array($dayOfWeek, array_map('strtolower', $weekendDays));
+        $dayOfWeekNumber = Carbon::createFromFormat('Y-m-d', $date)->dayOfWeek;
+        // Default to Saturday (6) and Sunday (0) if not set
+        $weekendDays = $chalet?->weekend_days ?? [6, 0];
+        // Ensure all values in weekend_days are integers for strict comparison
+        $weekendDays = array_map('intval', $weekendDays);
+        $isWeekend = in_array($dayOfWeekNumber, $weekendDays, true);
         $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
 
         // Check for custom pricing adjustments

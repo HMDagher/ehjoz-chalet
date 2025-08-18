@@ -135,16 +135,35 @@ class pageController extends baseController
                     // Extract pricing summary
                     $minPrice = $item['pricing']['min_price'] ?? null;
 
-                    // Extract available slots (flatten minimal info expected by cards)
+                    // Extract available slots and their pricing
                     $slots = [];
                     if (! empty($item['availability']['available_slots'])) {
+                        $pricingBreakdown = collect($item['pricing']['price_breakdown'] ?? [])->groupBy('slot_id');
+
                         foreach ($item['availability']['available_slots'] as $slot) {
-                            $slots[] = [
-                                'id' => $slot['slot_id'],
-                                'start_time' => $slot['start_time'],
-                                'end_time' => $slot['end_time'],
-                                'is_overnight' => $slot['is_overnight'] ?? false,
-                            ];
+                            $slotId = $slot['slot_id'];
+                            $slotPricing = $pricingBreakdown->get($slotId);
+
+                            if ($slotPricing) {
+                                $isOvernight = $slot['is_overnight'] ?? false;
+                                $slotData = [
+                                    'id' => $slotId,
+                                    'name' => $slot['slot_name'] ?? ($isOvernight ? 'Overnight Stay' : "{$slot['start_time']} - {$slot['end_time']}"),
+                                    'start_time' => $slot['start_time'],
+                                    'end_time' => $slot['end_time'],
+                                ];
+
+                                if ($isOvernight) {
+                                    // For overnight, we show price per night and total
+                                    $slotData['price_per_night'] = $item['pricing']['min_price']; // Use the calculated min_price for consistency
+                                    $slotData['total_price'] = $slotPricing->sum('final_price');
+                                    $slotData['nights'] = isset($searchParams['end_date']) && $searchParams['end_date'] ? Carbon::parse($searchParams['start_date'])->diffInDays(Carbon::parse($searchParams['end_date'])) : 1;
+                                } else {
+                                    // For day-use, the sum is just the single price
+                                    $slotData['price'] = $slotPricing->sum('final_price');
+                                }
+                                $slots[] = $slotData;
+                            }
                         }
                     }
 

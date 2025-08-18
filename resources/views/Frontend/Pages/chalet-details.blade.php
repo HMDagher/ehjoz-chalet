@@ -929,6 +929,46 @@
                 $("#available-slots-container").show();
             }
 
+            function displayOvernightSlots(data) {
+                console.log('displayOvernightSlots called with data:', data);
+
+                // Ensure data and nightly_breakdown exist
+                if (!data || !data.nightly_breakdown || data.nightly_breakdown.length === 0) {
+                    showError("No overnight availability for the selected dates.");
+                    return;
+                }
+
+                const breakdownContainer = $("#nightly-breakdown");
+                const totalPriceElement = $("#overnight-total-price");
+                breakdownContainer.empty();
+
+                let total = 0;
+
+                // Display each night's price
+                data.nightly_breakdown.forEach(night => {
+                    const nightHtml = `
+                        <div class="d-flex justify-content-between">
+                            <span>${new Date(night.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                            <strong>${night.price.toFixed(2)}</strong>
+                        </div>
+                    `;
+                    breakdownContainer.append(nightHtml);
+                    total += night.price;
+                });
+
+                // Update the total price
+                totalPriceElement.text(total.toFixed(2));
+
+                // Show the summary container
+                $("#overnight-price-summary").show();
+
+                // Since overnight booking is a single "slot", we can pre-select it
+                if (data.slots && data.slots.length > 0) {
+                    selectedSlots = data.slots.map(slot => slot.id);
+                    console.log('Auto-selected overnight slots:', selectedSlots);
+                }
+            }
+
             function updateSelectedSlots() {
                 selectedSlots = [];
                 let totalPrice = 0;
