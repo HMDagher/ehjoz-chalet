@@ -186,71 +186,87 @@ class ChaletApiController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Validation failed',
-                    'details' => $validator->errors()
-                ], 422);
+                return response()->json(['success' => false, 'error' => 'Validation failed', 'details' => $validator->errors()], 422);
             }
 
             // Find the chalet by slug
-            $chalet = Chalet::where('slug', $slug)
-                ->where('status', 'active')
-                ->first();
-
-            if (!$chalet) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Chalet not found or inactive'
-                ], 404);
+            $chalet = Chalet::with('timeSlots')->where('slug', $slug)->where('status', 'active')->first();
+            if (! $chalet) {
+                return response()->json(['success' => false, 'error' => 'Chalet not found or inactive'], 404);
             }
 
             $bookingType = $request->input('booking_type');
             $startDate = $request->input('start_date');
             $endDate = $request->input('end_date');
-
-            // Validate date range (max 90 days to prevent performance issues)
             $startDateObj = Carbon::parse($startDate);
             $endDateObj = Carbon::parse($endDate);
+
+            // Validate date range (max 90 days to prevent performance issues)
             $daysDiff = $startDateObj->diffInDays($endDateObj);
-            
             if ($daysDiff > 90) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Date range cannot exceed 90 days'
-                ], 400);
+                return response()->json(['success' => false, 'error' => 'Date range cannot exceed 90 days'], 400);
             }
 
-            // Get unavailable dates using AvailabilityService
             $availabilityService = new AvailabilityService();
-            
-            // Check availability for each date in the range
             $unavailableDates = [];
             $fullyBlockedDates = [];
-            
-            $currentDate = $startDateObj->copy();
 
-            while ($currentDate->lte($endDateObj)) {
-                $dateStr = $currentDate->format('Y-m-d');
-                
-                // Check availability for this specific date
-                $availability = $availabilityService->checkAvailability(
-                    $chalet->id,
-                    $dateStr,
-                    $dateStr,
-                    $bookingType
-                );
+            // --- New, more robust logic for overnight bookings ---
+            if ($bookingType === 'overnight') {
+                $overnightSlot = $chalet->timeSlots->where('is_overnight', true)->where('is_active', true)->first();
 
-                if (!$availability['available']) {
-                    // Check if it's a full day block
-                    if (in_array('full_day_blocked', $availability['errors'] ?? [])) {
-                        $fullyBlockedDates[] = $dateStr;
-                    } else {
-                        $unavailableDates[] = $dateStr;
+                // If no overnight slot exists, all dates are unavailable
+                if (! $overnightSlot) {
+                    $current = $startDateObj->copy();
+                    while ($current->lte($endDateObj)) {
+                        $unavailableDates[] = $current->format('Y-m-d');
+                        $current->addDay();
                     }
-                }
+                } else {
+                    // 1. Get fully blocked dates (no time slot specified)
+                    $fullyBlocked = \App\Models\ChaletBlockedDate::where('chalet_id', $chalet->id)
+                        ->whereNull('time_slot_id')
+                        ->whereBetween('date', [$startDateObj, $endDateObj])
+                        ->pluck('date')
+                        ->map(fn ($d) => Carbon::parse($d)->format('Y-m-d'));
 
-                $currentDate->addDay();
+                    // 2. Get dates where the overnight slot is specifically blocked
+                    $slotBlocked = \App\Models\ChaletBlockedDate::where('chalet_id', $chalet->id)
+                        ->where('time_slot_id', $overnightSlot->id)
+                        ->whereBetween('date', [$startDateObj, $endDateObj])
+                        ->pluck('date')
+                        ->map(fn ($d) => Carbon::parse($d)->format('Y-m-d'));
+
+                    // 3. Get dates for nights that are already booked
+                    $bookedNights = \App\Models\Booking::where('chalet_id', $chalet->id)
+                        ->whereIn('status', ['confirmed', 'pending'])
+                        ->whereHas('timeSlots', fn ($q) => $q->where('chalet_time_slot_id', $overnightSlot->id))
+                        ->whereDate('start_date', '<', $endDateObj) // Bookings starting before the range ends
+                        ->whereDate('end_date', '>', $startDateObj) // Bookings ending after the range starts
+                        ->get()
+                        ->flatMap(function ($booking) {
+                            // Get all the dates for the nights the booking occupies
+                            return \App\Services\TimeSlotHelper::getDateRange($booking->start_date, $booking->end_date);
+                        });
+
+                    $unavailableDates = $fullyBlocked->merge($slotBlocked)->merge($bookedNights)->unique()->sort()->values()->all();
+                }
+            } else {
+                // --- Original logic for day-use (which is correct) ---
+                $currentDate = $startDateObj->copy();
+                while ($currentDate->lte($endDateObj)) {
+                    $dateStr = $currentDate->format('Y-m-d');
+                    $availability = $availabilityService->checkAvailability($chalet->id, $dateStr, $dateStr, $bookingType);
+
+                    if (! $availability['available']) {
+                        if (in_array('full_day_blocked', $availability['errors'] ?? [])) {
+                            $fullyBlockedDates[] = $dateStr;
+                        } else {
+                            $unavailableDates[] = $dateStr;
+                        }
+                    }
+                    $currentDate->addDay();
+                }
             }
 
             // Separate unavailable dates by booking type for better organization
@@ -261,33 +277,27 @@ class ChaletApiController extends Controller
                 'date_range' => [
                     'start_date' => $startDate,
                     'end_date' => $endDate,
-                    'total_days' => $daysDiff + 1
+                    'total_days' => $daysDiff + 1,
                 ],
                 'summary' => [
                     'total_dates_checked' => $daysDiff + 1,
                     'fully_blocked_count' => count($fullyBlockedDates),
                     'unavailable_count' => count($unavailableDates),
-                    'available_count' => ($daysDiff + 1) - count($fullyBlockedDates) - count($unavailableDates)
-                ]
+                    'available_count' => ($daysDiff + 1) - count($fullyBlockedDates) - count($unavailableDates),
+                ],
             ];
 
-            return response()->json([
-                'success' => true,
-                'data' => $response
-            ]);
+            return response()->json(['success' => true, 'data' => $response]);
 
         } catch (\Exception $e) {
             Log::error('Error getting unavailable dates', [
                 'slug' => $slug,
                 'request' => $request->all(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            return response()->json([
-                'success' => false,
-                'error' => 'An error occurred while getting unavailable dates'
-            ], 500);
+            return response()->json(['success' => false, 'error' => 'An error occurred while getting unavailable dates'], 500);
         }
     }
 
