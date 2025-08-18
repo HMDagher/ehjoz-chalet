@@ -106,6 +106,11 @@ class AvailabilityService
         $errors = [];
         $dateRange = TimeSlotHelper::getDateRange($startDate, $endDate);
 
+        // For overnight bookings, the availability check should not include the checkout day.
+        if ($bookingType === 'overnight' && count($dateRange) > 0) {
+            array_pop($dateRange);
+        }
+
         // Check for full day blocking first (optimize with single query over range)
         $chaletId = $slots->first()->chalet_id;
         $fullDayBlockedDates = ChaletBlockedDate::where('chalet_id', $chaletId)

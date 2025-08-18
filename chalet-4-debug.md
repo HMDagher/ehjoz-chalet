@@ -133,3 +133,17 @@ and yes he has a blocked date on 23/8/20205:
     "updated_at": "2025-07-03 21:11:35"
   }
 ]
+
+
+------------------------
+Request URL
+https://ehjozchalet.com/api/chalet/chalet-4/availability?booking_type=overnight&start_date=2025-08-22&end_date=2025-08-23
+
+after the edit:
+{
+    "success": false,
+    "error": "No availability found for selected dates: Overnight booking requires all 2 nights to be available. Only 1 nights available. Missing: 1 night(s).",
+    "details": [
+        "Overnight booking requires all 2 nights to be available. Only 1 nights available. Missing: 1 night(s)."
+    ]
+}
