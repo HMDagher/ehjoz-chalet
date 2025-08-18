@@ -74,6 +74,12 @@ class PricingCalculator
         }
 
         $dateRange = TimeSlotHelper::getDateRange($startDate, $endDate);
+        // For overnight pricing, we should not include the final day (checkout day) in the calculation.
+        // So we pop it from the array if the range is greater than one day.
+        if (count($dateRange) > 0) {
+            array_pop($dateRange);
+        }
+        
         $totalAmount = 0;
         $nightlyBreakdown = [];
 
@@ -84,10 +90,9 @@ class PricingCalculator
 
             $nightlyBreakdown[] = [
                 'date' => $date,
-                'night_number' => array_search($date, $dateRange) + 1,
+                'price' => $nightPricing['final_price'],
                 'base_price' => $nightPricing['base_price'],
                 'adjustment' => $nightPricing['adjustment'],
-                'final_price' => $nightPricing['final_price'],
                 'is_weekend' => $nightPricing['is_weekend'],
                 'custom_pricing_applied' => ! empty($nightPricing['custom_pricing_id']),
             ];
