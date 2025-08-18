@@ -946,8 +946,8 @@
                 if (data.nightly_breakdown && data.nightly_breakdown.length > 0) {
                     data.nightly_breakdown.forEach(night => {
                         const nightHtml = `
-                        <div class="d-flex justify-content-between">
-                            <span>${new Date(night.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-muted">${new Date(night.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
                             <strong>${night.price.toFixed(2)}</strong>
                         </div>
                     `;
