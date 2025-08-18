@@ -30,7 +30,9 @@ class BookingApiController extends Controller
             'booking_type' => 'required|in:day-use,overnight',
             'start_date' => 'required|date',
             'end_date' => 'required_if:booking_type,overnight|date|after_or_equal:start_date',
-            'slot_id' => 'required|integer|exists:chalet_time_slots,id', // single slot for day-use
+            'slot_id' => 'required_if:booking_type,day-use|integer|exists:chalet_time_slots,id',
+            'slot_ids' => 'required_if:booking_type,overnight|array',
+            'slot_ids.*' => 'integer|exists:chalet_time_slots,id',
             'adults_count' => 'required|integer|min:1',
             'children_count' => 'required|integer|min:0',
         ]);
@@ -47,7 +49,11 @@ class BookingApiController extends Controller
         $bookingType = $request->booking_type;
         $startDate = $request->start_date;
         $endDate = $request->end_date;
-        $slotId = $request->slot_id;
+        
+        // Use the correct slot ID(s) based on booking type
+        $slotId = $request->input('slot_id');
+        $slotIds = $request->input('slot_ids');
+        $bookingSlotId = $bookingType === 'day-use' ? $slotId : ($slotIds[0] ?? null);
 
         try {
             // Check if launch promotion is active (15% discount until July 10, 2025)
@@ -64,16 +70,16 @@ class BookingApiController extends Controller
                     $startDate,
                     null,
                     'day-use',
-                    [$slotId]
+                    [$bookingSlotId]
                 );
-                $slotAvailable = collect($availability['available_slots'])->contains(function ($slot) use ($slotId) {
-                    return $slot['slot_id'] == $slotId;
+                $slotAvailable = collect($availability['available_slots'])->contains(function ($slot) use ($bookingSlotId) {
+                    return $slot['slot_id'] == $bookingSlotId;
                 });
                 if (! $slotAvailable) {
                     return response()->json(['error' => 'Selected slot is not available.'], 400);
                 }
                 // Calculate base slot price (standard slot price, no custom adjustment)
-                $slot = $chalet->timeSlots()->find($slotId);
+                $slot = $chalet->timeSlots()->find($bookingSlotId);
                 $date = Carbon::parse($startDate);
                 $weekendDays = $chalet->weekend_days ?? [5, 6, 0];
                 $isWeekend = in_array($date->dayOfWeek, $weekendDays);
@@ -81,7 +87,7 @@ class BookingApiController extends Controller
                 $baseSlotPrice = $basePrice;
                 // Custom adjustment
                 $customPricing = $chalet->customPricing()
-                    ->where('time_slot_id', $slotId)
+                    ->where('time_slot_id', $bookingSlotId)
                     ->where('start_date', '<=', $date->format('Y-m-d'))
                     ->where('end_date', '>=', $date->format('Y-m-d'))
                     ->where('is_active', true)
@@ -119,10 +125,10 @@ class BookingApiController extends Controller
                     $startDate,
                     $endDate,
                     'overnight',
-                    [$slotId]
+                    [$bookingSlotId]
                 );
-                $slotAvailable = collect($availability['available_slots'])->contains(function ($slot) use ($slotId) {
-                    return $slot['slot_id'] == $slotId;
+                $slotAvailable = collect($availability['available_slots'])->contains(function ($slot) use ($bookingSlotId) {
+                    return $slot['slot_id'] == $bookingSlotId;
                 });
                 if (! $slotAvailable) {
                     return response()->json(['error' => 'Selected overnight slot is not available.'], 400);
@@ -134,13 +140,13 @@ class BookingApiController extends Controller
                 $seasonalAdjustment = 0;
                 $currentDate = $start->copy();
                 while ($currentDate < $end) {
-                    $slot = $chalet->timeSlots()->find($slotId);
+                    $slot = $chalet->timeSlots()->find($bookingSlotId);
                     $weekendDays = $chalet->weekend_days ?? [5, 6, 0];
                     $isWeekend = in_array($currentDate->dayOfWeek, $weekendDays);
                     $basePrice = $isWeekend ? $slot->weekend_price : $slot->weekday_price;
                     $baseSlotPrice += $basePrice;
                     $customPricing = $chalet->customPricing()
-                        ->where('time_slot_id', $slotId)
+                        ->where('time_slot_id', $bookingSlotId)
                         ->where('start_date', '<=', $currentDate->format('Y-m-d'))
                         ->where('end_date', '>=', $currentDate->format('Y-m-d'))
                         ->where('is_active', true)
@@ -192,12 +198,8 @@ class BookingApiController extends Controller
                 'platform_earning' => $platformEarning,
             ]);
 
-            // Attach time slots
-            if ($bookingType === 'day-use') {
-                $booking->timeSlots()->sync([$slotId]);
-            } else {
-                $booking->timeSlots()->sync($slotIds);
-            }
+            // Attach the single, relevant time slot to the booking.
+            $booking->timeSlots()->sync([$bookingSlotId]);
 
             return response()->json([
                 'success' => true,
