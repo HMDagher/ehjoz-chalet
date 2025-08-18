@@ -173,7 +173,7 @@ class TimeSlotHelper
         $current = Carbon::createFromFormat('Y-m-d', $startDate);
         $end = Carbon::createFromFormat('Y-m-d', $endDate);
 
-        while ($current->lte($end)) {
+        while ($current->lt($end)) {
             $dates[] = $current->format('Y-m-d');
             $current->addDay();
         }
