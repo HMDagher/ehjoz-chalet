@@ -188,10 +188,13 @@ class PricingCalculator
      */
     private function isWeekendDate(Chalet $chalet, string $date): bool
     {
-        $dayOfWeek = strtolower(Carbon::createFromFormat('Y-m-d', $date)->format('l'));
-        $weekendDays = $chalet->weekend_days ?? ['saturday', 'sunday']; // Default weekend
+        $dayOfWeekNumber = Carbon::createFromFormat('Y-m-d', $date)->dayOfWeek;
+        // Default to Saturday (6) and Sunday (0) if not set
+        $weekendDays = $chalet->weekend_days ?? [6, 0];
+        // Ensure all values in weekend_days are integers for strict comparison
+        $weekendDays = array_map('intval', $weekendDays);
 
-        return in_array($dayOfWeek, array_map('strtolower', $weekendDays));
+        return in_array($dayOfWeekNumber, $weekendDays, true);
     }
 
     /**

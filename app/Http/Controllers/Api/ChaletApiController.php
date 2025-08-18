@@ -415,6 +415,29 @@ class ChaletApiController extends Controller
             }
         }
 
+        // Safely build the nightly breakdown to ensure data integrity for the API response
+        $nightlyBreakdown = [];
+        $rawBreakdown = $pricing['slot_details'][0]['nightly_breakdown'] ?? [];
+
+        if (is_array($rawBreakdown)) {
+            foreach ($rawBreakdown as $night) {
+                // Ensure each night has a date and a numeric price before adding it to the response
+                if (isset($night['date'], $night['price']) && is_numeric($night['price'])) {
+                    $nightlyBreakdown[] = [
+                        'date' => $night['date'],
+                        'price' => (float) $night['price'],
+                    ];
+                } else {
+                    // Log a warning if data from the pricing service is malformed
+                    Log::warning('Malformed nightly breakdown item from PricingCalculator was skipped.', [
+                        'night_data' => $night,
+                        'slot_id' => $availability['available_slots'][0]['slot_id'] ?? null,
+                        'pricing_response' => $pricing,
+                    ]);
+                }
+            }
+        }
+
         return [
             'start_date' => $startDate,
             'end_date' => $endDate,
@@ -423,7 +446,7 @@ class ChaletApiController extends Controller
             'total_price' => $pricing['total_amount'] ?? 0,
             'currency' => $pricing['currency'] ?? 'USD',
             'nights_count' => Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate)),
-            'nightly_breakdown' => $pricing['slot_details'][0]['nightly_breakdown'] ?? []
+            'nightly_breakdown' => $nightlyBreakdown, // Use the sanitized array
         ];
     }
 }
