@@ -73,7 +73,13 @@ class PricingCalculator
             throw new \Exception('Overnight booking requires an overnight time slot');
         }
 
-        $dateRange = TimeSlotHelper::getDateRange($startDate, $endDate);
+        // For overnight bookings, the date range for "nights" ends the day before checkout.
+        $effectiveEndDate = Carbon::parse($endDate)->subDay()->format('Y-m-d');
+        if (Carbon::parse($effectiveEndDate)->lt($startDate)) {
+            throw new \Exception('End date must be after start date for overnight pricing.');
+        }
+        $dateRange = TimeSlotHelper::getDateRange($startDate, $effectiveEndDate);
+
         $totalAmount = 0;
         $nightlyBreakdown = [];
 

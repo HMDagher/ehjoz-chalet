@@ -104,7 +104,20 @@ class AvailabilityService
     {
         $availableSlots = [];
         $errors = [];
-        $dateRange = TimeSlotHelper::getDateRange($startDate, $endDate);
+
+        // For overnight bookings, the date range for "nights" ends the day before checkout.
+        $effectiveEndDate = ($bookingType === 'overnight') ? Carbon::parse($endDate)->subDay()->format('Y-m-d') : $endDate;
+
+        // If the calculated end date is before the start date, it's an invalid range.
+        if (Carbon::parse($effectiveEndDate)->lt($startDate)) {
+            return [
+                'available' => false,
+                'available_slots' => [],
+                'errors' => ['Invalid date range: Check-out must be after check-in.'],
+            ];
+        }
+
+        $dateRange = TimeSlotHelper::getDateRange($startDate, $effectiveEndDate);
 
         // Check for full day blocking first (optimize with single query over range)
         $chaletId = $slots->first()->chalet_id;
