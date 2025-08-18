@@ -241,6 +241,7 @@
             const $ = jQuery;
             console.log('jQuery is loaded, version:', $.fn.jquery);
             
+            let activeDatepickerInputId = null; // <-- ADDED: To track which date input is active
             const chaletSlug = '{{ $chalet->slug }}';
             const chaletId = {{ $chalet->id }};
             let selectedSlots = [];
@@ -248,6 +249,11 @@
             let unavailableDates = [];
             let datepickerInitialized = false;
             let isInitializing = false; // Prevent multiple simultaneous initializations
+
+            // <-- ADDED: Event listener to track focus
+            $('#check__in, #check__out').on('focus', function() {
+                activeDatepickerInputId = this.id;
+            });
 
             // Debug: Log URL parameters
             console.log('URL Parameters:', {
@@ -340,45 +346,40 @@
                                 dateFormat: "dd-mm-yy",
                                 duration: "fast",
                                 minDate: 0, // Disable past dates
+                                // <-- MODIFIED: beforeShowDay logic is now context-aware
                                 beforeShowDay: function(date) {
-                                    // Format date as yyyy-mm-dd to match unavailableDates format - make sure timezone doesn't affect it
                                     const year = date.getFullYear();
                                     const month = String(date.getMonth() + 1).padStart(2, '0');
                                     const day = String(date.getDate()).padStart(2, '0');
-                                    const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD format
+                                    const dateStr = `${year}-${month}-${day}`;
                                     
-                                    // Get today's date in same format for consistent comparison
                                     const today = new Date();
-                                    const todayYear = today.getFullYear();
-                                    const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
-                                    const todayDay = String(today.getDate()).padStart(2, '0');
-                                    const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+                                    today.setHours(0, 0, 0, 0);
                                     
-                                    // Debug log but only for visible month to avoid console spam
-                                    const currentMonth = today.getMonth();
-                                    const dateMonth = date.getMonth();
-                                    if (Math.abs(currentMonth - dateMonth) <= 1) {
-                                        const isUnavailable = unavailableDates && 
-                                            Array.isArray(unavailableDates) && 
-                                            unavailableDates.indexOf(dateStr) !== -1;
-                                        console.log('Checking date:', dateStr, 'Unavailable:', isUnavailable);
-                                    }
-                                    
-                                    // Disable past dates
-                                    if (dateStr < todayStr) {
+                                    if (date < today) {
                                         return [false, 'past-date', 'Past date'];
                                     }
                                     
-                                    // Check if date is unavailable - using indexOf for strict comparison
-                                    if (unavailableDates && Array.isArray(unavailableDates)) {
-                                        if (unavailableDates.indexOf(dateStr) !== -1) {
-                                            return [false, 'unavailable-date', 'No availability'];
-                                        }
-                                    }
+                                    const isUnavailable = unavailableDates && unavailableDates.indexOf(dateStr) !== -1;
                                     
-                                    // NEW: For checkout field, check if selecting this date would create an invalid range
-                                    // We'll handle this validation in the onSelect callback instead
-                                    // to avoid the complexity of determining which field is being rendered here
+                                    if (isUnavailable) {
+                                        // If the checkout datepicker is active, check if this date can be a valid checkout
+                                        if (activeDatepickerInputId === 'check__out') {
+                                            const checkInVal = $("#check__in").val();
+                                            if (checkInVal) {
+                                                const checkInDate = new Date(convertDateFormat(checkInVal));
+                                                const potentialCheckoutDate = new Date(dateStr);
+                                                
+                                                // Allow selection if it's after the check-in date.
+                                                // The final validation will be done by the API.
+                                                if (potentialCheckoutDate > checkInDate) {
+                                                    return [true, 'potential-checkout', 'Available for checkout'];
+                                                }
+                                            }
+                                        }
+                                        // Otherwise, the date is not selectable
+                                        return [false, 'unavailable-date', 'No availability'];
+                                    }
                                     
                                     return [true, 'available-date', 'Available'];
                                 },
@@ -476,6 +477,7 @@
                     // Create a style element
                     const styleElement = document.createElement('style');
                     styleElement.id = 'unavailable-date-styles';
+                    // <-- MODIFIED: Added style for potential-checkout
                     styleElement.textContent = `
                         .ui-datepicker .ui-state-disabled.past-date {
                             background-color: #f8f9fa !important;
@@ -495,6 +497,16 @@
                         .ui-datepicker .ui-state-disabled.unavailable-date:hover {
                             background-color: #f8f9fa !important;
                             color: #6c757d !important;
+                        }
+                        .ui-datepicker td.potential-checkout {
+                            background-color: #fff3cd !important;
+                            border: 1px solid #ffeaa7 !important;
+                        }
+                        .ui-datepicker td.potential-checkout a {
+                            color: #856404 !important;
+                        }
+                        .ui-datepicker td.potential-checkout.ui-state-hover {
+                            background-color: #ffeaa7 !important;
                         }
                         .ui-datepicker .ui-state-disabled.invalid-range-date {
                             background-color: #fff3cd !important;
