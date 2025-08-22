@@ -173,28 +173,32 @@ class ChaletSearchService
     private function addDateAvailabilityFilter($query, array $params): void
     {
         $startDate = Carbon::createFromFormat('Y-m-d', $params['start_date']);
-        $endDate = $params['end_date']
-            ? Carbon::createFromFormat('Y-m-d', $params['end_date'])
-            : $startDate;
 
-        // Get all days of week in the date range
-        $daysInRange = [];
-        $current = $startDate->copy();
+        if ($params['booking_type'] === 'overnight') {
+            if (empty($params['end_date'])) {
+                // This case should be handled by validation, but as a safeguard:
+                Log::warning('addDateAvailabilityFilter called for overnight without an end_date.');
+                $query->whereRaw('1 = 0'); // Return no results if end_date is missing
 
-        while ($current->lte($endDate)) {
-            $dayName = strtolower($current->format('l')); // 'monday', 'tuesday', etc.
-            if (! in_array($dayName, $daysInRange)) {
-                $daysInRange[] = $dayName;
+                return;
             }
-            $current->addDay();
+
+            $endDate = Carbon::createFromFormat('Y-m-d', $params['end_date']);
+
+            // For overnight, we check each night of the stay.
+            // The loop should go from start_date up to the day BEFORE end_date.
+            $current = $startDate->copy();
+            while ($current->lt($endDate)) {
+                $dayName = strtolower($current->format('l'));
+                // Add a WHERE clause for each day, effectively creating an AND condition.
+                $query->whereJsonContains('available_days', $dayName);
+                $current->addDay();
+            }
+        } else { // 'day-use'
+            // For day-use, we just check the single start date.
+            $dayName = strtolower($startDate->format('l'));
+            $query->whereJsonContains('available_days', $dayName);
         }
-
-        // Filter slots that are available on at least one day in the range
-        $query->where(function ($q) use ($daysInRange) {
-            foreach ($daysInRange as $day) {
-                $q->orWhereJsonContains('available_days', $day);
-            }
-        });
     }
 
     /**
@@ -318,7 +322,7 @@ class ChaletSearchService
         } else {
             try {
                 $startDate = Carbon::createFromFormat('Y-m-d', $params['start_date']);
-                if ($startDate->isPast()) {
+                if ($startDate->isPast() && ! $startDate->isToday()) {
                     $errors[] = 'start_date cannot be in the past';
                 } else {
                     $normalized['start_date'] = $params['start_date'];
@@ -329,14 +333,14 @@ class ChaletSearchService
         }
 
         // Validate end_date for overnight bookings
-        if ($normalized['booking_type'] === 'overnight') {
+        if (isset($normalized['booking_type']) && $normalized['booking_type'] === 'overnight') {
             if (empty($params['end_date'])) {
                 $errors[] = 'end_date is required for overnight bookings';
             } else {
                 try {
                     $endDate = Carbon::createFromFormat('Y-m-d', $params['end_date']);
-                    if (isset($normalized['start_date']) && $endDate->lt(Carbon::createFromFormat('Y-m-d', $normalized['start_date']))) {
-                        $errors[] = 'end_date must be after or equal to start_date';
+                    if (isset($normalized['start_date']) && $endDate->lte(Carbon::createFromFormat('Y-m-d', $normalized['start_date']))) {
+                        $errors[] = 'end_date must be after start_date for overnight bookings';
                     } else {
                         $normalized['end_date'] = $params['end_date'];
                     }
@@ -345,8 +349,8 @@ class ChaletSearchService
                 }
             }
         } else {
-            // For day-use, end_date should be null or same as start_date
-            $normalized['end_date'] = $params['end_date'] ?? null;
+            // For day-use, end_date should be null
+            $normalized['end_date'] = null;
         }
 
         return [
